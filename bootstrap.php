@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-// PHPUnit/Pest bootstrap: --bootstrap <this file> --extension 'CovProto\PhpUnit\Extension'
+// PHPUnit/Pest bootstrap, also with --parallel: --bootstrap <this file>
 // Settings come from the environment (see CovProto\Settings::fromEnvironment).
 
 use CovProto\Instrumenter;
 use CovProto\InstrumentingAutoloader;
+use CovProto\PhpUnit\CollectionWindow;
 use CovProto\Settings;
 
 require __DIR__ . '/autoload.php';
@@ -19,11 +20,13 @@ $autoloader = new InstrumentingAutoloader(
     new Instrumenter($settings->strict, $settings->fast),
 );
 $autoloader->register();
+CollectionWindow::open();
 
 if ($settings->chainedBootstrap !== null) {
     require $settings->chainedBootstrap;
 }
 
+// Each process (ParaTest worker included) saves its own run in the output directory.
 register_shutdown_function(static function () use ($autoloader, $settings): void {
-    $autoloader->run()->save($settings->outputFile);
+    $autoloader->run()->saveIn($settings->outputDirectory);
 });

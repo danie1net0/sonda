@@ -43,3 +43,49 @@ it('does not revive objects other than runs', function (): void {
 
     expect(Run::load($path)->hits['abc'][0])->toBeInstanceOf(__PHP_Incomplete_Class::class);
 });
+
+it('saves under a name of its own in a directory it creates', function (): void {
+    $directory = TemporaryDirectory::create() . '/coverage/runs';
+    $run       = new Run('/cache', ['abc' => ['/app/Order.php', 'key']], ['abc' => [0 => 1]]);
+
+    $first  = $run->saveIn($directory);
+    $second = $run->saveIn($directory);
+
+    expect($first)->not->toBe($second)
+        ->and(fileperms($directory) & 0777)->toBe(0777 & ~umask())
+        ->and(dirname($first))->toBe($directory)
+        ->and(basename($first))->toMatch('/^run-' . getmypid() . '-[0-9a-f]{8}\.ser$/')
+        ->and(Run::load($first))->toEqual($run)
+        ->and(Run::load($second))->toEqual($run);
+});
+
+it('merges the runs of every process of a suite', function (): void {
+    $directory = TemporaryDirectory::create();
+    (new Run('/cache', ['a' => ['/app/A.php', 'ka']], ['a' => [0 => 1]]))->saveIn($directory);
+    (new Run('/cache', ['a' => ['/app/A.php', 'ka'], 'b' => ['/app/B.php', 'kb']], ['a' => [2 => 1], 'b' => [1 => 1]]))->saveIn($directory);
+    (new Run('/cache', ['c' => ['/app/C.php', 'kc']], []))->saveIn($directory);
+    file_put_contents($directory . '/notes.txt', 'not a run');
+
+    $run   = Run::loadDirectory($directory);
+    $hitsA = $run->hits['a'];
+    ksort($hitsA);
+
+    expect($run->cacheDirectory)->toBe('/cache')
+        ->and($run->files)->toEqualCanonicalizing(['a' => ['/app/A.php', 'ka'], 'b' => ['/app/B.php', 'kb'], 'c' => ['/app/C.php', 'kc']])
+        ->and($hitsA)->toBe([0 => 1, 2 => 1])
+        ->and($run->hits['b'])->toBe([1 => 1])
+        ->and($run->hits)->toHaveCount(2);
+});
+
+it('fails to load a directory without runs', function (): void {
+    $directory = TemporaryDirectory::create();
+
+    expect(fn (): Run => Run::loadDirectory($directory))
+        ->toThrow(RuntimeException::class, "O diretório {$directory} não tem execuções do covproto.");
+});
+
+it('keeps the cache directory of the first run when merging', function (): void {
+    $merged = Run::merge([new Run('/first', [], []), new Run('/second', [], [])]);
+
+    expect($merged->cacheDirectory)->toBe('/first');
+});

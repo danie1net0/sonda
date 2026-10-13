@@ -10,7 +10,7 @@ function environment(array $overrides = []): array
     $environment['COV_AUTOLOAD'] = 'vendor/autoload.php';
     $environment['COV_TARGET']   = 'app';
     $environment['COV_CACHE']    = '/tmp/cache';
-    $environment['COV_OUT']      = '/tmp/run.ser';
+    $environment['COV_OUT']      = '/tmp/runs';
 
     return array_merge($environment, $overrides);
 }
@@ -20,7 +20,7 @@ it('reads the required settings and defaults the optional ones', function (): vo
         ->autoloadPath->toBe('vendor/autoload.php')
         ->targetDirectory->toBe('app')
         ->cacheDirectory->toBe('/tmp/cache')
-        ->outputFile->toBe('/tmp/run.ser')
+        ->outputDirectory->toBe('/tmp/runs')
         ->strict->toBeFalse()
         ->fast->toBeFalse()
         ->chainedBootstrap->toBeNull();

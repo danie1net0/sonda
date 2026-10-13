@@ -3,23 +3,20 @@
 declare(strict_types=1);
 
 use CovProto\Hits;
-use CovProto\PhpUnit\Extension;
+use CovProto\PhpUnit\CollectionWindow;
 use CovProto\PhpUnit\FinishTestSubscriber;
 use CovProto\PhpUnit\StartTestSubscriber;
 use PHPUnit\Event\Facade as EventFacade;
 use PHPUnit\Event\Test\Finished;
 use PHPUnit\Event\Test\PreparationStarted;
-use PHPUnit\Runner\Extension\Facade;
-use PHPUnit\Runner\Extension\ParameterCollection;
-use PHPUnit\TextUI\Configuration\Configuration;
 
 /**
- * The event facade of the running suite is sealed, so the extension registers its
- * subscribers in a fresh one, swapped in for the duration of the call.
+ * The event facade of the running suite is sealed, so the window is opened on a fresh one,
+ * swapped in for the duration of the call.
  *
  * @return array<class-string, list<object>>
  */
-function subscribersRegisteredBy(Extension $extension): array
+function subscribersRegisteredByOpeningTheWindow(): array
 {
     $instance = new ReflectionProperty(EventFacade::class, 'instance');
     $running  = $instance->getValue();
@@ -27,11 +24,7 @@ function subscribersRegisteredBy(Extension $extension): array
     $instance->setValue(null, $fresh);
 
     try {
-        $extension->bootstrap(
-            (new ReflectionClass(Configuration::class))->newInstanceWithoutConstructor(),
-            new Facade,
-            ParameterCollection::fromArray([]),
-        );
+        CollectionWindow::open();
     } finally {
         $instance->setValue(null, $running);
     }
@@ -43,7 +36,7 @@ function subscribersRegisteredBy(Extension $extension): array
 }
 
 it('collects per test and subscribes to the start and end of each test', function (): void {
-    $subscribers = subscribersRegisteredBy(new Extension);
+    $subscribers = subscribersRegisteredByOpeningTheWindow();
 
     expect(Hits::$perTest)->toBeTrue()
         ->and($subscribers)->toHaveKeys([PreparationStarted::class, Finished::class])
@@ -51,4 +44,11 @@ it('collects per test and subscribes to the start and end of each test', functio
         ->and($subscribers[PreparationStarted::class][0])->toBeInstanceOf(StartTestSubscriber::class)
         ->and($subscribers[Finished::class])->toHaveCount(1)
         ->and($subscribers[Finished::class][0])->toBeInstanceOf(FinishTestSubscriber::class);
+});
+
+it('counts nothing in a process whose events are already sealed', function (): void {
+    CollectionWindow::open();
+
+    expect(Hits::$perTest)->toBeTrue()
+        ->and(Hits::collected())->toBe([]);
 });

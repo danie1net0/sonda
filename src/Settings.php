@@ -13,7 +13,7 @@ final readonly class Settings
         public string $autoloadPath,
         public string $targetDirectory,
         public string $cacheDirectory,
-        public string $outputFile,
+        public string $outputDirectory,
         public bool $strict,
         public bool $fast,
         public ?string $chainedBootstrap,
@@ -22,8 +22,9 @@ final readonly class Settings
 
     /**
      * COV_AUTOLOAD (autoload.php of the measured project), COV_TARGET (directory to instrument),
-     * COV_CACHE (instrumented files), COV_OUT (run file) are required; COV_STRICT=1, COV_FAST=1
-     * and COV_CHAIN (the project's own bootstrap) are optional.
+     * COV_CACHE (instrumented files) and COV_OUT (directory of the run files, one per process)
+     * are required; COV_STRICT=1, COV_FAST=1 and COV_CHAIN (the project's own bootstrap) are
+     * optional.
      *
      * @param array<string, string> $environment
      */
