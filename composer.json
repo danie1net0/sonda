@@ -1,0 +1,15 @@
+{
+    "name": "danielneto/covproto",
+    "description": "Prototype: source-instrumented line and branch coverage for PHP, faster than Xdebug path coverage",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.4",
+        "nikic/php-parser": "^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CovProto\\": "src/"
+        }
+    }
+}
