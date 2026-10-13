@@ -2,7 +2,9 @@
 // instrument every PHP file under a dir and lint the output
 require getcwd() . '/vendor/autoload.php';
 require __DIR__ . '/src/Instrumenter.php';
-$dir = $argv[1]; $tmp = sys_get_temp_dir() . '/covlint'; @mkdir($tmp);
+$dir = $argv[1];
+$out = tempnam(sys_get_temp_dir(), 'covlint'); // unique file created with 0600, not a predictable path
+register_shutdown_function(static fn () => @unlink($out));
 $ok = $bad = $parseFail = 0; $inst = new CovProto\Instrumenter((bool) ($argv[2] ?? false));
 foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)) as $f) {
     if ($f->getExtension() !== 'php') continue;
@@ -10,7 +12,7 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, File
     $orig = shell_exec('php -l ' . escapeshellarg($path) . ' 2>&1');
     if (!str_contains($orig, 'No syntax errors')) continue; // skip files invalid on this PHP
     try { $r = $inst->instrument($path, 'x'); } catch (Throwable $e) { $parseFail++; continue; }
-    $out = $tmp . '/t.php'; file_put_contents($out, $r['code']);
+    file_put_contents($out, $r['code']);
     $res = shell_exec('php -l ' . escapeshellarg($out) . ' 2>&1');
     if (str_contains($res, 'No syntax errors')) { $ok++; } else { $bad++; if ($bad <= 10) echo "BAD $path\n   ", trim(strtok($res, "\n")), "\n"; }
     if (substr_count($r['code'], "\n") !== substr_count(file_get_contents($path), "\n")) echo "LINES CHANGED $path\n";
