@@ -4,7 +4,7 @@
 use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 
 require getcwd() . '/vendor/autoload.php';
-require __DIR__ . '/src/ProtoDriver.php';
+require dirname(__DIR__) . '/autoload.php';
 
 function load(string $f): array
 {

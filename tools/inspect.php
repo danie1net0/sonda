@@ -1,7 +1,7 @@
 <?php
 // usage: php inspect.php <xd.cov> <proto.cov> <file-suffix> <line-from> <line-to>
 require getcwd() . '/vendor/autoload.php';
-require __DIR__ . '/src/ProtoDriver.php';
+require dirname(__DIR__) . '/autoload.php';
 [, $x, $p, $suffix, $from, $to] = $argv;
 foreach (['xdebug' => $x, 'proto' => $p] as $label => $f) {
     $d = class_exists(SebastianBergmann\CodeCoverage\Serialization\Unserializer::class) ? (new SebastianBergmann\CodeCoverage\Serialization\Unserializer)->unserialize($f)['codeCoverage'] : (include $f)->getData();

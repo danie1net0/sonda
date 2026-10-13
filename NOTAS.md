@@ -5,36 +5,65 @@ Protótipo de cobertura de linhas e branches para PHP por instrumentação do c�
 
 ## Como funciona
 
-- `src/Instrumenter.php` lê o arquivo com `nikic/php-parser` e insere sondas
-  (`\CovProto\R::$h['<arquivo>'][<id>]=1`) por posição de byte no fonte original, sem
-  reimprimir o código. Nenhuma linha muda de número.
-- `bootstrap.php` registra um autoloader na frente do Composer: as classes do diretório alvo
-  são carregadas da versão instrumentada, guardada em cache por arquivo e data de modificação.
-- `src/PhpUnitExtension.php` só conta as sondas executadas durante cada teste (a mesma janela
-  que o PHPUnit dá ao Xdebug), então código executado em data provider não conta.
-- `report.php` converte as sondas no formato do php-code-coverage e gera um `.cov`, que serve
-  para os relatórios HTML, Clover etc.
-- `compare.php` compara um `.cov` do Xdebug com um do protótipo, linha a linha e método a método.
+- `Instrumenter` lê o arquivo com `nikic/php-parser`; o `InstrumentingVisitor` decide onde vão
+  as sondas (`\CovProto\Hits::$current['<arquivo>'][<id>]=1`) e o `SourceEditor` as insere por
+  posição de byte no fonte original, sem reimprimir o código. Nenhuma linha muda de número.
+- `bootstrap.php` registra o `InstrumentingAutoloader` na frente do Composer: as classes do
+  diretório alvo são carregadas da cópia instrumentada, guardada pelo `InstrumentationCache`
+  (chave: caminho, data de modificação e impressão digital do instrumentador).
+- `PhpUnit\Extension` só conta as sondas executadas durante cada teste (a mesma janela que o
+  PHPUnit dá ao Xdebug), então código executado em data provider não conta.
+- No fim do processo, o bootstrap grava a execução (`Run`). `report.php` usa o
+  `Report\ReportWriter` para convertê-la num `.cov` do php-code-coverage, que serve para os
+  relatórios HTML, Clover etc.
+- `tools/` tem os scripts de validação usados nas medições: `compare.php` (Xdebug contra
+  covproto, linha a linha e método a método), `inspect.php`, `lint-corpus.php` e os de benchmark.
 
-Variáveis de ambiente do bootstrap: `COV_AUTOLOAD` (autoload do projeto), `COV_TARGET`
-(diretório instrumentado, ex.: `app`), `COV_CACHE`, `COV_OUT` (arquivo de sondas),
-`COV_STRICT=1` (semântica estrita), `COV_FAST=1` (referência local por função, sondas mais
-baratas), `COV_CHAIN` (bootstrap original do projeto, quando não é só o autoload).
+Variáveis de ambiente do bootstrap (`Settings`): `COV_AUTOLOAD` (autoload do projeto),
+`COV_TARGET` (diretório instrumentado, ex.: `app`), `COV_CACHE`, `COV_OUT` (arquivo da
+execução), `COV_STRICT=1` (semântica estrita), `COV_FAST=1` (referência local por função,
+sondas mais baratas), `COV_CHAIN` (bootstrap original do projeto, quando não é só o autoload).
 
-## Uso (Pest ou PHPUnit 10+)
+Requer PHPUnit 12 (Pest 4) e php-code-coverage 12, vindos do projeto medido. Outras versões
+mudam a API de extensão e o formato do `.cov` (o php-code-coverage 14 usa `Serializer`).
+
+## Uso (Pest 4 ou PHPUnit 12)
 
 ```bash
-COV_AUTOLOAD=vendor/autoload.php COV_TARGET=app COV_CACHE=/tmp/covcache COV_OUT=/tmp/hits.ser \
+COV_AUTOLOAD=vendor/autoload.php COV_TARGET=app COV_CACHE=/tmp/covcache COV_OUT=/tmp/run.ser \
 COV_STRICT=1 COV_FAST=1 \
 vendor/bin/pest <testes> --no-coverage \
   --bootstrap /Volumes/Projects/php/covproto/bootstrap.php \
-  --extension 'CovProto\PhpUnitExtension'
+  --extension 'CovProto\PhpUnit\Extension'
 
-php -d memory_limit=-1 /Volumes/Projects/php/covproto/report.php /tmp/hits.ser app /tmp/proto.cov app/Providers,app/Console/Commands
-php -d memory_limit=-1 /Volumes/Projects/php/covproto/compare.php /tmp/xdebug.cov /tmp/proto.cov -v
+php -d memory_limit=-1 /Volumes/Projects/php/covproto/report.php /tmp/run.ser app /tmp/covproto.cov app/Providers,app/Console/Commands
+php -d memory_limit=-1 /Volumes/Projects/php/covproto/tools/compare.php /tmp/xdebug.cov /tmp/covproto.cov -v
 ```
 
-Os dois scripts PHP rodam a partir da raiz do projeto medido (usam o `vendor/` dele).
+Os scripts rodam a partir da raiz do projeto medido (usam o `vendor/` dele).
+
+## Testes do próprio covproto
+
+```bash
+vendor/bin/pest
+XDEBUG_MODE=coverage php -d zend_extension=/opt/homebrew/opt/xdebug@8.5/xdebug.so vendor/bin/pest --path-coverage --coverage-text
+XDEBUG_MODE=coverage php -d zend_extension=/opt/homebrew/opt/xdebug@8.5/xdebug.so vendor/bin/pest --mutate --class='CovProto\Probe'
+```
+
+Estado em 13/10/2026: 122 testes, 100% de linhas (350/350) e de branches (352/352) em `src/`
+medidos com Xdebug. Mutação (`--mutate` classe a classe): 100% em todas as classes, salvo dois
+mutantes equivalentes no visitor (valor inicial de `visitIndex`, do qual só a ordem relativa
+importa) e um no valor padrão de `Hits::$perTest`, que o Pest não executa por estar numa linha
+de declaração (o teste por reflection cobre esse valor). `--mutate --parallel --everything` não
+ativa a mutação no Pest 4: rodar por classe.
+
+`tools/lint-corpus.php <diretório> 1` instrumenta todos os arquivos PHP de um diretório em modo
+estrito e confere que o resultado é PHP válido, com as mesmas linhas e sem sonda caindo em HTML
+(templates com `?>`/`<?=`). Último resultado: 2.949 arquivos do `vendor/` do covproto, sem erros.
+
+`tests/Feature/EndToEndTest.php` roda um projeto de exemplo (`tests/Fixtures/Project`) num
+subprocesso do PHPUnit com o bootstrap e a extensão, gera o relatório e confere linhas e
+branches, inclusive que código executado só no data provider não conta.
 
 ## Decisão de semântica (13/10/2026)
 
@@ -66,11 +95,12 @@ Fidelidade contra o Xdebug:
 
 ## Pendências conhecidas
 
-- Corpo vazio de `if`, laço e `catch` sem chaves; operador `?->`; `else` sintético na sintaxe
+- Corpo vazio de `if` e de laço não ganha sonda; operador `?->`; `else` sintético na sintaxe
   alternativa (`endif`).
 - Views do Blade e Livewire não são medidas.
 - Testes de arquitetura que leem o arquivo da classe por reflection veem o arquivo instrumentado.
 - `COV_FAST` cria a variável local `$__cov`, visível em `get_defined_vars()`.
-- Testes do próprio protótipo e integração com `--parallel` ainda não existem.
+- Integração com `--parallel` (paratest) ainda não existe: cada worker grava o mesmo `COV_OUT`.
+- Corpo de property hook em forma de expressão (`set => ...`) não é instrumentado.
 - `tools/bench.sh` e `tools/run.sh` são os scripts de medição usados, com caminhos das suítes
   de teste (CommonMark e brick/math clonados à parte).

@@ -1,52 +1,29 @@
-<?php declare(strict_types=1);
+<?php
 
-// PHPUnit bootstrap: COV_TARGET (dir to instrument), COV_OUT (hits file), COV_CACHE, COV_STRICT
-require __DIR__ . '/src/R.php';
-require __DIR__ . '/src/Instrumenter.php';
-require __DIR__ . '/src/PhpUnitExtension.php';
+declare(strict_types=1);
 
-$composer = require getenv('COV_AUTOLOAD');
-$target   = rtrim(realpath(getenv('COV_TARGET')), '/') . '/';
-$cacheDir = getenv('COV_CACHE');
-$strict   = getenv('COV_STRICT') === '1';
-$fast     = getenv('COV_FAST') === '1';
-@mkdir($cacheDir, 0777, true);
+// PHPUnit/Pest bootstrap: --bootstrap <this file> --extension 'CovProto\PhpUnit\Extension'
+// Settings come from the environment (see CovProto\Settings::fromEnvironment).
 
-$GLOBALS['__cov_files'] = [];
+use CovProto\Instrumenter;
+use CovProto\InstrumentingAutoloader;
+use CovProto\Settings;
 
-spl_autoload_register(static function (string $class) use ($composer, $target, $cacheDir, $strict, $fast): void {
-    $file = $composer->findFile($class);
-    if ($file === false) {
-        return;
-    }
-    $file = realpath($file);
-    if (!str_starts_with($file, $target)) {
-        return;
-    }
+require __DIR__ . '/autoload.php';
 
-    $fid    = substr(sha1($file), 0, 12);
-    $key    = sha1($file . filemtime($file) . (int) $strict . (int) $fast . filemtime(__DIR__ . '/src/Instrumenter.php'));
-    $cached = $cacheDir . '/' . $key . '.php';
+$settings   = Settings::fromEnvironment(getenv());
+$autoloader = new InstrumentingAutoloader(
+    require $settings->autoloadPath,
+    $settings->targetDirectory,
+    $settings->cacheDirectory,
+    new Instrumenter($settings->strict, $settings->fast),
+);
+$autoloader->register();
 
-    if (!is_file($cached)) {
-        $result = (new \CovProto\Instrumenter($strict, $fast))->instrument($file, $fid);
-        file_put_contents($cached . '.tmp', $result['code']);
-        rename($cached . '.tmp', $cached);
-        file_put_contents($cacheDir . '/' . $key . '.map', serialize($result['probes']));
-    }
-
-    $GLOBALS['__cov_files'][$fid] = [$file, $key];
-    (static function () use ($cached) { include $cached; })();
-}, true, true);
-
-if (getenv('COV_CHAIN')) {
-    require getenv('COV_CHAIN');
+if ($settings->chainedBootstrap !== null) {
+    require $settings->chainedBootstrap;
 }
 
-register_shutdown_function(static function () use ($cacheDir): void {
-    file_put_contents(getenv('COV_OUT'), serialize([
-        'cache' => $cacheDir,
-        'files' => $GLOBALS['__cov_files'],
-        'hits'  => \CovProto\R::collected(),
-    ]));
+register_shutdown_function(static function () use ($autoloader, $settings): void {
+    $autoloader->run()->save($settings->outputFile);
 });
