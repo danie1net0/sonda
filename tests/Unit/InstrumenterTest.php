@@ -161,3 +161,61 @@ it('renders an instrumented template exactly as the original', function (): void
 
     expect(Hits::$current['file'])->not->toBeEmpty();
 });
+
+it('keeps the behavior of ?-> chains, also with undefined values in silent contexts', function (): void {
+    $code = <<<'PHP'
+        <?php
+        return function (?object $order, array $data): array {
+            $results   = [];
+            $results[] = $order?->customer?->name;
+            $results[] = $order?->customer->name;
+            $results[] = isset($data['user']?->name);
+            $results[] = empty($data['user']?->name);
+            $results[] = $data['user']?->name ?? 'none';
+            $results[] = $order?->total();
+
+            return $results;
+        };
+        PHP;
+    $order = new class {
+        public object $customer;
+
+        public function __construct()
+        {
+            $this->customer = (object) ['name' => 'Ana'];
+        }
+
+        public function total(): int
+        {
+            return 10;
+        }
+    };
+    $plain = require writeSource($code);
+
+    foreach ([true, false] as $strict) {
+        $instrumented = instrumentedClosure($code, new Instrumenter(strict: $strict, fast: true));
+
+        foreach ([[$order, ['user' => $order->customer]], [null, []]] as [$value, $data]) {
+            expect($instrumented($value, $data))->toBe($plain($value, $data));
+        }
+    }
+
+    expect(Hits::$current['file'])->not->toBeEmpty();
+});
+
+it('keeps undefined keys on the left of ?? silent when that side has a line of its own', function (): void {
+    $code = <<<'PHP'
+        <?php
+        return function (array $overrides, array $defaults): string {
+            return $overrides['tone']
+                ?? $defaults['tone']
+                ?? 'neutral';
+        };
+        PHP;
+    $plain        = require writeSource($code);
+    $instrumented = instrumentedClosure($code, new Instrumenter(strict: true, fast: true));
+
+    foreach ([[[], []], [[], ['tone' => 'formal']], [['tone' => 'casual'], []]] as [$overrides, $defaults]) {
+        expect($instrumented($overrides, $defaults))->toBe($plain($overrides, $defaults));
+    }
+});

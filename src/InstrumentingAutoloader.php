@@ -55,7 +55,8 @@ final class InstrumentingAutoloader
 
         $path = realpath($file);
 
-        if (!str_starts_with($path, $this->targetDirectory)) {
+        // A classmap can still list a deleted file: Composer reports it, as without covproto.
+        if ($path === false || !str_starts_with($path, $this->targetDirectory)) {
             return;
         }
 

@@ -134,3 +134,13 @@ it('does not take a directory that only shares a prefix with the target as part 
 
     expect($autoloader->run()->files)->toBe([]);
 });
+
+it('leaves a class whose mapped file was deleted to Composer', function (): void {
+    ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
+    $loader->addClassMap([$namespace . '\App\Deleted' => $directory . '/app/Deleted.php']);
+    $autoloader = new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', new Instrumenter);
+
+    $autoloader->load($namespace . '\App\Deleted');
+
+    expect($autoloader->run()->files)->toBe([]);
+});

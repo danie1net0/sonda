@@ -48,6 +48,9 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /** @var non-empty-list<array{node: ?Node, name: string, local: bool}> local: holds a `$__cov` reference (fast mode) */
     private array $scopes;
 
+    /** @var array<int, int> object ids of nodes where an undefined value gives no warning */
+    private array $silentNodes;
+
     /** @param array<int, Token> $tokens */
     public function __construct(
         private readonly array $tokens,
@@ -64,6 +67,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         $this->namespace   = '';
         $this->classes     = [];
         $this->scopes      = [['node' => null, 'name' => '{main}', 'local' => false]];
+
+        $this->silentNodes = [];
     }
 
     /** @return list<Edit> */
@@ -113,7 +118,12 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $node instanceof Stmt\Block           => $this->statementList($node->stmts, false),
             $node instanceof Stmt\Finally_        => $this->statementList($node->stmts, true),
             $node instanceof Stmt\Catch_          => $this->enterCatch($node),
+            $node instanceof Expr\BinaryOp\Coalesce => $this->enterCoalesce($node),
             self::isShortCircuit($node)           => $this->enterShortCircuit($node),
+            $node instanceof Expr\NullsafeMethodCall,
+            $node instanceof Expr\NullsafePropertyFetch => $this->enterNullsafe($node),
+            $node instanceof Expr\Isset_          => $this->silence($node->vars),
+            $node instanceof Expr\Empty_          => $this->silence([$node->expr]),
             $node instanceof Expr\AssignOp\Coalesce => $this->wrapExpression($node->expr, true),
             $node instanceof Expr\Ternary         => $this->enterTernary($node),
             $node instanceof Expr\Match_          => $this->enterMatch($node),
@@ -240,14 +250,59 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         $this->edits[] = Edit::opening($position, $this->probeCode($id) . ';');
     }
 
+    private function enterCoalesce(Expr\BinaryOp\Coalesce $node): void
+    {
+        $this->silence([$node->left]);
+        $this->enterShortCircuit($node);
+    }
+
     private function enterShortCircuit(Expr\BinaryOp $node): void
     {
-        // A leftmost operand alone on its line runs code on that line.
-        if (!isset($this->probedLines[$node->left->getStartLine()]) && !self::isShortCircuit($node->left)) {
-            $this->wrapExpression($node->left, false);
-        }
+        $isCoalesce         = $node instanceof Expr\BinaryOp\Coalesce;
+        $leftNeedsLineProbe = !isset($this->probedLines[$node->left->getStartLine()]) && !self::isShortCircuit($node->left);
 
         $this->wrapExpression($node->right, true);
+
+        if (!$leftNeedsLineProbe) {
+            return;
+        }
+
+        // A leftmost operand alone on its line runs code on that line. The left side of `??`
+        // must stay a plain variable, or an undefined key would warn: the whole `??` is wrapped.
+        $this->wrapExpression($isCoalesce ? $node : $node->left, false);
+    }
+
+    /**
+     * `$value?->member` runs the member access only when the value is not null: that is the
+     * outcome to probe (and, in strict mode, the null one too). Wrapping the value right before
+     * its `?->` keeps the short-circuit of the rest of the chain.
+     */
+    private function enterNullsafe(Expr\NullsafeMethodCall|Expr\NullsafePropertyFetch $node): void
+    {
+        $function    = $this->currentFunction();
+        $start       = $node->getStartLine();
+        $end         = $node->getEndLine();
+        $nonNull     = $this->probe(new Probe(null, true, $function, $start, $end));
+        $null        = $this->strict ? $this->probe(new Probe(null, true, $function, $start, $end)) : 'null';
+        $silentValue = isset($this->silentNodes[spl_object_id($node)]) ? ' ?? null' : '';
+
+        $this->edits[] = Edit::opening($node->var->getStartFilePos(), '\CovProto\Hits::nullsafe(\'' . $this->fileId . "', {$nonNull}, {$null}, ");
+        $this->close($node->var->getEndFilePos() + 1, $silentValue . ')');
+    }
+
+    /**
+     * Inside isset(), empty() and the left side of `??`, an undefined variable, key or property
+     * gives no warning. Passed to a function it would: `?? null` keeps it silent.
+     *
+     * @param array<Node> $nodes
+     */
+    private function silence(array $nodes): void
+    {
+        foreach ((new NodeFinder)->find($nodes, static fn (): bool => true) as $node) {
+            $id = spl_object_id($node);
+
+            $this->silentNodes[$id] = $id;
+        }
     }
 
     private function enterTernary(Expr\Ternary $node): void
@@ -261,6 +316,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function enterMatch(Expr\Match_ $node): void
     {
+        // The end of a match is compiled on the line of its last arm: that line runs whenever
+        // the match does, whichever arm is taken.
+        if ($node->arms !== []) {
+            $lastArmLine = $node->arms[array_key_last($node->arms)]->getStartLine();
+            $id          = $this->probe(new Probe($lastArmLine, false, $this->currentFunction(), $lastArmLine, $lastArmLine));
+
+            $this->wrap($id, $node->cond);
+        }
+
         foreach ($node->arms as $arm) {
             // A non-literal condition runs a comparison on its line, even when the arm is not taken.
             foreach ($arm->conds ?? [] as $condition) {

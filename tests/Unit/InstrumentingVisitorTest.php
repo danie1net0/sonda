@@ -789,8 +789,8 @@ it('probes the leftmost operand when it has a line of its own', function (): voi
     expect($code)->toBe(expected(<<<'PHP'
         <?php
         {p0}if (
-            {o3}$a !== ''{c} &&
-            {o4}$b{c} &&
+            {o4}$a !== ''{c} &&
+            {o3}$b{c} &&
             {o2}$c{c}
         ) {
             {p1}echo 1;
@@ -800,11 +800,42 @@ it('probes the leftmost operand when it has a line of its own', function (): voi
             0 => new Probe(2, false, '{main}', 0, 0),
             1 => new Probe(7, true, '{main}', 7, 7),
             2 => new Probe(5, true, '{main}', 5, 5),
-            3 => new Probe(3, false, '{main}', 3, 3),
-            4 => new Probe(4, true, '{main}', 4, 4),
+            3 => new Probe(4, true, '{main}', 4, 4),
+            4 => new Probe(3, false, '{main}', 3, 3),
         ]);
 });
 
+it('wraps the whole ?? when its left side has a line of its own, keeping that side silent', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        $tone = $overrides['tone']
+            ?? $defaults['tone']
+            ?? 'neutral';
+        $label = (
+            $names[$id]
+            ?? 'none'
+        );
+        PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}$tone = $overrides['tone']
+            ?? {o2}$defaults['tone']
+            ?? {o3}'neutral'{c}{c};
+        {p1}$label = (
+            {o5}$names[$id]
+            ?? {o4}'none'{c}{c}
+        );
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(5, false, '{main}', 0, 0),
+            2 => new Probe(3, true, '{main}', 3, 4),
+            3 => new Probe(4, true, '{main}', 4, 4),
+            4 => new Probe(7, true, '{main}', 7, 7),
+            5 => new Probe(6, false, '{main}', 6, 7),
+        ]);
+});
 it('wraps the right side of ??=', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
         <?php
@@ -855,24 +886,53 @@ it('wraps match arms and their non-literal conditions', function (): void {
 
     expect($code)->toBe(expected(<<<'PHP'
         <?php
-        {p0}$label = match ($status) {
-            1, 2 => {o1}'low'{c},
-            {o2}$limit{c} => {o3}'limit'{c},
-            {o4}Status::Active{c} => {o5}'active'{c},
-            default => {o6}'other'{c},
+        {p0}$label = match ({o1}$status{c}) {
+            1, 2 => {o2}'low'{c},
+            {o3}$limit{c} => {o4}'limit'{c},
+            {o5}Status::Active{c} => {o6}'active'{c},
+            default => {o7}'other'{c},
         };
         PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
-            1 => new Probe(3, true, '{main}', 3, 3),
-            2 => new Probe(4, false, '{main}', 4, 4),
-            3 => new Probe(4, true, '{main}', 4, 4),
-            4 => new Probe(5, false, '{main}', 5, 5),
-            5 => new Probe(5, true, '{main}', 5, 5),
-            6 => new Probe(6, true, '{main}', 6, 6),
+            1 => new Probe(6, false, '{main}', 6, 6),
+            2 => new Probe(3, true, '{main}', 3, 3),
+            3 => new Probe(4, false, '{main}', 4, 4),
+            4 => new Probe(4, true, '{main}', 4, 4),
+            5 => new Probe(5, false, '{main}', 5, 5),
+            6 => new Probe(5, true, '{main}', 5, 5),
+            7 => new Probe(6, true, '{main}', 6, 6),
         ]);
 });
 
+it('marks the line of the last arm whenever the match runs', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        $color = match ($status) {
+            Status::Active => 'success',
+            Status::Suspended => 'danger',
+        };
+        $none = match ($value) {};
+        PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}$color = match ({o2}$status{c}) {
+            {o3}Status::Active{c} => {o4}'success'{c},
+            {o5}Status::Suspended{c} => {o6}'danger'{c},
+        };
+        {p1}$none = match ($value) {};
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(6, false, '{main}', 0, 0),
+            2 => new Probe(4, false, '{main}', 4, 4),
+            3 => new Probe(3, false, '{main}', 3, 3),
+            4 => new Probe(3, true, '{main}', 3, 3),
+            5 => new Probe(4, false, '{main}', 4, 4),
+            6 => new Probe(4, true, '{main}', 4, 4),
+        ]);
+});
 it('replaces __FILE__ and __DIR__ with the original paths', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
         <?php
@@ -1279,5 +1339,120 @@ it('skips the local reference when a function starts with a short echo', functio
         ->and($probes)->toEqual([
             0 => new Probe(2, true, 'row', 2, 3),
             1 => new Probe(3, false, 'row', 0, 0),
+        ]);
+});
+it('probes the value before each ?->, keeping the chain', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        $name = $order?->customer()?->name;
+        $total = $order?->items->count();
+        PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}$name = \CovProto\Hits::nullsafe('f', 2, null, \CovProto\Hits::nullsafe('f', 3, null, $order)?->customer())?->name;
+        {p1}$total = \CovProto\Hits::nullsafe('f', 4, null, $order)?->items->count();
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(3, false, '{main}', 0, 0),
+            2 => new Probe(null, true, '{main}', 2, 2),
+            3 => new Probe(null, true, '{main}', 2, 2),
+            4 => new Probe(null, true, '{main}', 3, 3),
+        ]);
+});
+
+it('probes both outcomes of ?-> in strict mode', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        $name = $order?->customer;
+        PHP . "\n", strict: true);
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}$name = \CovProto\Hits::nullsafe('f', 1, 2, $order)?->customer;
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(null, true, '{main}', 2, 2),
+            2 => new Probe(null, true, '{main}', 2, 2),
+        ]);
+});
+
+it('keeps an undefined left side of ?-> silent inside isset, empty and ??', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        $a = isset($data['user']?->name);
+        $b = empty($user?->email);
+        $c = $payload['customer']?->name ?? 'none';
+        $d = $fallback ?? $user?->name;
+        PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}$a = isset(\CovProto\Hits::nullsafe('f', 4, null, $data['user'] ?? null)?->name);
+        {p1}$b = empty(\CovProto\Hits::nullsafe('f', 5, null, $user ?? null)?->email);
+        {p2}$c = \CovProto\Hits::nullsafe('f', 7, null, $payload['customer'] ?? null)?->name ?? {o6}'none'{c};
+        {p3}$d = $fallback ?? {o8}\CovProto\Hits::nullsafe('f', 9, null, $user)?->name{c};
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(3, false, '{main}', 0, 0),
+            2 => new Probe(4, false, '{main}', 0, 0),
+            3 => new Probe(5, false, '{main}', 0, 0),
+            4 => new Probe(null, true, '{main}', 2, 2),
+            5 => new Probe(null, true, '{main}', 3, 3),
+            6 => new Probe(4, true, '{main}', 4, 4),
+            7 => new Probe(null, true, '{main}', 4, 4),
+            8 => new Probe(5, true, '{main}', 5, 5),
+            9 => new Probe(null, true, '{main}', 5, 5),
+        ]);
+});
+it('silences ?-> method calls in isset, but not the operands of &&', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        $a = isset($data['user']?->profile()->name);
+        $b = $user?->name && $active;
+        PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}$a = isset(\CovProto\Hits::nullsafe('f', 2, null, $data['user'] ?? null)?->profile()->name);
+        {p1}$b = \CovProto\Hits::nullsafe('f', 4, null, $user)?->name && {o3}$active{c};
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(3, false, '{main}', 0, 0),
+            2 => new Probe(null, true, '{main}', 2, 2),
+            3 => new Probe(3, true, '{main}', 3, 3),
+            4 => new Probe(null, true, '{main}', 3, 3),
+        ]);
+});
+it('leaves a ?? on the left of && to probe its own line', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+        <?php
+        if (
+            ($settings['enabled'] ?? false)
+            && $ready
+        ) {
+            echo 1;
+        }
+        PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+        <?php
+        {p0}if (
+            ({o4}$settings['enabled'] ?? {o3}false{c}{c})
+            && {o2}$ready{c}
+        ) {
+            {p1}echo 1;
+        }
+        PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(6, true, '{main}', 6, 6),
+            2 => new Probe(4, true, '{main}', 4, 4),
+            3 => new Probe(3, true, '{main}', 3, 3),
+            4 => new Probe(3, false, '{main}', 3, 3),
         ]);
 });

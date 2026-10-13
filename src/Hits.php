@@ -35,6 +35,26 @@ final class Hits
         self::$current = [];
     }
 
+    /**
+     * Probes the left side of `?->` and passes it through: `$order?->total()` becomes
+     * `Hits::nullsafe('file', 4, 5, $order)?->total()`. The null probe is null unless both
+     * outcomes count (strict mode).
+     */
+    public static function nullsafe(string $fileId, int $nonNullProbe, ?int $nullProbe, mixed $value): mixed
+    {
+        if ($value !== null) {
+            self::$current[$fileId][$nonNullProbe] = 1;
+
+            return $value;
+        }
+
+        if ($nullProbe !== null) {
+            self::$current[$fileId][$nullProbe] = 1;
+        }
+
+        return null;
+    }
+
     /** @return array<string, array<int, int>> */
     public static function collected(): array
     {

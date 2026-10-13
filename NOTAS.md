@@ -50,7 +50,7 @@ XDEBUG_MODE=coverage php -d zend_extension=/opt/homebrew/opt/xdebug@8.5/xdebug.s
 XDEBUG_MODE=coverage php -d zend_extension=/opt/homebrew/opt/xdebug@8.5/xdebug.so vendor/bin/pest --mutate --class='CovProto\Probe'
 ```
 
-Estado em 13/10/2026: 122 testes, 100% de linhas (350/350) e de branches (352/352) em `src/`
+Estado em 13/10/2026: 136 testes, 100% de linhas (382/382) e de branches (383/383) em `src/`
 medidos com Xdebug. Mutação (`--mutate` classe a classe): 100% em todas as classes, salvo dois
 mutantes equivalentes no visitor (valor inicial de `visitIndex`, do qual só a ordem relativa
 importa) e um no valor padrão de `Hits::$perTest`, que o Pest não executa por estar numa linha
@@ -93,10 +93,33 @@ Fidelidade contra o Xdebug:
   No brick/math em modo estrito, 258 de 260; nenhum método dá 100% no protótipo e menos no Xdebug.
 - Sintaxe: 5.898 arquivos de `vendor/` instrumentados geram PHP válido com as mesmas linhas.
 
+## Validação na suíte inteira do contata-ai (13/10/2026)
+
+4.514 testes (`vendor/bin/pest`, sem `--parallel`, banco `contata_cov`):
+
+| Execução | Tempo | Memória | Resultado |
+|---|---|---|---|
+| Sem cobertura | 178s | 308 MB | 16 falhas (arquivos apagados no working tree, teste de data instável) |
+| covproto, estrito e rápido | 174s | 317 MB | as mesmas 16 falhas, teste a teste, e o mesmo número de asserções |
+| Xdebug só linhas | 671s | 640 MB | 17 falhas (o teste de data instável falhou também) |
+
+Linhas contra o Xdebug: 11.229 linhas, nenhuma divergência de coberta ou não coberta. Sobram
+5 diferenças de linha executável, todas inofensivas: o retorno implícito de uma closure que só o
+Xdebug conta (a linha anterior já diz o mesmo) e 4 linhas que só o covproto conta, todas cobertas.
+
+Essa validação achou três bugs, já corrigidos: o operando esquerdo de `??` em linha própria era
+envolvido e deixava de silenciar chave indefinida (14 testes quebravam); classe do classmap com
+arquivo apagado dava `TypeError` em vez do erro do Composer (o ArchTest passava escondendo a
+falha); a linha do último braço de `match`, que o Xdebug sempre dá como executada, aparecia como
+não coberta.
+
+`?->`: o valor à esquerda passa por `Hits::nullsafe()`, que registra se era nulo ou não. No modo
+estrito, os dois lados contam como branch. Dentro de `isset`, `empty` e à esquerda de `??`, o
+valor ganha `?? null` para continuar silencioso.
+
 ## Pendências conhecidas
 
-- Corpo vazio de `if` e de laço não ganha sonda; operador `?->`; `else` sintético na sintaxe
-  alternativa (`endif`).
+- Corpo vazio de `if` e de laço não ganha sonda; `else` sintético na sintaxe alternativa (`endif`).
 - Views do Blade e Livewire não são medidas.
 - Testes de arquitetura que leem o arquivo da classe por reflection veem o arquivo instrumentado.
 - `COV_FAST` cria a variável local `$__cov`, visível em `get_defined_vars()`.

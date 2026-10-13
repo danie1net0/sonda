@@ -45,3 +45,26 @@ it('starts empty and collecting every probe', function (): void {
         ->and($default('current'))->toBe([])
         ->and($default('accumulated'))->toBe([]);
 });
+
+it('records the non-null outcome of ?-> and passes the value through', function (): void {
+    $value = new stdClass;
+
+    expect(Hits::nullsafe('a', 1, 2, $value))->toBe($value)
+        ->and(Hits::$current)->toBe(['a' => [1 => 1]]);
+});
+
+it('records the null outcome of ?-> when it counts', function (): void {
+    expect(Hits::nullsafe('a', 1, 2, null))->toBeNull()
+        ->and(Hits::$current)->toBe(['a' => [2 => 1]]);
+});
+
+it('records nothing for a null value when only the non-null outcome counts', function (): void {
+    expect(Hits::nullsafe('a', 1, null, null))->toBeNull()
+        ->and(Hits::$current)->toBe([]);
+});
+
+it('treats false and zero as values, not as null', function (): void {
+    expect(Hits::nullsafe('a', 1, 2, false))->toBeFalse()
+        ->and(Hits::nullsafe('a', 3, 4, 0))->toBe(0)
+        ->and(Hits::$current)->toBe(['a' => [1 => 1, 3 => 1]]);
+});
