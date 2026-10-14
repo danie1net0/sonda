@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/danie1net0/sonda/compare/v1.1.0...v1.1.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* cache e execuções em diretório privado do usuário ([bd49f77](https://github.com/danie1net0/sonda/commit/bd49f773220048f49437315d2a206493805e9432))
+
 # [1.1.0](https://github.com/danie1net0/sonda/compare/v1.0.0...v1.1.0) (2026-10-14)
 
 
