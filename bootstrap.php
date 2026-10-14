@@ -5,16 +5,21 @@ declare(strict_types=1);
 // PHPUnit/Pest bootstrap, also with --parallel: --bootstrap <this file>
 // Settings come from the environment (see Sonda\Settings::fromEnvironment).
 
-use Sonda\Instrumenter;
-use Sonda\InstrumentingAutoloader;
+use Composer\Autoload\ClassLoader;
+use Sonda\{Instrumenter, InstrumentingAutoloader, Settings};
 use Sonda\PhpUnit\CollectionWindow;
-use Sonda\Settings;
 
 require __DIR__ . '/autoload.php';
 
-$settings   = Settings::fromEnvironment(getenv());
+$settings = Settings::fromEnvironment(getenv());
+$composer = require $settings->autoloadPath;
+
+if (! $composer instanceof ClassLoader) {
+    throw new RuntimeException("O autoload {$settings->autoloadPath} não devolveu o ClassLoader do Composer.");
+}
+
 $autoloader = new InstrumentingAutoloader(
-    require $settings->autoloadPath,
+    $composer,
     $settings->targetDirectory,
     $settings->cacheDirectory,
     new Instrumenter($settings->strict, $settings->fast),

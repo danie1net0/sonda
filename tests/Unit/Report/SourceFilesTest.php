@@ -9,7 +9,7 @@ function sourceTree(): string
     $directory = TemporaryDirectory::create();
 
     foreach (['Models/Order.php', 'Actions/Pay.php', 'Providers/AppProvider.php', 'Models/notes.txt', 'Actions/Deep/Refund.php'] as $file) {
-        if (!is_dir(dirname($directory . '/' . $file))) {
+        if (! is_dir(dirname($directory . '/' . $file))) {
             mkdir(dirname($directory . '/' . $file), 0777, true);
         }
 

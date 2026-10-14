@@ -33,14 +33,14 @@ final class SourceFiles
             }
         }
 
-        $files    = [];
+        $files = [];
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
 
         /** @var SplFileInfo $file */
         foreach ($iterator as $file) {
             $path = $file->getRealPath();
 
-            if ($file->getExtension() === 'php' && !self::isExcluded($path, $excluded)) {
+            if ($file->getExtension() === 'php' && ! self::isExcluded($path, $excluded)) {
                 $files[] = $path;
             }
         }
@@ -53,12 +53,6 @@ final class SourceFiles
     /** @param list<string> $excluded */
     private static function isExcluded(string $path, array $excluded): bool
     {
-        foreach ($excluded as $directory) {
-            if (str_starts_with($path, $directory)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($excluded, fn (string $directory): bool => str_starts_with($path, $directory));
     }
 }

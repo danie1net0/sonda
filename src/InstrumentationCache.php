@@ -29,7 +29,7 @@ final readonly class InstrumentationCache
     /** The map is written before the code, so a cached file always has its map. */
     public function store(string $key, InstrumentationResult $result): void
     {
-        if (!is_dir($this->directory)) {
+        if (! is_dir($this->directory)) {
             mkdir($this->directory, 0777, true);
         }
 
@@ -40,11 +40,15 @@ final readonly class InstrumentationCache
     /** @return array<int, Probe> */
     public function probes(string $key): array
     {
-        $path   = $this->mapPath($key);
-        $probes = is_file($path) ? unserialize(file_get_contents($path), ['allowed_classes' => [Probe::class]]) : null;
+        $contents = unserialize(Filesystem::read($this->mapPath($key)), ['allowed_classes' => [Probe::class]]);
+        $probes = [];
 
-        if (!is_array($probes)) {
-            throw new RuntimeException("O mapa de sondas {$key} não existe no cache {$this->directory}.");
+        foreach (is_array($contents) ? $contents : [null] as $id => $probe) {
+            if (! is_int($id) || ! $probe instanceof Probe) {
+                throw new RuntimeException("O mapa de sondas {$key} está corrompido no cache {$this->directory}.");
+            }
+
+            $probes[$id] = $probe;
         }
 
         return $probes;

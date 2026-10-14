@@ -1,0 +1,9 @@
+parameters:
+    level: max
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - src
+        - autoload.php
+        - bootstrap.php
+        - report.php
+    tmpDir: build/phpstan

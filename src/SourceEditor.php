@@ -13,11 +13,11 @@ final class SourceEditor
     {
         usort($edits, Edit::compare(...));
 
-        $output   = '';
+        $output = '';
         $position = 0;
 
         foreach ($edits as $edit) {
-            $output  .= substr($code, $position, $edit->position - $position) . $edit->text;
+            $output .= substr($code, $position, $edit->position - $position) . $edit->text;
             $position = $edit->position + $edit->deleteLength;
         }
 

@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Sonda\Hits;
-use Sonda\Instrumenter;
-use Sonda\Probe;
+use PhpParser\{ErrorHandler, Parser};
+use Sonda\{Hits, InstrumentationResult, Instrumenter, Probe};
 
 function writeSource(string $code): string
 {
@@ -18,20 +17,25 @@ function writeSource(string $code): string
 function instrumentedClosure(string $code, Instrumenter $instrumenter): Closure
 {
     $result = $instrumenter->instrument(writeSource($code), 'file');
-    $path   = TemporaryDirectory::create() . '/Instrumented.php';
+    $path = TemporaryDirectory::create() . '/Instrumented.php';
     file_put_contents($path, $result->code);
 
     return require $path;
 }
 
 it('instruments a file and keeps its line count', function (): void {
-    $code   = "<?php\n\$total = 1;\nif (\$total > 0) {\n    \$total++;\n}\n";
-    $result = (new Instrumenter)->instrument(writeSource($code), 'file');
+    $code = "<?php\n\$total = 1;\nif (\$total > 0) {\n    \$total++;\n}\n";
+    $result = new Instrumenter()->instrument(writeSource($code), 'file');
 
     expect($result->code)->toBe(
-        "<?php\n\\Sonda\\Hits::\$current['file'][0]=1;\$total = 1;\n"
-        . "\\Sonda\\Hits::\$current['file'][1]=1;if (\$total > 0) {\n"
-        . "    \\Sonda\\Hits::\$current['file'][2]=1;\$total++;\n}\n",
+        '<?php
+\\' . Hits::class . '::$current[\'file\'][0]=1;$total = 1;
+'
+        . ('\\' . Hits::class . '::$current[\'file\'][1]=1;if ($total > 0) {
+')
+        . ('    \\' . Hits::class . '::$current[\'file\'][2]=1;$total++;
+}
+'),
     )
         ->and(substr_count($result->code, "\n"))->toBe(substr_count($code, "\n"))
         ->and($result->probes)->toEqual([
@@ -42,29 +46,29 @@ it('instruments a file and keeps its line count', function (): void {
 });
 
 it('replaces __FILE__ and __DIR__ with the path of the original file', function (): void {
-    $path   = writeSource("<?php\nreturn [__FILE__, __DIR__];\n");
-    $result = (new Instrumenter)->instrument($path, 'file');
+    $path = writeSource("<?php\nreturn [__FILE__, __DIR__];\n");
+    $result = new Instrumenter()->instrument($path, 'file');
 
     expect($result->code)->toContain(var_export($path, true) . ', ' . var_export(dirname($path), true));
 });
 
 it('instruments an empty file', function (): void {
-    expect((new Instrumenter)->instrument(writeSource(''), 'file'))
+    expect(new Instrumenter()->instrument(writeSource(''), 'file'))
         ->code->toBe('')
         ->probes->toBe([]);
 });
 
 it('records the outcomes taken when the instrumented code runs', function (): void {
     $classify = instrumentedClosure(<<<'PHP'
-        <?php
-        return function (int $value): string {
-            if ($value > 0) {
-                return 'positive';
-            }
+    <?php
+    return function (int $value): string {
+        if ($value > 0) {
+            return 'positive';
+        }
 
-            return $value < 0 ? 'negative' : 'zero';
-        };
-        PHP, new Instrumenter);
+        return $value < 0 ? 'negative' : 'zero';
+    };
+    PHP, new Instrumenter());
 
     expect($classify(5))->toBe('positive')
         ->and(array_keys(Hits::$current['file']))->toBe([0, 1, 3]);
@@ -76,23 +80,23 @@ it('records the outcomes taken when the instrumented code runs', function (): vo
 
 it('keeps the behavior of the code in strict and fast modes', function (): void {
     $code = <<<'PHP'
-        <?php
-        return function (array $items, ?int $limit): int {
-            $sum = 0;
-            foreach ($items as $item) {
-                if ($item > 10) $sum += 10;
-                $sum += $item ?: 1;
-            }
-            $sum = $limit ?? $sum;
-            $sum ??= 0;
+    <?php
+    return function (array $items, ?int $limit): int {
+        $sum = 0;
+        foreach ($items as $item) {
+            if ($item > 10) $sum += 10;
+            $sum += $item ?: 1;
+        }
+        $sum = $limit ?? $sum;
+        $sum ??= 0;
 
-            return match (true) {
-                $sum > 100 => 100,
-                default => $sum,
-            } + (fn (int $extra): int => $extra * 2)(1);
-        };
-        PHP;
-    $plain        = require writeSource($code);
+        return match (true) {
+            $sum > 100 => 100,
+            default => $sum,
+        } + (fn (int $extra): int => $extra * 2)(1);
+    };
+    PHP;
+    $plain = require writeSource($code);
     $instrumented = instrumentedClosure($code, new Instrumenter(strict: true, fast: true));
 
     foreach ([[[1, 0, 20], null], [[], 7], [[500], null]] as [$items, $limit]) {
@@ -103,10 +107,10 @@ it('keeps the behavior of the code in strict and fast modes', function (): void 
 });
 
 it('fingerprints the code of its sources and its mode', function (): void {
-    $contents = implode('', array_map('file_get_contents', Instrumenter::sources()));
+    $contents = implode('', array_map(file_get_contents(...), Instrumenter::sources()));
 
-    expect((new Instrumenter)->fingerprint())->toBe(sha1($contents . '00'))
-        ->and((new Instrumenter(strict: true, fast: true))->fingerprint())->toBe(sha1($contents . '11'));
+    expect(new Instrumenter()->fingerprint())->toBe(sha1($contents . '00'))
+        ->and(new Instrumenter(strict: true, fast: true)->fingerprint())->toBe(sha1($contents . '11'));
 });
 
 it('takes as sources the files that decide its output', function (): void {
@@ -123,37 +127,37 @@ it('takes as sources the files that decide its output', function (): void {
 
 it('changes its fingerprint with the mode and keeps it otherwise', function (): void {
     $fingerprints = [
-        (new Instrumenter)->fingerprint(),
-        (new Instrumenter(strict: true))->fingerprint(),
-        (new Instrumenter(fast: true))->fingerprint(),
-        (new Instrumenter(strict: true, fast: true))->fingerprint(),
+        new Instrumenter()->fingerprint(),
+        new Instrumenter(strict: true)->fingerprint(),
+        new Instrumenter(fast: true)->fingerprint(),
+        new Instrumenter(strict: true, fast: true)->fingerprint(),
     ];
 
     expect(array_unique($fingerprints))->toHaveCount(4)
-        ->and((new Instrumenter)->fingerprint())->toBe($fingerprints[0])
+        ->and(new Instrumenter()->fingerprint())->toBe($fingerprints[0])
         ->and($fingerprints[0])->toMatch('/^[0-9a-f]{40}$/');
 });
 
 it('renders an instrumented template exactly as the original', function (): void {
     $template = <<<'PHP'
-        <ul>
-        <?php if ($items !== []) { ?>
-            <?php foreach ($items as $item): ?>
-                <li><?= $item ?></li>
-            <?php endforeach ?>
-        <?php } ?>
-        <?php if ($footer): ?><p>end</p><?php endif ?>
-        </ul>
-        PHP;
+    <ul>
+    <?php if ($items !== []) { ?>
+        <?php foreach ($items as $item): ?>
+            <li><?= $item ?></li>
+        <?php endforeach ?>
+    <?php } ?>
+    <?php if ($footer): ?><p>end</p><?php endif ?>
+    </ul>
+    PHP;
     $render = static function (string $path, array $items, bool $footer): string {
         ob_start();
         require $path;
 
         return (string) ob_get_clean();
     };
-    $original     = writeSource($template);
+    $original = writeSource($template);
     $instrumented = TemporaryDirectory::create() . '/template.php';
-    file_put_contents($instrumented, (new Instrumenter(strict: true))->instrument($original, 'file')->code);
+    file_put_contents($instrumented, new Instrumenter(strict: true)->instrument($original, 'file')->code);
 
     foreach ([[['a', 'b'], true], [[], false]] as [$items, $footer]) {
         expect($render($instrumented, $items, $footer))->toBe($render($original, $items, $footer));
@@ -164,20 +168,20 @@ it('renders an instrumented template exactly as the original', function (): void
 
 it('keeps the behavior of ?-> chains, also with undefined values in silent contexts', function (): void {
     $code = <<<'PHP'
-        <?php
-        return function (?object $order, array $data): array {
-            $results   = [];
-            $results[] = $order?->customer?->name;
-            $results[] = $order?->customer->name;
-            $results[] = isset($data['user']?->name);
-            $results[] = empty($data['user']?->name);
-            $results[] = $data['user']?->name ?? 'none';
-            $results[] = $order?->total();
+    <?php
+    return function (?object $order, array $data): array {
+        $results   = [];
+        $results[] = $order?->customer?->name;
+        $results[] = $order?->customer->name;
+        $results[] = isset($data['user']?->name);
+        $results[] = empty($data['user']?->name);
+        $results[] = $data['user']?->name ?? 'none';
+        $results[] = $order?->total();
 
-            return $results;
-        };
-        PHP;
-    $order = new class {
+        return $results;
+    };
+    PHP;
+    $order = new class() {
         public object $customer;
 
         public function __construct()
@@ -205,17 +209,57 @@ it('keeps the behavior of ?-> chains, also with undefined values in silent conte
 
 it('keeps undefined keys on the left of ?? silent when that side has a line of its own', function (): void {
     $code = <<<'PHP'
-        <?php
-        return function (array $overrides, array $defaults): string {
-            return $overrides['tone']
-                ?? $defaults['tone']
-                ?? 'neutral';
-        };
-        PHP;
-    $plain        = require writeSource($code);
+    <?php
+    return function (array $overrides, array $defaults): string {
+        return $overrides['tone']
+            ?? $defaults['tone']
+            ?? 'neutral';
+    };
+    PHP;
+    $plain = require writeSource($code);
     $instrumented = instrumentedClosure($code, new Instrumenter(strict: true, fast: true));
 
     foreach ([[[], []], [[], ['tone' => 'formal']], [['tone' => 'casual'], []]] as [$overrides, $defaults]) {
         expect($instrumented($overrides, $defaults))->toBe($plain($overrides, $defaults));
     }
+});
+
+it('places probes correctly after multibyte text', function (): void {
+    $code = <<<'PHP'
+    <?php
+    return function (bool $urgente): string {
+        $prefixo = 'Atenção: operação não concluída (ação necessária)';
+
+        return $urgente ? "{$prefixo}!" : $prefixo;
+    };
+    PHP;
+    $plain = require writeSource($code);
+    $instrumented = instrumentedClosure($code, new Instrumenter(strict: true, fast: true));
+
+    expect($instrumented(true))->toBe($plain(true))
+        ->and($instrumented(false))->toBe($plain(false))
+        ->and(array_keys(Hits::$current['file']))->toBe([0, 1, 2, 3, 4]);
+});
+
+it('fails when the file cannot be read', function (): void {
+    expect(fn (): InstrumentationResult => new Instrumenter()->instrument('/missing/File.php', 'file'))
+        ->toThrow(RuntimeException::class, 'O arquivo /missing/File.php não pôde ser lido.');
+});
+
+it('fails when the parser gives no syntax tree', function (): void {
+    $parser = new class() implements Parser {
+        public function parse(string $code, ?ErrorHandler $errorHandler = null): ?array
+        {
+            return null;
+        }
+
+        public function getTokens(): array
+        {
+            return [];
+        }
+    };
+    $path = writeSource('<?php');
+
+    expect(fn (): InstrumentationResult => new Instrumenter(parser: $parser)->instrument($path, 'file'))
+        ->toThrow(RuntimeException::class, "O arquivo {$path} não pôde ser analisado.");
 });

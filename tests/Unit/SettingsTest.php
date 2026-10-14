@@ -6,11 +6,11 @@ use Sonda\Settings;
 
 function environment(array $overrides = []): array
 {
-    $environment                 = [];
+    $environment = [];
     $environment['SONDA_AUTOLOAD'] = 'vendor/autoload.php';
-    $environment['SONDA_TARGET']   = 'app';
-    $environment['SONDA_CACHE']    = '/tmp/cache';
-    $environment['SONDA_OUT']      = '/tmp/runs';
+    $environment['SONDA_TARGET'] = 'app';
+    $environment['SONDA_CACHE'] = '/tmp/cache';
+    $environment['SONDA_OUT'] = '/tmp/runs';
 
     return array_merge($environment, $overrides);
 }

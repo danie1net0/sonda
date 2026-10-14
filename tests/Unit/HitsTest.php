@@ -14,8 +14,8 @@ it('starts a test with an empty window', function (): void {
 
 it('adds the probes of a finished test to the accumulated ones', function (): void {
     Hits::$accumulated['a'] = [1 => 1];
-    Hits::$current['a']     = [2 => 1];
-    Hits::$current['b']     = [0 => 1];
+    Hits::$current['a'] = [2 => 1];
+    Hits::$current['b'] = [0 => 1];
 
     Hits::finishTest();
 
@@ -24,22 +24,22 @@ it('adds the probes of a finished test to the accumulated ones', function (): vo
 });
 
 it('collects only the accumulated probes when collecting per test', function (): void {
-    Hits::$perTest         = true;
+    Hits::$perTest = true;
     Hits::$accumulated['a'] = [1 => 1];
-    Hits::$current['b']     = [0 => 1];
+    Hits::$current['b'] = [0 => 1];
 
     expect(Hits::collected())->toBe(['a' => [1 => 1]]);
 });
 
 it('collects every probe hit when not collecting per test', function (): void {
     Hits::$accumulated['a'] = [1 => 1];
-    Hits::$current['b']     = [0 => 1];
+    Hits::$current['b'] = [0 => 1];
 
     expect(Hits::collected())->toBe(['b' => [0 => 1]]);
 });
 
 it('starts empty and collecting every probe', function (): void {
-    $default = static fn (string $property): mixed => (new ReflectionProperty(Hits::class, $property))->getDefaultValue();
+    $default = static fn (string $property): mixed => new ReflectionProperty(Hits::class, $property)->getDefaultValue();
 
     expect($default('perTest'))->toBeFalse()
         ->and($default('current'))->toBe([])
@@ -47,7 +47,7 @@ it('starts empty and collecting every probe', function (): void {
 });
 
 it('records the non-null outcome of ?-> and passes the value through', function (): void {
-    $value = new stdClass;
+    $value = new stdClass();
 
     expect(Hits::nullsafe('a', 1, 2, $value))->toBe($value)
         ->and(Hits::$current)->toBe(['a' => [1 => 1]]);

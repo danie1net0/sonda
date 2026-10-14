@@ -25,9 +25,9 @@ final readonly class Run
 
     public static function load(string $path): self
     {
-        $run = is_file($path) ? unserialize(file_get_contents($path), ['allowed_classes' => [self::class]]) : null;
+        $run = unserialize(Filesystem::read($path), ['allowed_classes' => [self::class]]);
 
-        if (!$run instanceof self) {
+        if (! $run instanceof self) {
             throw new RuntimeException("O arquivo {$path} não contém uma execução do sonda.");
         }
 
@@ -37,7 +37,7 @@ final readonly class Run
     /** All the runs saved in a directory, merged into one. */
     public static function loadDirectory(string $directory): self
     {
-        $files = glob($directory . '/run-*.ser');
+        $files = glob($directory . '/run-*.ser') ?: [];
 
         if ($files === []) {
             throw new RuntimeException("O diretório {$directory} não tem execuções do sonda.");
@@ -50,7 +50,7 @@ final readonly class Run
     public static function merge(array $runs): self
     {
         $files = [];
-        $hits  = [];
+        $hits = [];
 
         foreach ($runs as $run) {
             $files += $run->files;
@@ -71,7 +71,7 @@ final readonly class Run
     /** Saves under a name of its own, so the processes of a parallel run do not overwrite each other. */
     public function saveIn(string $directory): string
     {
-        if (!is_dir($directory)) {
+        if (! is_dir($directory)) {
             mkdir($directory, 0777, true);
         }
 
@@ -84,6 +84,6 @@ final readonly class Run
     /** @return array<int, Probe> */
     public function probesOf(string $cacheKey): array
     {
-        return (new InstrumentationCache($this->cacheDirectory))->probes($cacheKey);
+        return new InstrumentationCache($this->cacheDirectory)->probes($cacheKey);
     }
 }

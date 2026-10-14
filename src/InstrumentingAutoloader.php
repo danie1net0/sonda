@@ -37,7 +37,7 @@ final class InstrumentingAutoloader
         }
 
         $this->targetDirectory = $realTargetDirectory . '/';
-        $this->cache           = new InstrumentationCache($cacheDirectory);
+        $this->cache = new InstrumentationCache($cacheDirectory);
     }
 
     public function register(): void
@@ -56,20 +56,20 @@ final class InstrumentingAutoloader
         $path = realpath($file);
 
         // A classmap can still list a deleted file: Composer reports it, as without sonda.
-        if ($path === false || !str_starts_with($path, $this->targetDirectory)) {
+        if ($path === false || ! str_starts_with($path, $this->targetDirectory)) {
             return;
         }
 
         $fileId = substr(sha1($path), 0, 12);
-        $key    = sha1($path . filemtime($path) . $this->instrumenter->fingerprint());
+        $key = sha1($path . filemtime($path) . $this->instrumenter->fingerprint());
 
-        if (!$this->cache->has($key)) {
+        if (! $this->cache->has($key)) {
             $this->cache->store($key, $this->instrumenter->instrument($path, $fileId));
         }
 
         $this->loadedFiles[$fileId] = [$path, $key];
 
-        self::includeFile($this->cache->codePath($key));
+        $this->includeFile($this->cache->codePath($key));
     }
 
     public function run(): Run
@@ -78,7 +78,7 @@ final class InstrumentingAutoloader
     }
 
     /** Includes outside any class scope, as Composer does. */
-    private static function includeFile(string $file): void
+    private function includeFile(string $file): void
     {
         Closure::bind(static function (string $file): void {
             include $file;

@@ -2,11 +2,8 @@
 
 declare(strict_types=1);
 
-use Sonda\InstrumentingVisitor;
-use Sonda\Probe;
-use Sonda\SourceEditor;
-use PhpParser\NodeTraverser;
-use PhpParser\ParserFactory;
+use Sonda\{Hits, InstrumentingVisitor, Probe, SourceEditor};
+use PhpParser\{NodeTraverser, ParserFactory};
 
 final class TemporaryDirectory
 {
@@ -25,11 +22,14 @@ final class TemporaryDirectory
 
     public static function remove(string $directory): void
     {
-        if (!is_dir($directory)) {
+        if (! is_dir($directory)) {
             return;
         }
 
-        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST) as $entry) {
+        $entries = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+
+        /** @var SplFileInfo $entry */
+        foreach ($entries as $entry) {
             $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
         }
 
@@ -44,12 +44,12 @@ final class TemporaryDirectory
  */
 function instrumentCode(string $code, bool $strict = false, bool $fast = false, string $path = '/project/src/File.php'): array
 {
-    $parser = (new ParserFactory)->createForHostVersion();
-    $ast    = (array) $parser->parse($code);
+    $parser = new ParserFactory()->createForHostVersion();
+    $ast = (array) $parser->parse($code);
 
     $visitor = new InstrumentingVisitor($parser->getTokens(), 'f', $path, $strict, $fast);
     $visitor->instrumentTopLevel($ast);
-    (new NodeTraverser($visitor))->traverse($ast);
+    new NodeTraverser($visitor)->traverse($ast);
 
     return [SourceEditor::apply($code, $visitor->edits()), $visitor->probes()];
 }
@@ -64,17 +64,15 @@ function expected(string $template): string
 {
     return (string) preg_replace_callback(
         '/\{(p|o|l|L)(\d+)\}|\{c\}|\{ref\}/',
-        static function (array $match): string {
-            return match ($match[0]) {
-                '{c}'   => ') : null)',
-                '{ref}' => '$__sonda = &\Sonda\Hits::$current[\'f\'];',
-                default => match ($match[1]) {
-                    'p'     => '\Sonda\Hits::$current[\'f\'][' . $match[2] . ']=1;',
-                    'o'     => '((\Sonda\Hits::$current[\'f\'][' . $match[2] . ']=1) ? (',
-                    'l'     => '$__sonda[' . $match[2] . ']=1;',
-                    default => '(($__sonda[' . $match[2] . ']=1) ? (',
-                },
-            };
+        static fn (array $match): string => match ($match[0]) {
+            '{c}' => ') : null)',
+            '{ref}' => '$__sonda = &\\' . Hits::class . '::$current[\'f\'];',
+            default => match ($match[1]) {
+                'p' => '\\' . Hits::class . '::$current[\'f\'][' . $match[2] . ']=1;',
+                'o' => '((\\' . Hits::class . '::$current[\'f\'][' . $match[2] . ']=1) ? (',
+                'l' => '$__sonda[' . $match[2] . ']=1;',
+                default => '(($__sonda[' . $match[2] . ']=1) ? (',
+            },
         },
         $template,
     );

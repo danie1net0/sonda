@@ -2,18 +2,16 @@
 
 declare(strict_types=1);
 
-use Sonda\InstrumentationCache;
-use Sonda\InstrumentationResult;
-use Sonda\Probe;
+use Sonda\{InstrumentationCache, InstrumentationResult, Probe};
 
 it('places the code of a key in its directory', function (): void {
-    expect((new InstrumentationCache('/cache'))->codePath('abc'))->toBe('/cache/abc.php');
+    expect(new InstrumentationCache('/cache')->codePath('abc'))->toBe('/cache/abc.php');
 });
 
 it('stores the code and the probe map, creating the directory', function (): void {
     $directory = TemporaryDirectory::create() . '/nested/cache';
-    $cache     = new InstrumentationCache($directory);
-    $probes    = [0 => new Probe(2, true, 'f', 2, 3, [4])];
+    $cache = new InstrumentationCache($directory);
+    $probes = [0 => new Probe(2, true, 'f', 2, 3, [4])];
 
     expect($cache->has('key'))->toBeFalse();
 
@@ -23,12 +21,12 @@ it('stores the code and the probe map, creating the directory', function (): voi
         ->and(fileperms($directory) & 0777)->toBe(0777 & ~umask())
         ->and(file_get_contents($directory . '/key.php'))->toBe('<?php echo 1;')
         ->and($cache->probes('key'))->toEqual($probes)
-        ->and(array_map('basename', glob($directory . '/*')))->toBe(['key.map', 'key.php']);
+        ->and(array_map(basename(...), glob($directory . '/*')))->toBe(['key.map', 'key.php']);
 });
 
 it('stores in an existing directory', function (): void {
     $directory = TemporaryDirectory::create();
-    $cache     = new InstrumentationCache($directory);
+    $cache = new InstrumentationCache($directory);
 
     $cache->store('key', new InstrumentationResult('<?php', []));
 
@@ -38,13 +36,49 @@ it('stores in an existing directory', function (): void {
 it('fails when a probe map is missing', function (): void {
     $directory = TemporaryDirectory::create();
 
-    expect(fn (): array => (new InstrumentationCache($directory))->probes('missing'))
-        ->toThrow(RuntimeException::class, "O mapa de sondas missing não existe no cache {$directory}.");
+    expect(fn (): array => new InstrumentationCache($directory)->probes('missing'))
+        ->toThrow(RuntimeException::class, "O arquivo {$directory}/missing.map não pôde ser lido.");
 });
 
-it('does not revive objects other than probes from a map', function (): void {
+it('rejects a map holding something other than probes', function (): void {
     $directory = TemporaryDirectory::create();
     file_put_contents($directory . '/key.map', serialize([new ArrayObject([1])]));
 
-    expect((new InstrumentationCache($directory))->probes('key')[0])->toBeInstanceOf(__PHP_Incomplete_Class::class);
+    expect(fn (): array => new InstrumentationCache($directory)->probes('key'))
+        ->toThrow(RuntimeException::class, "O mapa de sondas key está corrompido no cache {$directory}.");
 });
+
+it('rejects a map that is not a list of probes', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/key.map', serialize('probes'));
+
+    expect(fn (): array => new InstrumentationCache($directory)->probes('key'))
+        ->toThrow(RuntimeException::class, "O mapa de sondas key está corrompido no cache {$directory}.");
+});
+
+it('revives nothing but probes from a map, so a foreign object cannot run code', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/key.map', serialize([0 => new RevivalWitness()]));
+    RevivalWitness::$revived = false;
+
+    expect(fn (): array => new InstrumentationCache($directory)->probes('key'))
+        ->toThrow(RuntimeException::class)
+        ->and(RevivalWitness::$revived)->toBeFalse();
+});
+
+final class RevivalWitness
+{
+    public static bool $revived = false;
+
+    /** @param array<string, mixed> $data */
+    public function __unserialize(array $data): void
+    {
+        self::$revived = true;
+    }
+
+    /** @return array<string, mixed> */
+    public function __serialize(): array
+    {
+        return [];
+    }
+}

@@ -2,8 +2,7 @@
 
 declare(strict_types=1);
 
-use Sonda\Edit;
-use Sonda\SourceEditor;
+use Sonda\{Edit, SourceEditor};
 
 it('returns the code untouched without edits', function (): void {
     expect(SourceEditor::apply('abc', []))->toBe('abc');
@@ -28,4 +27,11 @@ it('nests wrappers that start or end at the same offset', function (): void {
 
 it('replaces a range of the original code', function (): void {
     expect(SourceEditor::apply('a__FILE__b', [new Edit(1, true, 0, "'f.php'", 8)]))->toBe("a'f.php'b");
+});
+
+it('edits by byte offset, so multibyte text before an edit does not shift it', function (): void {
+    $code = "\$mensagem = 'Atenção: ação não concluída';\n\$total = 1;";
+    $edit = new Edit((int) strpos($code, '$total'), true, 0, 'probe;');
+
+    expect(SourceEditor::apply($code, [$edit]))->toBe("\$mensagem = 'Atenção: ação não concluída';\nprobe;\$total = 1;");
 });

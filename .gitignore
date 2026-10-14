@@ -1,4 +1,23 @@
-vendor/
+# Composer
 composer.lock
-.phpunit.cache/
-coverage/
+/vendor
+
+# Node
+/node_modules
+package-lock.json
+npm-debug.log
+
+# Caches and build output
+.phpunit.cache
+.phpunit.result.cache
+/build
+/coverage
+
+# Local overrides of the dist files
+phpunit.xml
+phpstan.neon
+
+# Editors
+/.idea
+/.fleet
+/.vscode

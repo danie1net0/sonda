@@ -1,24 +1,71 @@
 {
-    "name": "danielneto/sonda",
-    "description": "Prototype: source-instrumented line and branch coverage for PHP, faster than Xdebug path coverage",
-    "type": "library",
-    "license": "proprietary",
-    "require": {
-        "php": "^8.4",
-        "nikic/php-parser": "^5.0",
-        "phpunit/phpunit": "^12.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "Sonda\\": "src/"
-        }
-    },
-    "require-dev": {
-        "pestphp/pest": "^4.0"
-    },
-    "config": {
-        "allow-plugins": {
-            "pestphp/pest-plugin": true
-        }
+  "name": "danie1net0/sonda",
+  "description": "Line and branch coverage for PHP by instrumenting the source: much faster and lighter than Xdebug path coverage",
+  "keywords": [
+    "coverage",
+    "branch-coverage",
+    "instrumentation",
+    "phpunit",
+    "pest",
+    "testing"
+  ],
+  "homepage": "https://github.com/danie1net0/sonda",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Daniel Neto",
+      "email": "danielneto314@gmail.com",
+      "role": "Developer"
     }
+  ],
+  "require": {
+    "php": "^8.4",
+    "nikic/php-parser": "^5.3",
+    "phpunit/php-code-coverage": "^12.0",
+    "phpunit/phpunit": "^12.0"
+  },
+  "require-dev": {
+    "laravel/pint": "^1.14",
+    "pestphp/pest": "^4.0",
+    "pestphp/pest-plugin-arch": "^4.0",
+    "phpstan/extension-installer": "^1.4",
+    "phpstan/phpstan": "^2.0",
+    "phpstan/phpstan-deprecation-rules": "^2.0",
+    "phpstan/phpstan-phpunit": "^2.0",
+    "rector/rector": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Sonda\\": "src/"
+    }
+  },
+  "scripts": {
+    "prepare-husky": "npx husky install",
+    "test": "pest",
+    "test:coverage": "pest --coverage",
+    "lint": "pint --test",
+    "lint:fix": "pint",
+    "analyse": "phpstan analyse --memory-limit=-1",
+    "refactor": "rector process",
+    "refactor:dry": "rector process --dry-run",
+    "check": [
+      "@lint",
+      "@analyse",
+      "@refactor:dry",
+      "@test"
+    ],
+    "format": [
+      "@refactor",
+      "@lint:fix"
+    ]
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true,
+      "phpstan/extension-installer": true
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
 }

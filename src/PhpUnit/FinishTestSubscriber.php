@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Sonda\PhpUnit;
 
 use Sonda\Hits;
-use PHPUnit\Event\Test\Finished;
-use PHPUnit\Event\Test\FinishedSubscriber;
+use PHPUnit\Event\Test\{Finished, FinishedSubscriber};
 
 final class FinishTestSubscriber implements FinishedSubscriber
 {

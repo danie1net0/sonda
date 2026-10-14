@@ -8,9 +8,9 @@ require __DIR__ . '/Support/helpers.php';
 
 pest()
     ->beforeEach(function (): void {
-        Hits::$current     = [];
+        Hits::$current = [];
         Hits::$accumulated = [];
-        Hits::$perTest     = false;
+        Hits::$perTest = false;
     })
     ->afterEach(function (): void {
         foreach (TemporaryDirectory::$created as $directory) {

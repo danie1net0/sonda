@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Sonda;
 
-use PhpParser\NodeTraverser;
-use PhpParser\ParserFactory;
+use PhpParser\{NodeTraverser, Parser, ParserFactory};
+use RuntimeException;
 
 /**
  * Source-level instrumenter: inserts probe text at byte offsets of the original source,
@@ -13,6 +13,8 @@ use PhpParser\ParserFactory;
  */
 final readonly class Instrumenter
 {
+    private Parser $parser;
+
     /**
      * @param bool $strict every `if` needs both outcomes tested: an `else` is synthesized when missing
      * @param bool $fast   bind a local reference once per call, so each probe is a single assignment
@@ -20,18 +22,23 @@ final readonly class Instrumenter
     public function __construct(
         private bool $strict = false,
         private bool $fast = false,
+        ?Parser $parser = null,
     ) {
+        $this->parser = $parser ?? new ParserFactory()->createForHostVersion();
     }
 
     public function instrument(string $path, string $fileId): InstrumentationResult
     {
-        $code   = file_get_contents($path);
-        $parser = (new ParserFactory)->createForHostVersion();
-        $ast    = $parser->parse($code);
+        $code = Filesystem::read($path);
+        $ast = $this->parser->parse($code);
 
-        $visitor = new InstrumentingVisitor($parser->getTokens(), $fileId, $path, $this->strict, $this->fast);
+        if ($ast === null) {
+            throw new RuntimeException("O arquivo {$path} não pôde ser analisado.");
+        }
+
+        $visitor = new InstrumentingVisitor($this->parser->getTokens(), $fileId, $path, $this->strict, $this->fast);
         $visitor->instrumentTopLevel($ast);
-        (new NodeTraverser($visitor))->traverse($ast);
+        new NodeTraverser($visitor)->traverse($ast);
 
         return new InstrumentationResult(SourceEditor::apply($code, $visitor->edits()), $visitor->probes());
     }
@@ -42,7 +49,7 @@ final readonly class Instrumenter
         $contents = '';
 
         foreach (self::sources() as $source) {
-            $contents .= file_get_contents($source);
+            $contents .= Filesystem::read($source);
         }
 
         return sha1($contents . (int) $this->strict . (int) $this->fast);
@@ -55,7 +62,7 @@ final readonly class Instrumenter
      */
     public static function sources(): array
     {
-        $sources   = [];
+        $sources = [];
         $sources[] = __FILE__;
         $sources[] = __DIR__ . '/InstrumentingVisitor.php';
         $sources[] = __DIR__ . '/SourceEditor.php';

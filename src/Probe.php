@@ -41,6 +41,6 @@ final readonly class Probe
     /** Branches of closures, arrow functions, hooks and file-level code are not reported. */
     public function countsAsBranch(): bool
     {
-        return $this->isBranch && !str_starts_with($this->functionName, '{');
+        return $this->isBranch && ! str_starts_with($this->functionName, '{');
     }
 }

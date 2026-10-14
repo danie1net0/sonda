@@ -2,17 +2,14 @@
 
 declare(strict_types=1);
 
-use Sonda\InstrumentationCache;
-use Sonda\InstrumentationResult;
-use Sonda\Probe;
+use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run};
 use Sonda\Report\RawCoverageBuilder;
-use Sonda\Run;
 
 /** @param array<int, Probe> $probes */
 function cachedRun(array $probes, array $hits, string $path = '/app/Order.php'): Run
 {
     $directory = TemporaryDirectory::create();
-    (new InstrumentationCache($directory))->store('key', new InstrumentationResult('<?php', $probes));
+    new InstrumentationCache($directory)->store('key', new InstrumentationResult('<?php', $probes));
 
     return new Run($directory, ['abc' => [$path, 'key']], $hits === [] ? [] : ['abc' => $hits]);
 }
@@ -82,7 +79,7 @@ it('leaves out files that are not source files', function (): void {
 
 it('keeps reading the files that follow one that is not a source file', function (): void {
     $directory = TemporaryDirectory::create();
-    (new InstrumentationCache($directory))->store('key', new InstrumentationResult('<?php', [0 => new Probe(3, false, '{main}', 0, 0)]));
+    new InstrumentationCache($directory)->store('key', new InstrumentationResult('<?php', [0 => new Probe(3, false, '{main}', 0, 0)]));
     $run = new Run($directory, ['a' => ['/app/Providers/AppProvider.php', 'key'], 'b' => ['/app/Order.php', 'key']], ['b' => [0 => 1]]);
 
     expect(RawCoverageBuilder::build($run, ['/app/Order.php'])->lineCoverage())
