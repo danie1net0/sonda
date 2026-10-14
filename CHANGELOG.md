@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/danie1net0/sonda/compare/v1.1.1...v1.1.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* **tools:** compare.php junta o callable de primeira classe do Xdebug e só aponta cegueira onde o Sonda diz 100% ([c448f56](https://github.com/danie1net0/sonda/commit/c448f56b8cb71df16eb27a6af3d5d0584e974d1d))
+
 ## [1.1.1](https://github.com/danie1net0/sonda/compare/v1.1.0...v1.1.1) (2026-10-14)
 
 
