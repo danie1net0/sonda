@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/danie1net0/sonda/compare/v1.1.2...v1.2.0) (2026-10-14)
+
+
+### Features
+
+* **estrito:** operando esquerdo de &&, ||, and e or decidindo sozinho conta como branch ([e5a40c0](https://github.com/danie1net0/sonda/commit/e5a40c0fca40f937364cc9c20065f0c46cd82dfe))
+
 ## [1.1.2](https://github.com/danie1net0/sonda/compare/v1.1.1...v1.1.2) (2026-10-14)
 
 
