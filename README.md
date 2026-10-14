@@ -157,6 +157,15 @@ No modo estrito, que é o padrão:
 O Sonda não conta o branch implícito de "nenhum braço casou" do `match`, que o Xdebug conta e
 nenhum teste alcança quando os braços cobrem todos os casos de um enum.
 
+O Sonda também não conta o desvio de fallback que o Xdebug vê em chamada a função nativa
+*frameless* (`in_array`, `max`, `preg_replace`, `str_contains`...) feita dentro de namespace sem
+`use function`: é um detalhe do opcode, não uma decisão do código, e um `use function` só para
+calar a cobertura deixa de ser necessário.
+
+Um método chamado como *first-class callable* (`$this->metodo(...)`) aparece no Xdebug como uma
+função solta com o nome do método, com os acertos, e o método da classe fica zerado; o Sonda
+credita o método. O `tools/compare.php` junta as duas entradas antes de comparar.
+
 ## Limitações conhecidas
 
 - Corpo vazio de `if` e de laço não ganha sonda.

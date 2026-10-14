@@ -8,6 +8,13 @@ use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 require getcwd() . '/vendor/autoload.php';
 require dirname(__DIR__) . '/autoload.php';
 
+function short(string $path): string
+{
+    $cwd = getcwd() . '/';
+
+    return str_starts_with($path, $cwd) ? substr($path, strlen($cwd)) : ltrim($path, '/');
+}
+
 function load(string $f): array
 {
     if (class_exists(Unserializer::class)) {
@@ -28,23 +35,51 @@ function load(string $f): array
     }
 
     foreach ($d['codeCoverage']->functionCoverage() as $file => $functions) {
+        $raw = [];
+
         foreach ($functions as $name => $data) {
             if (str_starts_with($name, '{') || str_contains($name, 'class@anonymous')) {
                 continue;
             }
             $branches = is_array($data) ? $data['branches'] : $data->branches;
-            $total = count($branches);
-            $hit = count(array_filter($branches, fn ($b) => (is_array($b) ? $b['hit'] : $b->hit) !== []));
-            $miss = [];
 
-            foreach ($branches as $b) {
-                $bh = is_array($b) ? $b['hit'] : $b->hit;
+            foreach ($branches as $id => $b) {
+                $raw[$name][$id] = is_array($b)
+                    ? [$b['hit'] !== [], $b['line_start'], $b['line_end']]
+                    : [$b->hit !== [], $b->line_start, $b->line_end];
+            }
+        }
 
-                if ($bh === []) {
-                    $miss[] = is_array($b) ? [$b['line_start'], $b['line_end']] : [$b->line_start, $b->line_end];
+        // Xdebug credits a method invoked as a first-class callable ($this->method(...)) to a bare
+        // function of the same name, leaving the class-qualified entry with no hits: fold them together.
+        foreach (array_keys($raw) as $name) {
+            if (str_contains($name, '->') || str_contains($name, '::')) {
+                continue;
+            }
+            $qualified = array_filter(array_keys($raw), fn ($q) => str_ends_with($q, '->' . $name) || str_ends_with($q, '::' . $name));
+
+            if (count($qualified) !== 1) {
+                continue;
+            }
+            $q = reset($qualified);
+
+            foreach ($raw[$name] as $id => [$hit]) {
+                if (isset($raw[$q][$id])) {
+                    $raw[$q][$id][0] = $raw[$q][$id][0] || $hit;
                 }
             }
-            $fns[$base . $file . '::' . $name] = [$hit, $total, $miss, $base . $file];
+            unset($raw[$name]);
+        }
+
+        foreach ($raw as $name => $branches) {
+            $miss = [];
+
+            foreach ($branches as [$hit, $ls, $le]) {
+                if (! $hit) {
+                    $miss[] = [$ls, $le];
+                }
+            }
+            $fns[$base . $file . '::' . $name] = [count($branches) - count($miss), count($branches), $miss, $base . $file];
         }
     }
 
@@ -76,7 +111,7 @@ foreach (array_unique([...array_keys($xl), ...array_keys($pl)]) as $file) {
     $p = $pl[$file] ?? [];
 
     foreach ($x + $p as $line => $_) {
-        $short = substr($file, strpos($file, '/src/') + 1) . ':' . $line;
+        $short = short($file) . ':' . $line;
 
         if (! isset($p[$line])) {
             $diff['only xdebug executable'][] = $short;
@@ -145,10 +180,15 @@ foreach ($pf as [$h, $t]) {
 }
 printf("BRANCH  xdebug: %d/%d (%.2f%%)   sonda: %d/%d (%.2f%%)\n", $xbh, $xbt, 100 * $xbh / max(1, $xbt), $pbh, $pbt, 100 * $pbh / max(1, $pbt));
 printf("METHOD 100%%-branch verdict: agree %d, xdebug-only-100%% %d, sonda-only-100%% %d, missing-in-sonda %d\n", $agree, $xOnlyFull, $pOnlyFull, $missing);
-// soundness: every block Xdebug says was missed must show up in sonda as a missed branch or missed line
+// soundness: a block Xdebug says was missed, in a method sonda reports as 100%, is a sonda blind spot
+// (a method sonda already reports as incomplete is not: its missed branch may sit on another line)
 $unsound = [];
 
 foreach ($xf as $k => [$h, $t, $xmiss, $file]) {
+    if (! isset($pf[$k]) || $pf[$k][2] !== []) {
+        continue;
+    }
+
     foreach ($xmiss as [$ls, $le]) {
         [$ls, $le] = [min($ls, $le), max($ls, $le)];
         $found = false;
@@ -167,7 +207,7 @@ foreach ($xf as $k => [$h, $t, $xmiss, $file]) {
         }
 
         if (! $found) {
-            $unsound[] = substr($k, strpos($k, '/src/') + 1) . " lines {$ls}-{$le}";
+            $unsound[] = short($k) . " lines {$ls}-{$le}";
         }
     }
 }
@@ -181,6 +221,6 @@ foreach ($list as $k => $v) {
     echo "  {$k}:\n";
 
     foreach (array_slice($v, 0, $verbose ? 40 : 8) as $s) {
-        echo "      ", substr($s, strpos($s, '/src/') + 1), "\n";
+        echo '      ', short($s), "\n";
     }
 }
