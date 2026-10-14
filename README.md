@@ -20,6 +20,11 @@ Suíte de um projeto Laravel 13 com Filament, Pest 4 e Postgres, 4.514 testes:
 
 Com `--parallel` (10 workers): 42s sem cobertura, 40s com o Sonda.
 
+O custo do Xdebug com paths é do próprio Xdebug, em C, e é por teste: num arquivo de 71 testes dessa
+suíte, 8s com o Xdebug carregado e a cobertura desligada, 257s com `XDEBUG_CC_BRANCH_CHECK` ligado
+uma vez no bootstrap, sem o php-code-coverage processar nada. Restringir os arquivos medidos não
+muda esse número.
+
 Fidelidade contra o Xdebug nessa suíte: 11.229 linhas comparadas, nenhuma divergência de linha
 coberta ou não coberta. Nos branches, o Sonda é mais rigoroso em dois pontos (ver semântica).
 
@@ -174,7 +179,15 @@ XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --path-cove
 XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --mutate --class='Sonda\Probe'
 php tools/lint-corpus.php vendor 1   # instrumenta um diretório inteiro e confere que o PHP continua válido
 php tools/compare.php xdebug.cov sonda.cov -v   # compara dois .cov linha a linha e método a método
+tools/compare-with-xdebug.sh <pasta de saída>   # na raiz de um projeto: Sonda, Xdebug com paths e a comparação, com summary.txt
 ```
+
+O `compare-with-xdebug.sh` roda a suíte duas vezes, com o Sonda e com o Xdebug em `--parallel`, e
+deixa `sonda.cov`, `xdebug.cov`, `compare.txt` e `summary.txt` na pasta informada; argumentos extras
+vão para o runner (`tools/compare-with-xdebug.sh saida tests/Feature/Pedidos` mede só essa pasta).
+Ele gera um `phpunit.xml` próprio com `pathCoverage="true"`, porque o ParaTest não aceita
+`--path-coverage`, e com caminhos absolutos. O `--coverage-filter` do PHPUnit não serve para
+restringir: ele soma ao `<source>` do `phpunit.xml`.
 
 Todo código novo sai com 100% de linhas e de branches, medidos com Xdebug, e com mutação sem
 sobreviventes além dos equivalentes. Os testes de `tests/Feature` rodam o `bin/sonda` e o
