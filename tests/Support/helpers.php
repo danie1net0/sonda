@@ -46,17 +46,19 @@ function instrumentCode(string $code, bool $strict = false, bool $fast = false, 
 /**
  * Expands probe placeholders of an expected instrumented source:
  * {pN} statement probe, {oN} opening of a wrapped expression, {c} its closing,
+ * {sN:true} or {sN:false} the opening of a short-circuit pass-through (closed by a plain `)`),
  * {lN} statement probe through the local reference, {LN} wrap opening through it,
  * {ref} the local reference binding.
  */
 function expected(string $template): string
 {
     return (string) preg_replace_callback(
-        '/\{(p|o|l|L)(\d+)\}|\{c\}|\{ref\}/',
+        '/\{(p|o|l|L)(\d+)\}|\{s(\d+):(true|false)\}|\{c\}|\{ref\}/',
         static fn (array $match): string => match ($match[0]) {
             '{c}' => ') : null)',
             '{ref}' => '$__sonda = &\\' . Hits::class . '::$current[\'f\'];',
             default => match ($match[1]) {
+                '' => '\\' . Hits::class . "::shortCircuit('f', " . $match[3] . ', ' . $match[4] . ', ',
                 'p' => '\\' . Hits::class . '::$current[\'f\'][' . $match[2] . ']=1;',
                 'o' => '((\\' . Hits::class . '::$current[\'f\'][' . $match[2] . ']=1) ? (',
                 'l' => '$__sonda[' . $match[2] . ']=1;',

@@ -63,6 +63,28 @@ it('records nothing for a null value when only the non-null outcome counts', fun
         ->and(Hits::$current)->toBe([]);
 });
 
+it('records the left operand of a conjunction deciding alone and passes it through', function (): void {
+    expect(Hits::shortCircuit('a', 1, false, 0))->toBe(0)
+        ->and(Hits::shortCircuit('a', 2, false, ''))->toBe('')
+        ->and(Hits::shortCircuit('a', 3, false, null))->toBeNull()
+        ->and(Hits::$current)->toBe(['a' => [1 => 1, 2 => 1, 3 => 1]]);
+});
+
+it('records nothing for a conjunction when the right operand still runs', function (): void {
+    $value = new stdClass();
+
+    expect(Hits::shortCircuit('a', 1, false, $value))->toBe($value)
+        ->and(Hits::shortCircuit('a', 2, false, '0.0'))->toBe('0.0')
+        ->and(Hits::$current)->toBe([]);
+});
+
+it('records the left operand of a disjunction deciding alone and passes it through', function (): void {
+    expect(Hits::shortCircuit('a', 1, true, [0]))->toBe([0])
+        ->and(Hits::shortCircuit('a', 2, true, 'x'))->toBe('x')
+        ->and(Hits::shortCircuit('a', 3, true, '0'))->toBe('0')
+        ->and(Hits::$current)->toBe(['a' => [1 => 1, 2 => 1]]);
+});
+
 it('treats false and zero as values, not as null', function (): void {
     expect(Hits::nullsafe('a', 1, 2, false))->toBeFalse()
         ->and(Hits::nullsafe('a', 3, 4, 0))->toBe(0)

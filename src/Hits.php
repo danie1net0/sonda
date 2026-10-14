@@ -55,6 +55,20 @@ final class Hits
         return null;
     }
 
+    /**
+     * Probes the left operand of `&&`, `||`, `and` and `or` deciding alone and passes it
+     * through: `$a && $b` becomes `Hits::shortCircuit('file', 4, false, $a) && $b`. The
+     * probe is hit when the operand's truthiness is the one that skips the right operand.
+     */
+    public static function shortCircuit(string $fileId, int $probe, bool $decidesWhenTruthy, mixed $value): mixed
+    {
+        if ((bool) $value === $decidesWhenTruthy) {
+            self::$current[$fileId][$probe] = 1;
+        }
+
+        return $value;
+    }
+
     /** @return array<string, array<int, int>> */
     public static function collected(): array
     {

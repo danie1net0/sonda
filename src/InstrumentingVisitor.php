@@ -259,20 +259,36 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         $this->enterShortCircuit($node);
     }
 
+    /**
+     * The right operand runs only when the left one does not decide alone: that is one outcome.
+     * In strict mode the other one, the left operand deciding alone (short-circuit), is probed
+     * too, through a pass-through call around the left operand; not for `??`, whose left side
+     * may be an undefined key that only the operator itself reads silently.
+     */
     private function enterShortCircuit(BinaryOp $node): void
     {
         $isCoalesce = $node instanceof Coalesce;
         $leftNeedsLineProbe = ! isset($this->probedLines[$node->left->getStartLine()]) && ! $this->isShortCircuit($node->left);
+        $probesShortCircuit = $this->strict && ! $isCoalesce;
 
         $this->wrapExpression($node->right, true);
 
-        if (! $leftNeedsLineProbe) {
-            return;
+        if ($probesShortCircuit) {
+            $skip = $this->probe(new Probe(null, true, $this->currentFunction(), $node->left->getStartLine(), $node->left->getEndLine()));
+            $decidesWhenTruthy = $node instanceof BooleanOr || $node instanceof LogicalOr ? 'true' : 'false';
+
+            $this->edits[] = Edit::opening($node->left->getStartFilePos(), self::HITS . "::shortCircuit('" . $this->fileId . "', {$skip}, {$decidesWhenTruthy}, ");
         }
 
-        // A leftmost operand alone on its line runs code on that line. The left side of `??`
-        // must stay a plain variable, or an undefined key would warn: the whole `??` is wrapped.
-        $this->wrapExpression($isCoalesce ? $node : $node->left, false);
+        if ($leftNeedsLineProbe) {
+            // A leftmost operand alone on its line runs code on that line. The left side of `??`
+            // must stay a plain variable, or an undefined key would warn: the whole `??` is wrapped.
+            $this->wrapExpression($isCoalesce ? $node : $node->left, false);
+        }
+
+        if ($probesShortCircuit) {
+            $this->close($node->left->getEndFilePos() + 1, ')');
+        }
     }
 
     /**

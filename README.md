@@ -153,6 +153,9 @@ No modo estrito, que é o padrão:
   Xdebug conta blocos básicos, então um `if` sem `else` cuja condição é sempre verdadeira dá
   100% nele e não no Sonda.
 - `?->` conta os dois lados, nulo e não nulo.
+- O operando esquerdo de `&&`, `||`, `and` e `or` precisa decidir sozinho ao menos uma vez (o
+  curto-circuito, quando o direito nem roda), como o Xdebug conta. Em `??` não: o lado esquerdo
+  pode ser uma chave indefinida, que só o próprio operador lê sem aviso.
 
 O Sonda não conta o branch implícito de "nenhum braço casou" do `match`, que o Xdebug conta e
 nenhum teste alcança quando os braços cobrem todos os casos de um enum.

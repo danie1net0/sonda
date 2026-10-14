@@ -774,6 +774,71 @@ it('wraps the right operand of short-circuit operators', function (): void {
         ]);
 });
 
+it('probes the left operand deciding alone in strict mode, except for ??', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+    <?php
+    $a = $b && $c;
+    $d = $e || $f;
+    $g = $h and $i;
+    $j = $k or $l;
+    $m = $n ?? $o;
+    PHP . "\n", strict: true);
+
+    expect($code)->toBe(expected(<<<'PHP'
+    <?php
+    {p0}$a = {s6:false}$b) && {o5}$c{c};
+    {p1}$d = {s8:true}$e) || {o7}$f{c};
+    {p2}{s10:false}$g = $h) and {o9}$i{c};
+    {p3}{s12:true}$j = $k) or {o11}$l{c};
+    {p4}$m = $n ?? {o13}$o{c};
+    PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(3, false, '{main}', 0, 0),
+            2 => new Probe(4, false, '{main}', 0, 0),
+            3 => new Probe(5, false, '{main}', 0, 0),
+            4 => new Probe(6, false, '{main}', 0, 0),
+            5 => new Probe(2, true, '{main}', 2, 2),
+            6 => new Probe(null, true, '{main}', 2, 2),
+            7 => new Probe(3, true, '{main}', 3, 3),
+            8 => new Probe(null, true, '{main}', 3, 3),
+            9 => new Probe(4, true, '{main}', 4, 4),
+            10 => new Probe(null, true, '{main}', 4, 4),
+            11 => new Probe(5, true, '{main}', 5, 5),
+            12 => new Probe(null, true, '{main}', 5, 5),
+            13 => new Probe(6, true, '{main}', 6, 6),
+        ]);
+});
+
+it('nests the short-circuit pass-through around a chained left operand and its line probe', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+    <?php
+    if (
+        $a !== '' &&
+        $b &&
+        $c
+    ) {
+        echo 1;
+    }
+    PHP . "\n", strict: true);
+
+    expect($code)->toBe(expected(<<<'PHP'
+    <?php
+    {p0}if (
+        {s4:false}{s6:false}{o7}$a !== ''{c}) &&
+        {o5}$b{c}) &&
+        {o3}$c{c}
+    ) {
+        {p1}echo 1;
+    } else { {p2} }
+    PHP . "\n"))
+        ->and($probes[3])->toEqual(new Probe(5, true, '{main}', 5, 5))
+        ->and($probes[4])->toEqual(new Probe(null, true, '{main}', 3, 4))
+        ->and($probes[5])->toEqual(new Probe(4, true, '{main}', 4, 4))
+        ->and($probes[6])->toEqual(new Probe(null, true, '{main}', 3, 3))
+        ->and($probes[7])->toEqual(new Probe(3, false, '{main}', 3, 3));
+});
+
 it('probes the leftmost operand when it has a line of its own', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
