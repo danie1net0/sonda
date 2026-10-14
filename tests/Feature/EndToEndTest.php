@@ -19,7 +19,7 @@ function runCommand(array $command, array $environment = []): string
 /**
  * Measures the fixture project with a test runner, writes the report and reads it back.
  *
- * @param list<string> $runner the command, before the covproto options
+ * @param list<string> $runner the command, before the sonda options
  *
  * @return array{output: string, runFiles: int, lines: array<string, array<int, bool>>, branches: array<string, list<bool>>}
  */
@@ -31,12 +31,12 @@ function measureFixtureProject(array $runner): array
     $output = runCommand(
         [...$runner, '-c', $project . '/phpunit.xml', '--bootstrap', 'bootstrap.php'],
         [
-            'COV_AUTOLOAD' => $project . '/autoload.php',
-            'COV_TARGET'   => $project . '/src',
-            'COV_CACHE'    => $directory . '/cache',
-            'COV_OUT'      => $directory . '/runs',
-            'COV_STRICT'   => '1',
-            'COV_CHAIN'    => $project . '/chained.php',
+            'SONDA_AUTOLOAD' => $project . '/autoload.php',
+            'SONDA_TARGET'   => $project . '/src',
+            'SONDA_CACHE'    => $directory . '/cache',
+            'SONDA_OUT'      => $directory . '/runs',
+            'SONDA_STRICT'   => '1',
+            'SONDA_CHAIN'    => $project . '/chained.php',
         ],
     );
     $report = runCommand([PHP_BINARY, 'report.php', $directory . '/runs', $project . '/src', $directory . '/coverage.cov']);

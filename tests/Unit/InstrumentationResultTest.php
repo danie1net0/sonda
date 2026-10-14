@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use CovProto\InstrumentationResult;
-use CovProto\Probe;
+use Sonda\InstrumentationResult;
+use Sonda\Probe;
 
 it('holds the instrumented code and its probes', function (): void {
     $probe  = new Probe(1, true, 'f', 1, 1);

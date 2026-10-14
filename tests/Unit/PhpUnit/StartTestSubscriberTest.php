@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use CovProto\Hits;
-use CovProto\PhpUnit\StartTestSubscriber;
+use Sonda\Hits;
+use Sonda\PhpUnit\StartTestSubscriber;
 use PHPUnit\Event\Test\PreparationStarted;
 
 it('opens an empty collection window when a test starts', function (): void {

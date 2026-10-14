@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use CovProto\Edit;
+use Sonda\Edit;
 
 it('orders edits by position first', function (): void {
     expect(Edit::compare(new Edit(1, true, 9, 'a'), new Edit(2, false, 0, 'b')))->toBe(-1)

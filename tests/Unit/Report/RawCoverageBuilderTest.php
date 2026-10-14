@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use CovProto\InstrumentationCache;
-use CovProto\InstrumentationResult;
-use CovProto\Probe;
-use CovProto\Report\RawCoverageBuilder;
-use CovProto\Run;
+use Sonda\InstrumentationCache;
+use Sonda\InstrumentationResult;
+use Sonda\Probe;
+use Sonda\Report\RawCoverageBuilder;
+use Sonda\Run;
 
 /** @param array<int, Probe> $probes */
 function cachedRun(array $probes, array $hits, string $path = '/app/Order.php'): Run

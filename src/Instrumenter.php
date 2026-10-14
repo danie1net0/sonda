@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 use PhpParser\NodeTraverser;
 use PhpParser\ParserFactory;

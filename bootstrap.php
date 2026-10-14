@@ -3,12 +3,12 @@
 declare(strict_types=1);
 
 // PHPUnit/Pest bootstrap, also with --parallel: --bootstrap <this file>
-// Settings come from the environment (see CovProto\Settings::fromEnvironment).
+// Settings come from the environment (see Sonda\Settings::fromEnvironment).
 
-use CovProto\Instrumenter;
-use CovProto\InstrumentingAutoloader;
-use CovProto\PhpUnit\CollectionWindow;
-use CovProto\Settings;
+use Sonda\Instrumenter;
+use Sonda\InstrumentingAutoloader;
+use Sonda\PhpUnit\CollectionWindow;
+use Sonda\Settings;
 
 require __DIR__ . '/autoload.php';
 

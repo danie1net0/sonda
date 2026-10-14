@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use CovProto\Hits;
-use CovProto\PhpUnit\FinishTestSubscriber;
+use Sonda\Hits;
+use Sonda\PhpUnit\FinishTestSubscriber;
 use PHPUnit\Event\Test\Finished;
 
 it('keeps the probes hit by a finished test', function (): void {

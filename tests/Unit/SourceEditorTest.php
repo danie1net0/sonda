@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use CovProto\Edit;
-use CovProto\SourceEditor;
+use Sonda\Edit;
+use Sonda\SourceEditor;
 
 it('returns the code untouched without edits', function (): void {
     expect(SourceEditor::apply('abc', []))->toBe('abc');

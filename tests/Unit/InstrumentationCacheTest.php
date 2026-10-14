@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use CovProto\InstrumentationCache;
-use CovProto\InstrumentationResult;
-use CovProto\Probe;
+use Sonda\InstrumentationCache;
+use Sonda\InstrumentationResult;
+use Sonda\Probe;
 
 it('places the code of a key in its directory', function (): void {
     expect((new InstrumentationCache('/cache'))->codePath('abc'))->toBe('/cache/abc.php');

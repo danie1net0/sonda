@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use CovProto\Hits;
+use Sonda\Hits;
 
 require __DIR__ . '/Support/helpers.php';
 

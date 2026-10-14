@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 use Closure;
 use Composer\Autoload\ClassLoader;
@@ -55,7 +55,7 @@ final class InstrumentingAutoloader
 
         $path = realpath($file);
 
-        // A classmap can still list a deleted file: Composer reports it, as without covproto.
+        // A classmap can still list a deleted file: Composer reports it, as without sonda.
         if ($path === false || !str_starts_with($path, $this->targetDirectory)) {
             return;
         }

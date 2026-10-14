@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 use PhpParser\Node;
 use PhpParser\Node\Expr;
@@ -45,7 +45,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /** @var list<array{node: Node, name: string}> */
     private array $classes;
 
-    /** @var non-empty-list<array{node: ?Node, name: string, local: bool}> local: holds a `$__cov` reference (fast mode) */
+    /** @var non-empty-list<array{node: ?Node, name: string, local: bool}> local: holds a `$__sonda` reference (fast mode) */
     private array $scopes;
 
     /** @var array<int, int> object ids of nodes where an undefined value gives no warning */
@@ -180,7 +180,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             return;
         }
 
-        $reference = $local ? '$__cov = &\CovProto\Hits::$current[\'' . $this->fileId . '\'];' : '';
+        $reference = $local ? '$__sonda = &\Sonda\Hits::$current[\'' . $this->fileId . '\'];' : '';
 
         $this->statementList($statements, true, $reference);
     }
@@ -286,7 +286,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         $null        = $this->strict ? $this->probe(new Probe(null, true, $function, $start, $end)) : 'null';
         $silentValue = isset($this->silentNodes[spl_object_id($node)]) ? ' ?? null' : '';
 
-        $this->edits[] = Edit::opening($node->var->getStartFilePos(), '\CovProto\Hits::nullsafe(\'' . $this->fileId . "', {$nonNull}, {$null}, ");
+        $this->edits[] = Edit::opening($node->var->getStartFilePos(), '\Sonda\Hits::nullsafe(\'' . $this->fileId . "', {$nonNull}, {$null}, ");
         $this->close($node->var->getEndFilePos() + 1, $silentValue . ')');
     }
 
@@ -494,10 +494,10 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     private function probeCode(int $id): string
     {
         if ($this->scopes[array_key_last($this->scopes)]['local']) {
-            return '$__cov[' . $id . ']=1';
+            return '$__sonda[' . $id . ']=1';
         }
 
-        return '\CovProto\Hits::$current[\'' . $this->fileId . '\'][' . $id . ']=1';
+        return '\Sonda\Hits::$current[\'' . $this->fileId . '\'][' . $id . ']=1';
     }
 
     private function currentFunction(): string

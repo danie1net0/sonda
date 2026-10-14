@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 /**
  * Runtime storage written by the probes of the instrumented code.

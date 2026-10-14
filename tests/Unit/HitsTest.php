@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use CovProto\Hits;
+use Sonda\Hits;
 
 it('starts a test with an empty window', function (): void {
     Hits::$current['a'][1] = 1;

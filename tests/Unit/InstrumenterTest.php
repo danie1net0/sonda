@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use CovProto\Hits;
-use CovProto\Instrumenter;
-use CovProto\Probe;
+use Sonda\Hits;
+use Sonda\Instrumenter;
+use Sonda\Probe;
 
 function writeSource(string $code): string
 {
@@ -29,9 +29,9 @@ it('instruments a file and keeps its line count', function (): void {
     $result = (new Instrumenter)->instrument(writeSource($code), 'file');
 
     expect($result->code)->toBe(
-        "<?php\n\\CovProto\\Hits::\$current['file'][0]=1;\$total = 1;\n"
-        . "\\CovProto\\Hits::\$current['file'][1]=1;if (\$total > 0) {\n"
-        . "    \\CovProto\\Hits::\$current['file'][2]=1;\$total++;\n}\n",
+        "<?php\n\\Sonda\\Hits::\$current['file'][0]=1;\$total = 1;\n"
+        . "\\Sonda\\Hits::\$current['file'][1]=1;if (\$total > 0) {\n"
+        . "    \\Sonda\\Hits::\$current['file'][2]=1;\$total++;\n}\n",
     )
         ->and(substr_count($result->code, "\n"))->toBe(substr_count($code, "\n"))
         ->and($result->probes)->toEqual([

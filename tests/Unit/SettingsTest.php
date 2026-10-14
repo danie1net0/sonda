@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use CovProto\Settings;
+use Sonda\Settings;
 
 function environment(array $overrides = []): array
 {
     $environment                 = [];
-    $environment['COV_AUTOLOAD'] = 'vendor/autoload.php';
-    $environment['COV_TARGET']   = 'app';
-    $environment['COV_CACHE']    = '/tmp/cache';
-    $environment['COV_OUT']      = '/tmp/runs';
+    $environment['SONDA_AUTOLOAD'] = 'vendor/autoload.php';
+    $environment['SONDA_TARGET']   = 'app';
+    $environment['SONDA_CACHE']    = '/tmp/cache';
+    $environment['SONDA_OUT']      = '/tmp/runs';
 
     return array_merge($environment, $overrides);
 }
@@ -27,7 +27,7 @@ it('reads the required settings and defaults the optional ones', function (): vo
 });
 
 it('reads the optional settings', function (): void {
-    $settings = Settings::fromEnvironment(environment(['COV_STRICT' => '1', 'COV_FAST' => '1', 'COV_CHAIN' => 'tests/bootstrap.php']));
+    $settings = Settings::fromEnvironment(environment(['SONDA_STRICT' => '1', 'SONDA_FAST' => '1', 'SONDA_CHAIN' => 'tests/bootstrap.php']));
 
     expect($settings)
         ->strict->toBeTrue()
@@ -36,13 +36,13 @@ it('reads the optional settings', function (): void {
 });
 
 it('turns on flags only with the value 1', function (): void {
-    expect(Settings::fromEnvironment(environment(['COV_STRICT' => 'true', 'COV_FAST' => '0'])))
+    expect(Settings::fromEnvironment(environment(['SONDA_STRICT' => 'true', 'SONDA_FAST' => '0'])))
         ->strict->toBeFalse()
         ->fast->toBeFalse();
 });
 
 it('treats an empty chained bootstrap as none', function (): void {
-    expect(Settings::fromEnvironment(environment(['COV_CHAIN' => ''])))->chainedBootstrap->toBeNull();
+    expect(Settings::fromEnvironment(environment(['SONDA_CHAIN' => ''])))->chainedBootstrap->toBeNull();
 });
 
 it('requires each mandatory setting', function (string $name): void {
@@ -51,9 +51,9 @@ it('requires each mandatory setting', function (string $name): void {
 
     expect(fn (): Settings => Settings::fromEnvironment($environment))
         ->toThrow(InvalidArgumentException::class, "A variável de ambiente {$name} é obrigatória.");
-})->with(['COV_AUTOLOAD', 'COV_TARGET', 'COV_CACHE', 'COV_OUT']);
+})->with(['SONDA_AUTOLOAD', 'SONDA_TARGET', 'SONDA_CACHE', 'SONDA_OUT']);
 
 it('rejects an empty mandatory setting', function (): void {
-    expect(fn (): Settings => Settings::fromEnvironment(environment(['COV_TARGET' => ''])))
-        ->toThrow(InvalidArgumentException::class, 'A variável de ambiente COV_TARGET é obrigatória.');
+    expect(fn (): Settings => Settings::fromEnvironment(environment(['SONDA_TARGET' => ''])))
+        ->toThrow(InvalidArgumentException::class, 'A variável de ambiente SONDA_TARGET é obrigatória.');
 });

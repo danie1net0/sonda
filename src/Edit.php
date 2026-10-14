@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 /**
  * Text inserted at (or replacing a range starting at) a byte offset of the original source.

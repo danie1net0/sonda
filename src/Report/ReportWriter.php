@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CovProto\Report;
+namespace Sonda\Report;
 
-use CovProto\Run;
+use Sonda\Run;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Filter;
 use SebastianBergmann\CodeCoverage\Report\PHP;
@@ -21,7 +21,7 @@ final class ReportWriter
 
         // Branch data needs no flag: php-code-coverage keeps whatever the raw data brings.
         $codeCoverage = new CodeCoverage(new CoverageDriver, $filter);
-        $codeCoverage->append(RawCoverageBuilder::build($run, $sourceFiles), 'covproto');
+        $codeCoverage->append(RawCoverageBuilder::build($run, $sourceFiles), 'sonda');
 
         (new PHP)->process($codeCoverage, $outputFile);
     }

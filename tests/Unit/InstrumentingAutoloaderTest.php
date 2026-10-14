@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 use Composer\Autoload\ClassLoader;
-use CovProto\Hits;
-use CovProto\Instrumenter;
-use CovProto\InstrumentingAutoloader;
-use CovProto\Run;
+use Sonda\Hits;
+use Sonda\Instrumenter;
+use Sonda\InstrumentingAutoloader;
+use Sonda\Run;
 
 /**
  * A project with one class in the target directory and one outside it, under a namespace

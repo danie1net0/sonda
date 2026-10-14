@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use CovProto\InstrumentingVisitor;
-use CovProto\Probe;
-use CovProto\SourceEditor;
+use Sonda\InstrumentingVisitor;
+use Sonda\Probe;
+use Sonda\SourceEditor;
 use PhpParser\NodeTraverser;
 use PhpParser\ParserFactory;
 
@@ -15,7 +15,7 @@ final class TemporaryDirectory
 
     public static function create(): string
     {
-        $directory = sys_get_temp_dir() . '/covproto-test-' . bin2hex(random_bytes(8));
+        $directory = sys_get_temp_dir() . '/sonda-test-' . bin2hex(random_bytes(8));
         mkdir($directory, 0777, true);
 
         self::$created[] = $directory;
@@ -67,12 +67,12 @@ function expected(string $template): string
         static function (array $match): string {
             return match ($match[0]) {
                 '{c}'   => ') : null)',
-                '{ref}' => '$__cov = &\CovProto\Hits::$current[\'f\'];',
+                '{ref}' => '$__sonda = &\Sonda\Hits::$current[\'f\'];',
                 default => match ($match[1]) {
-                    'p'     => '\CovProto\Hits::$current[\'f\'][' . $match[2] . ']=1;',
-                    'o'     => '((\CovProto\Hits::$current[\'f\'][' . $match[2] . ']=1) ? (',
-                    'l'     => '$__cov[' . $match[2] . ']=1;',
-                    default => '(($__cov[' . $match[2] . ']=1) ? (',
+                    'p'     => '\Sonda\Hits::$current[\'f\'][' . $match[2] . ']=1;',
+                    'o'     => '((\Sonda\Hits::$current[\'f\'][' . $match[2] . ']=1) ? (',
+                    'l'     => '$__sonda[' . $match[2] . ']=1;',
+                    default => '(($__sonda[' . $match[2] . ']=1) ? (',
                 },
             };
         },

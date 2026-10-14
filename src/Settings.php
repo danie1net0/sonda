@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 use InvalidArgumentException;
 
@@ -21,24 +21,24 @@ final readonly class Settings
     }
 
     /**
-     * COV_AUTOLOAD (autoload.php of the measured project), COV_TARGET (directory to instrument),
-     * COV_CACHE (instrumented files) and COV_OUT (directory of the run files, one per process)
-     * are required; COV_STRICT=1, COV_FAST=1 and COV_CHAIN (the project's own bootstrap) are
+     * SONDA_AUTOLOAD (autoload.php of the measured project), SONDA_TARGET (directory to instrument),
+     * SONDA_CACHE (instrumented files) and SONDA_OUT (directory of the run files, one per process)
+     * are required; SONDA_STRICT=1, SONDA_FAST=1 and SONDA_CHAIN (the project's own bootstrap) are
      * optional.
      *
      * @param array<string, string> $environment
      */
     public static function fromEnvironment(array $environment): self
     {
-        $chainedBootstrap = $environment['COV_CHAIN'] ?? '';
+        $chainedBootstrap = $environment['SONDA_CHAIN'] ?? '';
 
         return new self(
-            self::required($environment, 'COV_AUTOLOAD'),
-            self::required($environment, 'COV_TARGET'),
-            self::required($environment, 'COV_CACHE'),
-            self::required($environment, 'COV_OUT'),
-            ($environment['COV_STRICT'] ?? null) === '1',
-            ($environment['COV_FAST'] ?? null) === '1',
+            self::required($environment, 'SONDA_AUTOLOAD'),
+            self::required($environment, 'SONDA_TARGET'),
+            self::required($environment, 'SONDA_CACHE'),
+            self::required($environment, 'SONDA_OUT'),
+            ($environment['SONDA_STRICT'] ?? null) === '1',
+            ($environment['SONDA_FAST'] ?? null) === '1',
             $chainedBootstrap !== '' ? $chainedBootstrap : null,
         );
     }

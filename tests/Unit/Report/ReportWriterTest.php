@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use CovProto\InstrumentationCache;
-use CovProto\InstrumentationResult;
-use CovProto\Probe;
-use CovProto\Report\CoverageDriver;
-use CovProto\Report\ReportWriter;
-use CovProto\Run;
+use Sonda\InstrumentationCache;
+use Sonda\InstrumentationResult;
+use Sonda\Probe;
+use Sonda\Report\CoverageDriver;
+use Sonda\Report\ReportWriter;
+use Sonda\Run;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 
 it('writes a php-code-coverage file with the lines and branches of the run', function (): void {

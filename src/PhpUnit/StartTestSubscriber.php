@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CovProto\PhpUnit;
+namespace Sonda\PhpUnit;
 
-use CovProto\Hits;
+use Sonda\Hits;
 use PHPUnit\Event\Test\PreparationStarted;
 use PHPUnit\Event\Test\PreparationStartedSubscriber;
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use CovProto\InstrumentationCache;
-use CovProto\InstrumentationResult;
-use CovProto\Probe;
-use CovProto\Run;
+use Sonda\InstrumentationCache;
+use Sonda\InstrumentationResult;
+use Sonda\Probe;
+use Sonda\Run;
 
 it('saves and loads a run', function (): void {
     $path = TemporaryDirectory::create() . '/run.ser';
@@ -21,12 +21,12 @@ it('fails to load a file that is not a run', function (): void {
     file_put_contents($path, serialize(['not', 'a', 'run']));
 
     expect(fn (): Run => Run::load($path))
-        ->toThrow(RuntimeException::class, "O arquivo {$path} não contém uma execução do covproto.");
+        ->toThrow(RuntimeException::class, "O arquivo {$path} não contém uma execução do sonda.");
 });
 
 it('fails to load a missing file', function (): void {
     expect(fn (): Run => Run::load('/missing/run.ser'))
-        ->toThrow(RuntimeException::class, 'O arquivo /missing/run.ser não contém uma execução do covproto.');
+        ->toThrow(RuntimeException::class, 'O arquivo /missing/run.ser não contém uma execução do sonda.');
 });
 
 it('reads the probes of a file from its cache', function (): void {
@@ -81,7 +81,7 @@ it('fails to load a directory without runs', function (): void {
     $directory = TemporaryDirectory::create();
 
     expect(fn (): Run => Run::loadDirectory($directory))
-        ->toThrow(RuntimeException::class, "O diretório {$directory} não tem execuções do covproto.");
+        ->toThrow(RuntimeException::class, "O diretório {$directory} não tem execuções do sonda.");
 });
 
 it('keeps the cache directory of the first run when merging', function (): void {

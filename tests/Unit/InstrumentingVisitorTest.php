@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use CovProto\Probe;
+use Sonda\Probe;
 
 it('puts a probe before each statement', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
@@ -1350,8 +1350,8 @@ it('probes the value before each ?->, keeping the chain', function (): void {
 
     expect($code)->toBe(expected(<<<'PHP'
         <?php
-        {p0}$name = \CovProto\Hits::nullsafe('f', 2, null, \CovProto\Hits::nullsafe('f', 3, null, $order)?->customer())?->name;
-        {p1}$total = \CovProto\Hits::nullsafe('f', 4, null, $order)?->items->count();
+        {p0}$name = \Sonda\Hits::nullsafe('f', 2, null, \Sonda\Hits::nullsafe('f', 3, null, $order)?->customer())?->name;
+        {p1}$total = \Sonda\Hits::nullsafe('f', 4, null, $order)?->items->count();
         PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
@@ -1370,7 +1370,7 @@ it('probes both outcomes of ?-> in strict mode', function (): void {
 
     expect($code)->toBe(expected(<<<'PHP'
         <?php
-        {p0}$name = \CovProto\Hits::nullsafe('f', 1, 2, $order)?->customer;
+        {p0}$name = \Sonda\Hits::nullsafe('f', 1, 2, $order)?->customer;
         PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
@@ -1390,10 +1390,10 @@ it('keeps an undefined left side of ?-> silent inside isset, empty and ??', func
 
     expect($code)->toBe(expected(<<<'PHP'
         <?php
-        {p0}$a = isset(\CovProto\Hits::nullsafe('f', 4, null, $data['user'] ?? null)?->name);
-        {p1}$b = empty(\CovProto\Hits::nullsafe('f', 5, null, $user ?? null)?->email);
-        {p2}$c = \CovProto\Hits::nullsafe('f', 7, null, $payload['customer'] ?? null)?->name ?? {o6}'none'{c};
-        {p3}$d = $fallback ?? {o8}\CovProto\Hits::nullsafe('f', 9, null, $user)?->name{c};
+        {p0}$a = isset(\Sonda\Hits::nullsafe('f', 4, null, $data['user'] ?? null)?->name);
+        {p1}$b = empty(\Sonda\Hits::nullsafe('f', 5, null, $user ?? null)?->email);
+        {p2}$c = \Sonda\Hits::nullsafe('f', 7, null, $payload['customer'] ?? null)?->name ?? {o6}'none'{c};
+        {p3}$d = $fallback ?? {o8}\Sonda\Hits::nullsafe('f', 9, null, $user)?->name{c};
         PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
@@ -1417,8 +1417,8 @@ it('silences ?-> method calls in isset, but not the operands of &&', function ()
 
     expect($code)->toBe(expected(<<<'PHP'
         <?php
-        {p0}$a = isset(\CovProto\Hits::nullsafe('f', 2, null, $data['user'] ?? null)?->profile()->name);
-        {p1}$b = \CovProto\Hits::nullsafe('f', 4, null, $user)?->name && {o3}$active{c};
+        {p0}$a = isset(\Sonda\Hits::nullsafe('f', 2, null, $data['user'] ?? null)?->profile()->name);
+        {p1}$b = \Sonda\Hits::nullsafe('f', 4, null, $user)?->name && {o3}$active{c};
         PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),

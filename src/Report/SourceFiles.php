@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto\Report;
+namespace Sonda\Report;
 
 use FilesystemIterator;
 use RecursiveDirectoryIterator;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace CovProto\PhpUnit;
+namespace Sonda\PhpUnit;
 
-use CovProto\Hits;
+use Sonda\Hits;
 use PHPUnit\Event\EventFacadeIsSealedException;
 use PHPUnit\Event\Facade as EventFacade;
 
@@ -13,7 +13,7 @@ use PHPUnit\Event\Facade as EventFacade;
  *
  * Opened from the bootstrap, which PHPUnit and every ParaTest worker run before sealing their
  * event facade. An extension would not do: ParaTest does not pass `--extension` to its workers.
- * The event facade is internal to PHPUnit, which is why covproto supports PHPUnit 12 only.
+ * The event facade is internal to PHPUnit, which is why sonda supports PHPUnit 12 only.
  */
 final class CollectionWindow
 {

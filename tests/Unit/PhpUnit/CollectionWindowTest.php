@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use CovProto\Hits;
-use CovProto\PhpUnit\CollectionWindow;
-use CovProto\PhpUnit\FinishTestSubscriber;
-use CovProto\PhpUnit\StartTestSubscriber;
+use Sonda\Hits;
+use Sonda\PhpUnit\CollectionWindow;
+use Sonda\PhpUnit\FinishTestSubscriber;
+use Sonda\PhpUnit\StartTestSubscriber;
 use PHPUnit\Event\Facade as EventFacade;
 use PHPUnit\Event\Test\Finished;
 use PHPUnit\Event\Test\PreparationStarted;

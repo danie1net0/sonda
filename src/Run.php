@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 use RuntimeException;
 
@@ -28,7 +28,7 @@ final readonly class Run
         $run = is_file($path) ? unserialize(file_get_contents($path), ['allowed_classes' => [self::class]]) : null;
 
         if (!$run instanceof self) {
-            throw new RuntimeException("O arquivo {$path} não contém uma execução do covproto.");
+            throw new RuntimeException("O arquivo {$path} não contém uma execução do sonda.");
         }
 
         return $run;
@@ -40,7 +40,7 @@ final readonly class Run
         $files = glob($directory . '/run-*.ser');
 
         if ($files === []) {
-            throw new RuntimeException("O diretório {$directory} não tem execuções do covproto.");
+            throw new RuntimeException("O diretório {$directory} não tem execuções do sonda.");
         }
 
         return self::merge(array_map(self::load(...), $files));

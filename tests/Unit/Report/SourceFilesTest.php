@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use CovProto\Report\SourceFiles;
+use Sonda\Report\SourceFiles;
 
 function sourceTree(): string
 {

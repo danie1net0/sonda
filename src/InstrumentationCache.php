@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace CovProto;
+namespace Sonda;
 
 use RuntimeException;
 
@@ -58,7 +58,7 @@ final readonly class InstrumentationCache
     /** Parallel test workers may write the same file: each writes its own temporary file. */
     private function writeAtomically(string $path, string $contents): void
     {
-        $temporary = tempnam($this->directory, 'covproto');
+        $temporary = tempnam($this->directory, 'sonda');
 
         file_put_contents($temporary, $contents);
         rename($temporary, $path);

@@ -1,5 +1,5 @@
 {
-    "name": "danielneto/covproto",
+    "name": "danielneto/sonda",
     "description": "Prototype: source-instrumented line and branch coverage for PHP, faster than Xdebug path coverage",
     "type": "library",
     "license": "proprietary",
@@ -10,7 +10,7 @@
     },
     "autoload": {
         "psr-4": {
-            "CovProto\\": "src/"
+            "Sonda\\": "src/"
         }
     },
     "require-dev": {

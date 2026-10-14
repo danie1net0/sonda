@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use CovProto\Probe;
+use Sonda\Probe;
 
 it('lists its extra lines and its own line', function (): void {
     $probe = new Probe(3, false, 'f', 3, 5, [4, 5]);

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use CovProto\Report\CoverageDriver;
+use Sonda\Report\CoverageDriver;
 
 it('names itself', function (): void {
-    expect((new CoverageDriver)->nameAndVersion())->toBe('covproto');
+    expect((new CoverageDriver)->nameAndVersion())->toBe('sonda');
 });
 
 it('collects nothing itself', function (): void {
