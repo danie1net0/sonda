@@ -71,9 +71,7 @@ final readonly class Run
     /** Saves under a name of its own, so the processes of a parallel run do not overwrite each other. */
     public function saveIn(string $directory): string
     {
-        if (! is_dir($directory)) {
-            mkdir($directory, 0777, true);
-        }
+        Filesystem::privateDirectory($directory);
 
         $path = $directory . '/run-' . getmypid() . '-' . bin2hex(random_bytes(4)) . '.ser';
         $this->save($path);

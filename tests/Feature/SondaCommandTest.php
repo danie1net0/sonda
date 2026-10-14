@@ -54,7 +54,13 @@ function sondaProject(): string
 /** @return array{0: int, 1: string} the exit code and everything the command printed */
 function sonda(string $root, string ...$arguments): array
 {
-    $process = proc_open([PHP_BINARY, dirname(__DIR__, 2) . '/bin/sonda', ...$arguments], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+    $process = proc_open(
+        [PHP_BINARY, dirname(__DIR__, 2) . '/bin/sonda', ...$arguments],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $root,
+        [...getenv(), 'XDG_CACHE_HOME' => $root . '/.cache'],
+    );
 
     if (! is_resource($process)) {
         throw new RuntimeException('Não foi possível iniciar o sonda.');

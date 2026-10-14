@@ -13,7 +13,7 @@ final class TemporaryDirectory
     public static function create(): string
     {
         $directory = sys_get_temp_dir() . '/sonda-test-' . bin2hex(random_bytes(8));
-        mkdir($directory, 0777, true);
+        mkdir($directory, 0o700, true);
 
         self::$created[] = $directory;
 

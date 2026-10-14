@@ -103,7 +103,17 @@ it('registers itself before the other autoloaders', function (): void {
     spl_autoload_unregister($first);
 
     expect($first)->toBeInstanceOf(Closure::class)
-        ->and(new ReflectionFunction($first)->getClosureThis())->toBe($autoloader);
+        ->and(new ReflectionFunction($first)->getClosureThis())->toBe($autoloader)
+        ->and(fileperms($directory . '/cache') & 0o777)->toBe(0o700);
+});
+
+it('refuses to register over a cache directory open to other users', function (): void {
+    ['directory' => $directory, 'loader' => $loader] = fixtureProject();
+    mkdir($directory . '/cache', 0o755);
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
+
+    expect(fn () => $autoloader->register())
+        ->toThrow(RuntimeException::class, "O diretório {$directory}/cache precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
 });
 
 it('reports a run with the probes collected so far', function (): void {

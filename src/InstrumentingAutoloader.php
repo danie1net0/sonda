@@ -29,8 +29,11 @@ final class InstrumentingAutoloader
         $this->cache = new InstrumentationCache($cacheDirectory);
     }
 
+    /** The cache is where the included code comes from: it must be the current user's alone. */
     public function register(): void
     {
+        Filesystem::privateDirectory($this->cacheDirectory);
+
         spl_autoload_register($this->load(...), prepend: true);
     }
 

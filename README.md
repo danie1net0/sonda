@@ -93,7 +93,10 @@ faz o mesmo com uma lista explícita.
 | `--no-parallel` | não usa o ParaTest mesmo quando instalado |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
 
-Cache e execuções ficam em `sys_get_temp_dir()/sonda/<projeto>`, fora do projeto.
+Cache e execuções ficam fora do projeto, em `$XDG_CACHE_HOME/sonda` ou `~/.cache/sonda`, num
+diretório privado do usuário (modo 0700): as cópias instrumentadas rodam como código, então
+ninguém mais pode escrever ali. O Sonda recusa um diretório de cache que pertença a outro usuário
+ou esteja aberto a outros.
 
 ### Sem o comando
 

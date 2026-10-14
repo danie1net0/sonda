@@ -49,7 +49,7 @@ it('saves under a name of its own in a directory it creates', function (): void 
     $second = $run->saveIn($directory);
 
     expect($first)->not->toBe($second)
-        ->and(fileperms($directory) & 0777)->toBe(0777 & ~umask())
+        ->and(fileperms($directory) & 0o777)->toBe(0o700)
         ->and(dirname($first))->toBe($directory)
         ->and(basename($first))->toMatch('/^run-' . getmypid() . '-[0-9a-f]{8}\.ser$/')
         ->and(Run::load($first))->toEqual($run)

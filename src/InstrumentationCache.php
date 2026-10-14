@@ -29,9 +29,7 @@ final readonly class InstrumentationCache
     /** The map is written before the code, so a cached file always has its map. */
     public function store(string $key, InstrumentationResult $result): void
     {
-        if (! is_dir($this->directory)) {
-            mkdir($this->directory, 0777, true);
-        }
+        Filesystem::privateDirectory($this->directory);
 
         $this->writeAtomically($this->mapPath($key), serialize($result->probes));
         $this->writeAtomically($this->codePath($key), $result->code);

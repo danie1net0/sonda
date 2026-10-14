@@ -18,7 +18,7 @@ it('stores the code and the probe map, creating the directory', function (): voi
     $cache->store('key', new InstrumentationResult('<?php echo 1;', $probes));
 
     expect($cache->has('key'))->toBeTrue()
-        ->and(fileperms($directory) & 0777)->toBe(0777 & ~umask())
+        ->and(fileperms($directory) & 0o777)->toBe(0o700)
         ->and(file_get_contents($directory . '/key.php'))->toBe('<?php echo 1;')
         ->and($cache->probes('key'))->toEqual($probes)
         ->and(array_map(basename(...), glob($directory . '/*')))->toBe(['key.map', 'key.php']);

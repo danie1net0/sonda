@@ -28,7 +28,7 @@ function application(): array
         throw new RuntimeException('Sem memória para a saída.');
     }
 
-    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create())), $output, $error, $processes];
+    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda')), $output, $error, $processes];
 }
 
 /** @param resource $stream */

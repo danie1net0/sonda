@@ -24,6 +24,34 @@ final class Filesystem
         return $contents;
     }
 
+    /**
+     * Creates a directory only its owner can enter, or checks that an existing one is so. The
+     * instrumented copies kept there run as code, so nobody else may write to it.
+     */
+    public static function privateDirectory(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            // Parallel test workers may create it at the same time: the loser's warning is noise.
+            set_error_handler(static fn (): bool => true);
+
+            try {
+                mkdir($directory, 0o700, true);
+            } finally {
+                restore_error_handler();
+            }
+        }
+
+        $info = new SplFileInfo($directory);
+
+        if (! $info->isDir()) {
+            throw new RuntimeException("Não foi possível criar o diretório {$directory}.");
+        }
+
+        if ($info->getOwner() !== getmyuid() || ($info->getPerms() & 0o077) !== 0) {
+            throw new RuntimeException("O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
+        }
+    }
+
     /** Removes a directory with everything in it; a missing one is fine. */
     public static function removeDirectory(string $directory): void
     {

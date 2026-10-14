@@ -76,7 +76,7 @@ function runTestCommand(FakeRunner $runner, string $root, TestOptions $options, 
         throw new RuntimeException('Sem memória para a saída.');
     }
 
-    $status = new TestCommand($runner, '/opt/sonda', $temporaryRoot)->run($options, $root, $output);
+    $status = new TestCommand($runner, '/opt/sonda', $temporaryRoot . '/sonda')->run($options, $root, $output);
     rewind($output);
 
     return [$status, (string) stream_get_contents($output)];
@@ -89,7 +89,7 @@ it('runs the project tests instrumented and reports the coverage of its source',
 
     [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--filter=Order']), $temporary);
 
-    $work = $temporary . '/' . substr(sha1($root), 0, 12);
+    $work = $temporary . '/sonda/' . substr(sha1($root), 0, 12);
 
     expect($status)->toBe(0)
         ->and($runner->command)->toBe([PHP_BINARY, 'vendor/bin/phpunit', '--no-coverage', '--bootstrap=/opt/sonda/bootstrap.php', '--filter=Order'])
@@ -107,6 +107,8 @@ it('runs the project tests instrumented and reports the coverage of its source',
         ])
         ->and($runner->environment['SONDA_OUT'])->toMatch('#^' . preg_quote($work . '/runs-', '#') . '[0-9a-f]{8}$#')
         ->and(is_dir($runner->environment['SONDA_OUT']))->toBeFalse()
+        ->and(fileperms($temporary . '/sonda') & 0o777)->toBe(0o700)
+        ->and(fileperms($work) & 0o777)->toBe(0o700)
         ->and($output)->toBe("\nCobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
 });
 
@@ -227,3 +229,21 @@ it('measures the files changed since a reference together with the ones given', 
     expect($status)->toBe(1)
         ->and($runner->environment)->toHaveKey('SONDA_ONLY', implode(PATH_SEPARATOR, [$root . '/app/Extra.php', $root . '/app/Kept.php', $root . '/app/Order.php']));
 });
+
+it('refuses to work under a directory open to other users, before running anything', function (string $shared): void {
+    $root = fakeProject();
+    $temporary = TemporaryDirectory::create();
+    $work = $temporary . '/sonda/' . substr(sha1($root), 0, 12);
+    mkdir($temporary . '/sonda', $shared === 'root' ? 0o755 : 0o700);
+
+    if ($shared === 'project') {
+        mkdir($work, 0o755);
+    }
+
+    $runner = new FakeRunner();
+    $refused = $shared === 'root' ? $temporary . '/sonda' : $work;
+
+    expect(fn (): array => runTestCommand($runner, $root, TestOptions::parse([]), $temporary))
+        ->toThrow(RuntimeException::class, "O diretório {$refused} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.")
+        ->and($runner->calls)->toBe(0);
+})->with(['root', 'project']);
