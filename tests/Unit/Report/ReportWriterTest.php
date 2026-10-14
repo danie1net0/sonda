@@ -37,7 +37,7 @@ it('writes a php-code-coverage file with the lines and branches of the run', fun
     $run = new Run($directory . '/cache', ['abc' => [$order, 'key']], ['abc' => [0 => 1, 2 => 1]]);
     $output = $directory . '/coverage.cov';
 
-    ReportWriter::write($run, $directory . '/app', [$directory . '/app/Providers'], $output);
+    ReportWriter::write($run, [$directory . '/app'], [$directory . '/app/Providers'], $output);
 
     $coverage = require $output;
     $data = $coverage->getData();
@@ -52,6 +52,6 @@ it('writes a php-code-coverage file with the lines and branches of the run', fun
 });
 
 it('refuses an empty output path', function (): void {
-    expect(fn () => ReportWriter::write(new Run('/cache', [], []), '/app', [], ''))
+    expect(fn () => ReportWriter::write(new Run('/cache', [], []), ['/app'], [], ''))
         ->toThrow(InvalidArgumentException::class, 'O caminho do relatório não pode ser vazio.');
 });

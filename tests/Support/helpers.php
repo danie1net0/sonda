@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Sonda\{Hits, InstrumentingVisitor, Probe, SourceEditor};
+use Sonda\{Filesystem, Hits, InstrumentingVisitor, Probe, SourceEditor};
 use PhpParser\{NodeTraverser, ParserFactory};
 
 final class TemporaryDirectory
@@ -22,18 +22,7 @@ final class TemporaryDirectory
 
     public static function remove(string $directory): void
     {
-        if (! is_dir($directory)) {
-            return;
-        }
-
-        $entries = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
-
-        /** @var SplFileInfo $entry */
-        foreach ($entries as $entry) {
-            $entry->isDir() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
-        }
-
-        rmdir($directory);
+        Filesystem::removeDirectory($directory);
     }
 }
 

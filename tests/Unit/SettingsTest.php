@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
-use Sonda\Settings;
+use Sonda\{Scope, Settings};
 
+/**
+ * @param array<string, string> $overrides
+ *
+ * @return array<string, string>
+ */
 function environment(array $overrides = []): array
 {
     $environment = [];
@@ -18,7 +23,9 @@ function environment(array $overrides = []): array
 it('reads the required settings and defaults the optional ones', function (): void {
     expect(Settings::fromEnvironment(environment()))
         ->autoloadPath->toBe('vendor/autoload.php')
-        ->targetDirectory->toBe('app')
+        ->targetDirectories->toBe(['app'])
+        ->excludedDirectories->toBe([])
+        ->onlyFiles->toBe([])
         ->cacheDirectory->toBe('/tmp/cache')
         ->outputDirectory->toBe('/tmp/runs')
         ->strict->toBeFalse()
@@ -27,9 +34,19 @@ it('reads the required settings and defaults the optional ones', function (): vo
 });
 
 it('reads the optional settings', function (): void {
-    $settings = Settings::fromEnvironment(environment(['SONDA_STRICT' => '1', 'SONDA_FAST' => '1', 'SONDA_CHAIN' => 'tests/bootstrap.php']));
+    $settings = Settings::fromEnvironment(environment([
+        'SONDA_TARGET' => 'app' . PATH_SEPARATOR . 'src',
+        'SONDA_EXCLUDE' => 'app/Providers' . PATH_SEPARATOR . PATH_SEPARATOR . 'app/Console',
+        'SONDA_ONLY' => 'app/Order.php',
+        'SONDA_STRICT' => '1',
+        'SONDA_FAST' => '1',
+        'SONDA_CHAIN' => 'tests/bootstrap.php',
+    ]));
 
     expect($settings)
+        ->targetDirectories->toBe(['app', 'src'])
+        ->excludedDirectories->toBe(['app/Providers', 'app/Console'])
+        ->onlyFiles->toBe(['app/Order.php'])
         ->strict->toBeTrue()
         ->fast->toBeTrue()
         ->chainedBootstrap->toBe('tests/bootstrap.php');
@@ -56,4 +73,17 @@ it('requires each mandatory setting', function (string $name): void {
 it('rejects an empty mandatory setting', function (): void {
     expect(fn (): Settings => Settings::fromEnvironment(environment(['SONDA_TARGET' => ''])))
         ->toThrow(InvalidArgumentException::class, 'A variável de ambiente SONDA_TARGET é obrigatória.');
+});
+
+it('builds the scope of the instrumentation', function (): void {
+    $directory = TemporaryDirectory::create();
+    mkdir($directory . '/app/Providers', 0777, true);
+    file_put_contents($directory . '/app/Order.php', '<?php');
+    $settings = Settings::fromEnvironment(environment([
+        'SONDA_TARGET' => $directory . '/app',
+        'SONDA_EXCLUDE' => $directory . '/app/Providers',
+        'SONDA_ONLY' => $directory . '/app/Order.php',
+    ]));
+
+    expect($settings->scope())->toEqual(new Scope([$directory . '/app'], [$directory . '/app/Providers'], [$directory . '/app/Order.php']));
 });

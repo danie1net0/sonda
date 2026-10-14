@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Composer\Autoload\ClassLoader;
-use Sonda\{Hits, Instrumenter, InstrumentingAutoloader, Run};
+use Sonda\{Hits, Instrumenter, InstrumentingAutoloader, Run, Scope};
 
 /**
  * A project with one class in the target directory and one outside it, under a namespace
@@ -45,14 +45,9 @@ function fixtureProject(): array
     return ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader];
 }
 
-it('rejects a target directory that does not exist', function (): void {
-    expect(fn (): InstrumentingAutoloader => new InstrumentingAutoloader(new ClassLoader(), '/missing/app', '/cache', new Instrumenter()))
-        ->toThrow(InvalidArgumentException::class, 'O diretório /missing/app não existe.');
-});
-
 it('loads a class of the target directory from its instrumented copy', function (): void {
     ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
-    $autoloader = new InstrumentingAutoloader($loader, $directory . '/app/', $directory . '/cache', new Instrumenter());
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
     $class = $namespace . '\App\Order';
 
     $autoloader->load($class);
@@ -81,14 +76,14 @@ it('reuses the instrumented copy already in the cache', function (): void {
     mkdir($directory . '/cache');
     file_put_contents($directory . "/cache/{$key}.php", "<?php\n\nnamespace {$namespace}\\App;\n\nfinal class Order\n{\n    public const CACHED = true;\n}\n");
 
-    new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', $instrumenter)->load($namespace . '\App\Order');
+    new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', $instrumenter)->load($namespace . '\App\Order');
 
     expect(constant($namespace . '\App\Order::CACHED'))->toBeTrue();
 });
 
 it('leaves classes outside the target directory to Composer', function (): void {
     ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
-    $autoloader = new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', new Instrumenter());
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
 
     $autoloader->load($namespace . '\Lib\Helper');
     $autoloader->load($namespace . '\Missing\Thing');
@@ -100,7 +95,7 @@ it('leaves classes outside the target directory to Composer', function (): void 
 
 it('registers itself before the other autoloaders', function (): void {
     ['directory' => $directory, 'loader' => $loader] = fixtureProject();
-    $autoloader = new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', new Instrumenter());
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
 
     $autoloader->register();
 
@@ -116,7 +111,7 @@ it('reports a run with the probes collected so far', function (): void {
     Hits::$accumulated = ['abc' => [1 => 1]];
     ['directory' => $directory, 'loader' => $loader] = fixtureProject();
 
-    $run = new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', new Instrumenter())->run();
+    $run = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter())->run();
 
     expect($run)->toEqual(new Run($directory . '/cache', [], ['abc' => [1 => 1]]));
 });
@@ -126,7 +121,7 @@ it('does not take a directory that only shares a prefix with the target as part 
     mkdir($directory . '/application');
     file_put_contents($directory . '/application/Invoice.php', "<?php\n\nnamespace {$namespace}\\Application;\n\nfinal class Invoice\n{\n}\n");
     $loader->addPsr4($namespace . '\\Application\\', $directory . '/application');
-    $autoloader = new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', new Instrumenter());
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
 
     $autoloader->load($namespace . '\Application\Invoice');
 
@@ -136,9 +131,22 @@ it('does not take a directory that only shares a prefix with the target as part 
 it('leaves a class whose mapped file was deleted to Composer', function (): void {
     ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
     $loader->addClassMap([$namespace . '\App\Deleted' => $directory . '/app/Deleted.php']);
-    $autoloader = new InstrumentingAutoloader($loader, $directory . '/app', $directory . '/cache', new Instrumenter());
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
 
     $autoloader->load($namespace . '\App\Deleted');
+
+    expect($autoloader->run()->files)->toBe([]);
+});
+
+it('leaves the excluded directories and the files out of a narrowed scope to Composer', function (): void {
+    ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
+    mkdir($directory . '/app/Providers');
+    file_put_contents($directory . '/app/Providers/AppProvider.php', "<?php\n\nnamespace {$namespace}\\App\\Providers;\n\nfinal class AppProvider\n{\n}\n");
+    $scope = new Scope([$directory . '/app'], [$directory . '/app/Providers'], [$directory . '/app/Providers/AppProvider.php']);
+    $autoloader = new InstrumentingAutoloader($loader, $scope, $directory . '/cache', new Instrumenter());
+
+    $autoloader->load($namespace . '\App\Providers\AppProvider');
+    $autoloader->load($namespace . '\App\Order');
 
     expect($autoloader->run()->files)->toBe([]);
 });

@@ -1,0 +1,111 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Sonda\Cli;
+
+use InvalidArgumentException;
+
+use function str_starts_with, substr;
+
+/** The options of `sonda test`; whatever it does not know goes to the test runner. */
+final readonly class TestOptions
+{
+    /**
+     * @param non-empty-string|null $changed
+     * @param list<string>          $files
+     * @param non-empty-string|null $html
+     * @param non-empty-string|null $clover
+     * @param non-empty-string|null $cov
+     * @param list<string>          $runnerArguments
+     */
+    public function __construct(
+        public ?string $changed = null,
+        public array $files = [],
+        public bool $strict = true,
+        public bool $fast = true,
+        public bool $parallel = true,
+        public ?string $configuration = null,
+        public ?string $html = null,
+        public ?string $clover = null,
+        public ?string $cov = null,
+        public array $runnerArguments = [],
+    ) {
+    }
+
+    /** @param list<string> $arguments */
+    public static function parse(array $arguments): self
+    {
+        $changed = null;
+        $files = [];
+        $strict = true;
+        $fast = true;
+        $parallel = true;
+        $configuration = null;
+        $html = null;
+        $clover = null;
+        $cov = null;
+        $runnerArguments = [];
+        $count = count($arguments);
+
+        for ($index = 0; $index < $count; $index++) {
+            $argument = $arguments[$index];
+
+            if ($argument === '--') {
+                $runnerArguments = [...$runnerArguments, ...array_slice($arguments, $index + 1)];
+
+                break;
+            }
+
+            if ($argument === '--no-strict') {
+                $strict = false;
+            } elseif ($argument === '--no-fast') {
+                $fast = false;
+            } elseif ($argument === '--no-parallel') {
+                $parallel = false;
+            } elseif (self::valueOf($argument, '--changed') !== null) {
+                $changed = self::valueOf($argument, '--changed');
+            } elseif (self::valueOf($argument, '--files') !== null) {
+                $files = [...$files, ...array_filter(explode(',', self::valueOf($argument, '--files')))];
+            } elseif (self::valueOf($argument, '--html') !== null) {
+                $html = self::valueOf($argument, '--html');
+            } elseif (self::valueOf($argument, '--clover') !== null) {
+                $clover = self::valueOf($argument, '--clover');
+            } elseif (self::valueOf($argument, '--cov') !== null) {
+                $cov = self::valueOf($argument, '--cov');
+            } elseif ($argument === '-c' || $argument === '--configuration') {
+                $configuration = $arguments[$index + 1] ?? throw new InvalidArgumentException("A opção {$argument} precisa de um arquivo.");
+                $runnerArguments[] = $argument;
+                $runnerArguments[] = $configuration;
+                $index++;
+            } elseif (self::valueOf($argument, '--configuration') !== null) {
+                $configuration = self::valueOf($argument, '--configuration');
+                $runnerArguments[] = $argument;
+            } else {
+                $runnerArguments[] = $argument;
+            }
+        }
+
+        return new self($changed, $files, $strict, $fast, $parallel, $configuration, $html, $clover, $cov, $runnerArguments);
+    }
+
+    /**
+     * The value of `--name=value`, or null when the argument is another option.
+     *
+     * @return non-empty-string|null
+     */
+    private static function valueOf(string $argument, string $name): ?string
+    {
+        if (! str_starts_with($argument, $name . '=')) {
+            return null;
+        }
+
+        $value = substr($argument, strlen($name) + 1);
+
+        if ($value === '') {
+            throw new InvalidArgumentException("A opção {$name} precisa de um valor.");
+        }
+
+        return $value;
+    }
+}

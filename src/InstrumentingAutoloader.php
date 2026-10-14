@@ -6,19 +6,15 @@ namespace Sonda;
 
 use Closure;
 use Composer\Autoload\ClassLoader;
-use InvalidArgumentException;
 
-use function str_starts_with;
 use function substr;
 
 /**
- * Runs before Composer's autoloader: a class whose file is inside the target directory is
- * loaded from its instrumented copy.
+ * Runs before Composer's autoloader: a class whose file is in scope is loaded from its
+ * instrumented copy.
  */
 final class InstrumentingAutoloader
 {
-    private readonly string $targetDirectory;
-
     private readonly InstrumentationCache $cache;
 
     /** @var array<string, array{0: string, 1: string}> file id => [source path, cache key] */
@@ -26,17 +22,10 @@ final class InstrumentingAutoloader
 
     public function __construct(
         private readonly ClassLoader $composer,
-        string $targetDirectory,
+        private readonly Scope $scope,
         private readonly string $cacheDirectory,
         private readonly Instrumenter $instrumenter,
     ) {
-        $realTargetDirectory = realpath($targetDirectory);
-
-        if ($realTargetDirectory === false) {
-            throw new InvalidArgumentException("O diretório {$targetDirectory} não existe.");
-        }
-
-        $this->targetDirectory = $realTargetDirectory . '/';
         $this->cache = new InstrumentationCache($cacheDirectory);
     }
 
@@ -56,7 +45,7 @@ final class InstrumentingAutoloader
         $path = realpath($file);
 
         // A classmap can still list a deleted file: Composer reports it, as without sonda.
-        if ($path === false || ! str_starts_with($path, $this->targetDirectory)) {
+        if ($path === false || ! $this->scope->includes($path)) {
             return;
         }
 

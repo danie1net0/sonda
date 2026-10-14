@@ -53,13 +53,14 @@ function measureFixtureProject(array $runner): array
         [
             'SONDA_AUTOLOAD' => $project . '/autoload.php',
             'SONDA_TARGET' => $project . '/src',
+            'SONDA_EXCLUDE' => $project . '/src/Ignored',
             'SONDA_CACHE' => $directory . '/cache',
             'SONDA_OUT' => $directory . '/runs',
             'SONDA_STRICT' => '1',
             'SONDA_CHAIN' => $project . '/chained.php',
         ],
     );
-    $report = runCommand([PHP_BINARY, 'report.php', $directory . '/runs', $project . '/src', $directory . '/coverage.cov']);
+    $report = runCommand([PHP_BINARY, 'report.php', $directory . '/runs', $project . '/src', $directory . '/coverage.cov', $project . '/src/Ignored']);
 
     $coverage = loadCoverage($directory . '/coverage.cov');
     $lines = [];

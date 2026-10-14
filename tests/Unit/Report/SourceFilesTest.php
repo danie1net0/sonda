@@ -51,3 +51,13 @@ it('does not exclude a directory that only shares a prefix', function (): void {
 
     expect(SourceFiles::find($directory, [$directory . '/Model']))->toContain($directory . '/Models/Order.php');
 });
+
+it('finds the files of several directories, each once, sorted', function (): void {
+    $directory = sourceTree();
+
+    expect(SourceFiles::findAll([$directory . '/Models', $directory, $directory . '/Actions'], [$directory . '/Providers']))->toBe([
+        $directory . '/Actions/Deep/Refund.php',
+        $directory . '/Actions/Pay.php',
+        $directory . '/Models/Order.php',
+    ]);
+});

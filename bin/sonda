@@ -1,0 +1,26 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Runs from the root of the measured project: its vendor/ brings php-code-coverage for the report.
+
+use Sonda\Cli\{Application, SystemProcessRunner, TestCommand};
+
+require dirname(__DIR__) . '/autoload.php';
+
+$projectRoot = getcwd();
+$projectAutoload = $projectRoot . '/vendor/autoload.php';
+
+if ($projectRoot === false || ! is_file($projectAutoload)) {
+    fwrite(STDERR, "Rode o sonda na raiz de um projeto com vendor/autoload.php.\n");
+    exit(1);
+}
+
+require $projectAutoload;
+
+$arguments = $_SERVER['argv'] ?? null;
+$strings = is_array($arguments) ? array_values(array_filter($arguments, is_string(...))) : [];
+$application = new Application(new TestCommand(new SystemProcessRunner(STDIN, STDOUT, STDERR), dirname(__DIR__), sys_get_temp_dir() . '/sonda'));
+
+exit($application->run(array_slice($strings, 1), $projectRoot, STDOUT, STDERR));

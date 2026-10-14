@@ -4,29 +4,25 @@ declare(strict_types=1);
 
 namespace Sonda\Report;
 
-use Sonda\Run;
-use SebastianBergmann\CodeCoverage\{CodeCoverage, Filter};
-use SebastianBergmann\CodeCoverage\Report\PHP;
 use InvalidArgumentException;
+use Sonda\Run;
+use SebastianBergmann\CodeCoverage\Report\PHP;
 
 /** Writes a run as a php-code-coverage `.cov` file, which every report format can read. */
 final class ReportWriter
 {
-    /** @param list<string> $excludedDirectories */
-    public static function write(Run $run, string $sourceDirectory, array $excludedDirectories, string $outputFile): void
+    /**
+     * @param list<string> $sourceDirectories
+     * @param list<string> $excludedDirectories
+     */
+    public static function write(Run $run, array $sourceDirectories, array $excludedDirectories, string $outputFile): void
     {
         if ($outputFile === '') {
             throw new InvalidArgumentException('O caminho do relatório não pode ser vazio.');
         }
 
-        $sourceFiles = SourceFiles::find($sourceDirectory, $excludedDirectories);
-        $filter = new Filter();
-        $filter->includeFiles($sourceFiles);
+        $sourceFiles = SourceFiles::findAll($sourceDirectories, $excludedDirectories);
 
-        // Branch data needs no flag: php-code-coverage keeps whatever the raw data brings.
-        $codeCoverage = new CodeCoverage(new CoverageDriver(), $filter);
-        $codeCoverage->append(RawCoverageBuilder::build($run, $sourceFiles), 'sonda');
-
-        new PHP()->process($codeCoverage, $outputFile);
+        new PHP()->process(CoverageBuilder::build($run, $sourceFiles), $outputFile);
     }
 }

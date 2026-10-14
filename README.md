@@ -25,40 +25,97 @@ coberta ou não coberta. Nos branches, o Sonda é mais rigoroso em dois pontos (
 
 ## Requisitos
 
-- PHP 8.4 ou mais recente.
+- PHP 8.4 ou mais recente, com `git` no PATH para `--changed`.
 - No projeto medido: PHPUnit 12 (Pest 4) e php-code-coverage 12, que trazem o `nikic/php-parser`
   usado pela instrumentação. O Sonda usa a fachada de eventos do PHPUnit, que é interna, e por
   isso aceita só essa versão.
 
-O Sonda não é instalado no projeto medido. Um clone por máquina basta:
+## Instalação
+
+Nada é instalado no projeto medido. Um clone por máquina, uma vez, e o comando no PATH:
 
 ```bash
 git clone https://github.com/danie1net0/sonda.git /opt/sonda
+ln -s /opt/sonda/bin/sonda /usr/local/bin/sonda
 ```
+
+Atualizar é `git -C /opt/sonda pull`.
 
 ## Uso
 
-Na raiz do projeto medido, com ou sem `--parallel`:
+Na raiz do projeto:
 
 ```bash
-SONDA_AUTOLOAD=vendor/autoload.php SONDA_TARGET=app SONDA_CACHE=/tmp/sonda/cache SONDA_OUT=/tmp/sonda/runs \
-SONDA_STRICT=1 SONDA_FAST=1 \
-php artisan test --parallel --bootstrap=/opt/sonda/bootstrap.php
-
-php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers app/Console/Commands
+sonda test
 ```
 
-O `coverage.cov` é o formato do php-code-coverage: serve para gerar os relatórios HTML, Clover,
-Cobertura e texto com as ferramentas de sempre.
+O Sonda lê o `<source>` (`include` e `exclude`) e o `bootstrap` do `phpunit.xml`, roda os testes
+com `php artisan test --parallel` (ou `vendor/bin/pest`, `vendor/bin/paratest`,
+`vendor/bin/phpunit`, o que houver), e mostra:
 
-Variáveis de ambiente lidas pelo bootstrap:
+```
+Cobertura: linhas 11140/11232 (99,18%), branches 4303/4371 (98,44%)
+```
+
+Qualquer argumento que o Sonda não conheça vai para o runner: `sonda test --filter=Order`,
+`sonda test tests/Feature/Actions`.
+
+### Só o que mudou
+
+```bash
+sonda test --changed=origin/master
+```
+
+Mede só os arquivos do `<source>` alterados desde o `merge-base` com a referência: commitados,
+modificados e novos. Lista o que sobrou descoberto e sai com erro:
+
+```
+Cobertura: linhas 118/120 (98,33%), branches 61/63 (96,83%)
+Sem cobertura:
+app/Actions/Scheduling/BookAppointmentAction.php: linhas 57-58; branches 57-60
+app/Models/ScheduleResource.php: branches 272
+```
+
+É o uso pensado para o CI: um job que mede só o que o MR tocou e exige 100%. `--files=a.php,b.php`
+faz o mesmo com uma lista explícita.
+
+### Opções
+
+| Opção | Efeito |
+|---|---|
+| `--changed=<ref>` | mede só os arquivos alterados desde o merge-base com a referência e falha se sobrar algo descoberto |
+| `--files=a,b` | mede só esses arquivos, com a mesma exigência |
+| `--html=<dir>` | grava o relatório HTML |
+| `--clover=<arq>` | grava o relatório Clover |
+| `--cov=<arq>` | grava o `.cov` do php-code-coverage, que serve para qualquer outro formato |
+| `--no-strict` | não exige o `else` de todo `if` nem o lado nulo de `?->` |
+| `--no-fast` | sondas sem a referência local por função |
+| `--no-parallel` | não usa o ParaTest mesmo quando instalado |
+| `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
+
+Cache e execuções ficam em `sys_get_temp_dir()/sonda/<projeto>`, fora do projeto.
+
+### Sem o comando
+
+O `bootstrap.php` funciona direto no PHPUnit, no Pest e no ParaTest, configurado por variáveis
+de ambiente; é o que o comando faz por baixo:
+
+```bash
+SONDA_AUTOLOAD=vendor/autoload.php SONDA_TARGET=app SONDA_EXCLUDE=app/Providers \
+SONDA_CACHE=/tmp/sonda/cache SONDA_OUT=/tmp/sonda/runs SONDA_STRICT=1 SONDA_FAST=1 \
+php artisan test --parallel --bootstrap=/opt/sonda/bootstrap.php
+
+php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
+```
 
 | Variável | Obrigatória | Significado |
 |---|---|---|
 | `SONDA_AUTOLOAD` | sim | `vendor/autoload.php` do projeto medido |
-| `SONDA_TARGET` | sim | diretório instrumentado, por exemplo `app` ou `src` |
+| `SONDA_TARGET` | sim | diretórios instrumentados, separados por `PATH_SEPARATOR` |
 | `SONDA_CACHE` | sim | diretório dos arquivos instrumentados |
 | `SONDA_OUT` | sim | diretório das execuções, um arquivo por processo; use um novo a cada medição |
+| `SONDA_EXCLUDE` | não | diretórios deixados de fora |
+| `SONDA_ONLY` | não | os únicos arquivos medidos |
 | `SONDA_STRICT=1` | não | semântica estrita de branches |
 | `SONDA_FAST=1` | não | referência local por função: sondas mais baratas |
 | `SONDA_CHAIN` | não | bootstrap original do projeto, quando não é só o autoload |
@@ -73,8 +130,8 @@ Variáveis de ambiente lidas pelo bootstrap:
    `__DIR__` continuam apontando para o arquivo original.
 3. Só contam as sondas executadas durante cada teste, a mesma janela que o PHPUnit dá ao Xdebug:
    código executado em data provider não conta como coberto.
-4. No fim de cada processo, a execução é gravada em `SONDA_OUT`. O `report.php` junta as
-   execuções de todos os workers e gera o `.cov`.
+4. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
+   workers e monta o relatório com o php-code-coverage.
 
 ## Semântica dos branches
 
@@ -82,7 +139,7 @@ Um branch é um desfecho de decisão: a entrada de uma função, o corpo de `if`
 laço, `case`, `catch` e `finally`, o operando direito de `&&`, `||`, `and`, `or` e `??`, os
 braços de `?:` e `match`, e o valor não nulo de `?->`.
 
-No modo estrito (`SONDA_STRICT=1`):
+No modo estrito, que é o padrão:
 
 - Todo `if` sem `else` ganha um `else` sintético: os dois desfechos precisam ser testados. O
   Xdebug conta blocos básicos, então um `if` sem `else` cuja condição é sempre verdadeira dá
@@ -117,8 +174,8 @@ php tools/compare.php xdebug.cov sonda.cov -v   # compara dois .cov linha a linh
 ```
 
 Todo código novo sai com 100% de linhas e de branches, medidos com Xdebug, e com mutação sem
-sobreviventes além dos equivalentes. `tests/Feature/EndToEndTest.php` roda um projeto de exemplo
-num subprocesso do PHPUnit e noutro do ParaTest.
+sobreviventes além dos equivalentes. Os testes de `tests/Feature` rodam o `bin/sonda` e o
+`bootstrap.php` sobre um projeto de exemplo, com PHPUnit e com ParaTest.
 
 ## Licença
 

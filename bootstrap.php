@@ -20,7 +20,7 @@ if (! $composer instanceof ClassLoader) {
 
 $autoloader = new InstrumentingAutoloader(
     $composer,
-    $settings->targetDirectory,
+    $settings->scope(),
     $settings->cacheDirectory,
     new Instrumenter($settings->strict, $settings->fast),
 );

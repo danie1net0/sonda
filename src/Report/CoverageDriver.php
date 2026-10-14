@@ -18,6 +18,12 @@ final class CoverageDriver extends Driver
         return 'sonda';
     }
 
+    /** Lets the reports show the branch columns. */
+    public function canCollectBranchAndPathCoverage(): bool
+    {
+        return true;
+    }
+
     public function start(): void
     {
     }

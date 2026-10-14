@@ -27,7 +27,7 @@ final class ReportCommand
         $excluded = array_slice($arguments, 3);
 
         $startedAt = microtime(true);
-        ReportWriter::write(Run::loadDirectory($runDirectory), $sourceDirectory, $excluded, $outputFile);
+        ReportWriter::write(Run::loadDirectory($runDirectory), [$sourceDirectory], $excluded, $outputFile);
 
         return sprintf('report built in %.2fs', microtime(true) - $startedAt);
     }
