@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/danie1net0/sonda/compare/v1.0.0...v1.1.0) (2026-10-14)
+
+
+### Features
+
+* comando sonda test, sem instalar nada no projeto ([845a6e5](https://github.com/danie1net0/sonda/commit/845a6e5ca9bba248aff69eb18330f3a2277745a2))
+
 # 1.0.0 (2026-10-14)
 
 
