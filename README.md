@@ -18,6 +18,12 @@ Suíte de um projeto Laravel 13 com Filament, Pest 4 e Postgres, 4.514 testes:
 | Xdebug só linhas | 671s | 640 MB |
 | Xdebug com `--path-coverage` | não terminou em 63 min | mais de 760 MB |
 
+O Xdebug com paths na suíte inteira só terminou dividido em lotes de ~80 testes, cada um num
+processo novo: o php-code-coverage acumula, a cada teste, os ids de teste em todos os branches e
+caminhos dos arquivos carregados, e o custo por teste cresce ao longo da execução (de 56 para 3
+testes por minuto com 6 workers). Em lotes, 48 processos em 6 filas, 2h24; direto, não cabia numa
+noite.
+
 Com `--parallel` (10 workers): 42s sem cobertura, 40s com o Sonda.
 
 O custo do Xdebug com paths é do próprio Xdebug, em C, e é por teste: num arquivo de 71 testes dessa
@@ -25,8 +31,16 @@ suíte, 8s com o Xdebug carregado e a cobertura desligada, 257s com `XDEBUG_CC_B
 uma vez no bootstrap, sem o php-code-coverage processar nada. Restringir os arquivos medidos não
 muda esse número.
 
-Fidelidade contra o Xdebug nessa suíte: 11.229 linhas comparadas, nenhuma divergência de linha
-coberta ou não coberta. Nos branches, o Sonda é mais rigoroso em dois pontos (ver semântica).
+Fidelidade contra o Xdebug, medida na suíte inteira dessa aplicação (4.923 testes, 697 arquivos de
+`app/`, Xdebug com paths rodado em lotes de testes, 2h24 num Mac mini M1): 12.1 mil linhas
+executáveis, nenhuma divergência de linha coberta ou não coberta; 5 linhas em que só uma das
+ferramentas vê um ponto executável, todas em instrução de várias linhas (heredoc, `match` de
+retorno, fechamento de closure). Vereditos de branch por método: 2.333 iguais; 21 em que só o
+Xdebug dá 100%, todos pelo modo estrito do Sonda; 42 em que só o Sonda dá 100%, com 108 blocos
+que o Xdebug dá como perdidos e que têm todas as linhas executadas pela própria contagem dele:
+desvio de fallback de função frameless, corpo de `if` terminado em `return`/`throw`, braço
+implícito do `match` e blocos duplicados do `&&`/`||`. Nenhum trecho sem execução ficou escondido
+atrás de um 100% do Sonda.
 
 ## Requisitos
 
@@ -178,6 +192,8 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 - Views do Blade e do Livewire não são medidas.
 - Um arquivo do diretório alvo carregado por `require` direto ou pela chave `files` do Composer
   não é instrumentado e aparece inteiro como não coberto.
+- Com o ParaTest, o runner aceita um único caminho de teste: `sonda test a.php b.php` precisa de
+  `--no-parallel`.
 - A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
   (o Xdebug a conta como executada).
 - Testes que leem o arquivo da classe por reflection veem a cópia instrumentada.
