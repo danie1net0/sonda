@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/danie1net0/sonda/compare/v1.2.0...v1.2.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **tools:** compare-with-xdebug.sh lê só a própria pasta de ini, sem o conf.d padrão ([cc0882e](https://github.com/danie1net0/sonda/commit/cc0882e81e7eb65ae388a028fbb7d42308264041))
+
 # [1.2.0](https://github.com/danie1net0/sonda/compare/v1.1.2...v1.2.0) (2026-10-14)
 
 
