@@ -25,7 +25,7 @@ RUNNER=vendor/bin/pest; [ -x "$RUNNER" ] || RUNNER=vendor/bin/paratest
 
 mkdir -p "$OUT/ini"
 OUT=$(cd "$OUT" && pwd)
-printf 'zend_extension=%s\nmemory_limit=-1\n' "$XDEBUG_SO" > "$OUT/ini/xdebug.ini"
+printf 'zend_extension=%s\nxdebug.mode=coverage\nmemory_limit=-1\n' "$XDEBUG_SO" > "$OUT/ini/xdebug.ini"
 
 step() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$OUT/summary.txt"; }
 tests_line() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E 'Tests:' | tail -1 | sed 's/^ *//'; }
@@ -51,10 +51,12 @@ elif ! grep -q 'pathCoverage=' "$OUT/phpunit.xdebug.xml"; then
     sed 's#<coverage#<coverage pathCoverage="true"#' "$OUT/phpunit.xdebug.xml" > "$OUT/phpunit.tmp" && mv "$OUT/phpunit.tmp" "$OUT/phpunit.xdebug.xml"
 fi
 
-# 3. Xdebug nos workers via PHP_INI_SCAN_DIR (opção -d não chega aos processos filhos).
+# 3. Xdebug nos workers via PHP_INI_SCAN_DIR (opção -d não chega aos processos filhos). Só a pasta
+#    deste script é lida, sem o conf.d padrão: um Xdebug já carregado ali seria carregado duas vezes,
+#    e o PCOV, se houver, disputa a cobertura com ele.
 step "xdebug: início, $PROCESSES workers"
 start=$(date +%s)
-PHP_INI_SCAN_DIR=":$OUT/ini" XDEBUG_MODE=coverage LARAVEL_PARALLEL_TESTING=1 \
+PHP_INI_SCAN_DIR="$OUT/ini" XDEBUG_MODE=coverage LARAVEL_PARALLEL_TESTING=1 \
     $CAFFEINATE php "$RUNNER" --parallel --processes="$PROCESSES" -c "$OUT/phpunit.xdebug.xml" --coverage-php="$OUT/xdebug.cov" "$@" > "$OUT/xdebug.log" 2>&1
 step "xdebug: exit=$? $(( $(date +%s) - start ))s | $(tests_line "$OUT/xdebug.log")"
 
