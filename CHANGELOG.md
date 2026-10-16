@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/danie1net0/sonda/compare/v1.2.1...v1.3.0) (2026-10-16)
+
+
+### Features
+
+* **changed:** veredito só do que mudou, com as linhas alteradas e os métodos que elas tocam ([b9aecbd](https://github.com/danie1net0/sonda/commit/b9aecbdd4031027149c330ce4e8fbe2d8906b17b))
+
 ## [1.2.1](https://github.com/danie1net0/sonda/compare/v1.2.0...v1.2.1) (2026-10-15)
 
 
