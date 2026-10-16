@@ -370,6 +370,19 @@ it('refuses a --views directory that does not exist', function (): void {
         ->toThrow(InvalidArgumentException::class, 'A pasta de views themes/none não existe.');
 });
 
+it('hands the workers real paths, even when the temporary root is reached through a symlink', function (): void {
+    $root = laravelProject();
+    $real = TemporaryDirectory::create();
+    $link = TemporaryDirectory::create() . '/link';
+    symlink($real, $link);
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, TestOptions::parse([]), $link);
+
+    expect($runner->environment['SONDA_CACHE'])->toStartWith(realpath($real) . '/')
+        ->and($runner->environment['SONDA_OUT'])->toStartWith(realpath($real) . '/');
+});
+
 it('leaves the views out with --no-blade', function (): void {
     $root = laravelProject();
     $runner = new FakeRunner();

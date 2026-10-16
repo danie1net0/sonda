@@ -60,9 +60,11 @@ final readonly class TestCommand
         }
 
         $workDirectory = $this->temporaryRoot . '/' . substr(sha1($projectRoot), 0, 12);
-        $runsDirectory = $workDirectory . '/runs-' . bin2hex(random_bytes(4));
         Filesystem::privateDirectory($this->temporaryRoot);
         Filesystem::privateDirectory($workDirectory);
+        // php-code-coverage keeps real paths: a symlinked temporary directory would lose the views' data.
+        $workDirectory = (string) realpath($workDirectory);
+        $runsDirectory = $workDirectory . '/runs-' . bin2hex(random_bytes(4));
         $status = $this->processes->run(
             [...Runner::command($projectRoot, $options->parallel && $this->hasAtMostOnePath($options->runnerArguments)), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$options->runnerArguments],
             $this->environment($options, $configuration, $projectRoot, $sourceFiles, $viewDirectories, $workDirectory . '/cache', $runsDirectory),
