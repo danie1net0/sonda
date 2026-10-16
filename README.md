@@ -117,6 +117,7 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--no-fast` | sondas sem a referência local por função |
 | `--no-parallel` | não usa o ParaTest mesmo quando instalado |
 | `--no-blade` | não mede as views do Blade de um projeto Laravel |
+| `--views=a,b` | mede também as views do Blade dessas pastas |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
 
 Cache e execuções ficam fora do projeto, em `$XDG_CACHE_HOME/sonda` ou `~/.cache/sonda`, num
@@ -165,11 +166,16 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
 
 ## Views do Blade
 
-Num projeto Laravel (com `artisan` e `resources/views`), as views do Blade entram na medição
-junto com o `<source>`: cada `.blade.php` aparece nos relatórios com as linhas de diretiva e de
-echo (`@if`, `@foreach`, `{{ }}`, `<x-componente>`) cobertas ou não, e entra no veredito do
-`--changed` pelas linhas mudadas. `--no-blade` deixa as views de fora. Branches das views ainda
-não contam.
+Num projeto Laravel (com `artisan`), as views do Blade entram na medição junto com o `<source>`:
+cada `.blade.php` de `resources/views`, e das pastas `resources/views` dos pacotes e módulos
+guardados no projeto (fora de `vendor`, `node_modules`, `storage`, `public`, `tests` e
+`bootstrap`), aparece nos relatórios com as linhas de diretiva e de echo (`@if`, `@foreach`,
+`{{ }}`, `<x-componente>`) cobertas ou não, e com os branches das decisões (`@if`, `@unless`,
+`@isset`, `@foreach`, `@forelse`, `@switch`, `??` e `?->` nos echos), no mesmo modo estrito do
+PHP: um `@if` sem `@else` precisa do caso falso testado. A linha do `@endif` não é executável.
+A view entra no veredito do `--changed` como um todo, como um método: linha mudada numa view
+cobra as linhas e os branches dela inteira. `--views=a,b` acrescenta outras pastas de views;
+`--no-blade` deixa as views de fora.
 
 Como funciona: a primeira vez que um teste sobe a aplicação, o Sonda compila todas as views com
 o compilador Blade dela (diretivas próprias incluídas), instrumenta o PHP compilado e grava o
@@ -180,6 +186,11 @@ linhas do template por um mapa: um marcador inserido antes de cada construção 
 compilação e diz de que linha ela veio. A cópia instrumentada fica mais nova que o template, para
 o Laravel não a compilar de novo sem sondas; com `--parallel`, cada worker tem a própria pasta, e a
 subpasta por token que o teste paralelo do Laravel usa é criada antes da cópia.
+
+Para o php-code-coverage, que só conta branches de funções declaradas, cada view é a função
+`view`: a cópia do compilado que o relatório analisa no lugar do template declara essa função
+em volta do código (com os `use` apagados, que não cabem numa função), e as sondas da view
+levam esse nome. É ela que aparece na tabela de funções do HTML.
 
 ## Semântica dos branches
 
@@ -212,10 +223,10 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 ## Limitações conhecidas
 
 - Corpo vazio de `if` e de laço não ganha sonda.
-- `if` em sintaxe alternativa (`endif`) não ganha o `else` sintético.
 - Property hook com corpo de expressão (`set => ...`) e arrow function por referência (`fn&`)
   não são instrumentados.
-- Views do Blade: só linhas, sem branches; views de pacotes (fora de `resources/views`) não entram.
+- Views do Blade: só as pastas `resources/views` do projeto são achadas sozinhas; outra pasta
+  entra com `--views`.
 - Um arquivo do diretório alvo carregado por `require` direto ou pela chave `files` do Composer
   não é instrumentado e aparece inteiro como não coberto.
 - O ParaTest aceita um único caminho de teste: `sonda test a.php b.php` roda sem ele, em série.

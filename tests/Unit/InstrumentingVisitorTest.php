@@ -534,7 +534,7 @@ it('ignores empty bodies', function (): void {
         ]);
 });
 
-it('adds an else to ifs without one in strict mode, except in alternative syntax', function (): void {
+it('adds an else to ifs without one in strict mode, alternative syntax included', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
     if ($a) {
@@ -564,7 +564,7 @@ it('adds an else to ifs without one in strict mode, except in alternative syntax
     }
     {p3}if (($d)):
         {p10}echo 5;
-    endif;
+    else: {p11} endif;
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
@@ -578,6 +578,7 @@ it('adds an else to ifs without one in strict mode, except in alternative syntax
             8 => new Probe(7, true, '{main}', 7, 7),
             9 => new Probe(9, true, '{main}', 9, 9),
             10 => new Probe(12, true, '{main}', 12, 12),
+            11 => new Probe(null, true, '{main}', 13, 13),
         ]);
 });
 
@@ -1279,7 +1280,7 @@ it('closes an unbraced body before the probe of the next statement', function ()
         ]);
 });
 
-it('adds no else to alternative-syntax ifs, with or without statements', function (): void {
+it('adds an else before the endif of alternative-syntax ifs, with or without statements', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
     if ($a):
@@ -1294,17 +1295,19 @@ it('adds no else to alternative-syntax ifs, with or without statements', functio
     <?php
     {p0}if ($a):
         {p2}echo 1;
-    elseif ({o3}$b{c}):
-        {p4}echo 2;
-    endif;
-    {p1}if ($c): endif;
+    elseif ({o4}$b{c}):
+        {p5}echo 2;
+    else: {p3} endif;
+    {p1}if ($c): else: {p6} endif;
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
             1 => new Probe(7, false, '{main}', 0, 0),
             2 => new Probe(3, true, '{main}', 3, 3),
-            3 => new Probe(4, false, '{main}', 4, 4),
-            4 => new Probe(5, true, '{main}', 5, 5),
+            3 => new Probe(null, true, '{main}', 6, 6),
+            4 => new Probe(4, false, '{main}', 4, 4),
+            5 => new Probe(5, true, '{main}', 5, 5),
+            6 => new Probe(null, true, '{main}', 7, 7),
         ]);
 });
 
@@ -1316,13 +1319,14 @@ it('adds an else to an unbraced if around an alternative-syntax if', function ()
 
     expect($code)->toBe(expected(<<<'PHP'
     <?php
-    {p0}if ($a) { {p1}if ($b): {p3}echo 1; endif; } else { {p2} }
+    {p0}if ($a) { {p1}if ($b): {p3}echo 1; else: {p4} endif; } else { {p2} }
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
             1 => new Probe(2, true, '{main}', 2, 2),
             2 => new Probe(null, true, '{main}', 2, 2),
             3 => new Probe(2, true, '{main}', 2, 2),
+            4 => new Probe(null, true, '{main}', 2, 2),
         ]);
 });
 it('adds an else to an unbraced if whose last elseif holds an alternative-syntax if', function (): void {
@@ -1335,7 +1339,7 @@ it('adds an else to an unbraced if whose last elseif holds an alternative-syntax
     expect($code)->toBe(expected(<<<'PHP'
     <?php
     {p0}if ($a) { {p1}echo 1; }
-    elseif ({o3}$b{c}) { {p4}if ($c): {p5}echo 2; endif; } else { {p2} }
+    elseif ({o3}$b{c}) { {p4}if ($c): {p5}echo 2; else: {p6} endif; } else { {p2} }
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
@@ -1344,6 +1348,7 @@ it('adds an else to an unbraced if whose last elseif holds an alternative-syntax
             3 => new Probe(3, false, '{main}', 3, 3),
             4 => new Probe(3, true, '{main}', 3, 3),
             5 => new Probe(3, true, '{main}', 3, 3),
+            6 => new Probe(null, true, '{main}', 3, 3),
         ]);
 });
 it('leaves an unbraced body that cannot be probed unbraced', function (): void {
@@ -1386,7 +1391,7 @@ it('keeps probes inside PHP mode in templates', function (): void {
     <?php } else { {p6} } ?>
     <?php {p2}if ($footer): ?>
     <?php {p10} ?>    <p>end</p>
-    <?php endif ?>
+    <?php else: {p11} endif ?>
     <?php {p3} ?></ul>
     PHP . "\n"))
         ->and($probes)->toEqual([
@@ -1400,7 +1405,8 @@ it('keeps probes inside PHP mode in templates', function (): void {
             7 => new Probe(4, true, '{main}', 4, 5),
             8 => new Probe(4, false, '{main}', 0, 0),
             9 => new Probe(4, false, '{main}', 0, 0),
-            10 => new Probe(8, true, '{main}', 8, 9),
+            10 => new Probe(8, true, '{main}', 8, 8),
+            11 => new Probe(null, true, '{main}', 9, 9),
         ]);
 });
 
@@ -1539,4 +1545,10 @@ it('leaves a ?? on the left of && to probe its own line', function (): void {
             3 => new Probe(3, true, '{main}', 3, 3),
             4 => new Probe(3, false, '{main}', 3, 3),
         ]);
+});
+
+it('gives back the CRLF that the probe tag eats before inline HTML that starts with one and ends without', function (): void {
+    [$code] = instrumentCode("\r\n<p>x</p><?php echo 1;\r\n");
+
+    expect($code)->toBe(expected("<?php {p0} ?>\r\n\r\n<p>x</p><?php {p1}echo 1;\r\n"));
 });

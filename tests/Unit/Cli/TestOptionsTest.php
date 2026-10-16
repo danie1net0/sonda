@@ -10,7 +10,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
-        '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
+        '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
         '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--filter=Order', 'tests/Feature',
     ]);
 
@@ -21,6 +21,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         fast: false,
         parallel: false,
         blade: false,
+        views: ['themes/dark', 'themes/light', '/views'],
         html: 'build/html',
         clover: 'clover.xml',
         cov: 'coverage.cov',
@@ -49,8 +50,9 @@ it('passes everything after -- to the runner untouched', function (): void {
         ->runnerArguments->toBe(['--filter=x', '--no-strict', '--changed=x']);
 });
 
-it('ignores empty entries in the file list', function (): void {
-    expect(TestOptions::parse(['--files=a.php,,b.php,']))->files->toBe(['a.php', 'b.php']);
+it('ignores empty entries in the file and view lists', function (): void {
+    expect(TestOptions::parse(['--files=a.php,,b.php,']))->files->toBe(['a.php', 'b.php'])
+        ->and(TestOptions::parse(['--views=,a,']))->views->toBe(['a']);
 });
 
 it('passes an option it knows only with a value to the runner when it comes bare', function (): void {

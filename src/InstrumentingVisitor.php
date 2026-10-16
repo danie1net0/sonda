@@ -12,7 +12,7 @@ use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, D
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
-use function str_starts_with, dirname;
+use function str_ends_with, str_starts_with, dirname;
 
 /**
  * Walks the AST and records the edits (probe insertions) and the probe metadata of a file.
@@ -49,7 +49,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     private string $className = '';
 
     /** @var array{name: string, local: bool} local: holds a `$__sonda` reference (fast mode) */
-    private array $scope = ['name' => '{main}', 'local' => false];
+    private array $scope;
 
     /** @var SplObjectStorage<Node, string> the class name in force before each class node */
     private SplObjectStorage $enclosingClassNames;
@@ -60,9 +60,14 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /** @var array<int, int> object ids of nodes where an undefined value gives no warning */
     private array $silentNodes = [];
 
-    /** @param array<Token> $tokens */
-    public function __construct(private readonly array $tokens, private readonly string $fileId, private readonly string $path, private readonly bool $strict, private readonly bool $fast)
+    /**
+     * @param array<Token> $tokens
+     * @param string       $mainScope the function name of the file-level code: `{main}`, whose branches are
+     *                                not reported, or the name of a function declared in the analysis copy
+     */
+    public function __construct(private readonly array $tokens, private readonly string $fileId, private readonly string $path, private readonly bool $strict, private readonly bool $fast, string $mainScope = '{main}')
     {
+        $this->scope = ['name' => $mainScope, 'local' => false];
         $this->enclosingClassNames = new SplObjectStorage();
         $this->enclosingScopes = new SplObjectStorage();
     }
@@ -210,12 +215,24 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     {
         $this->body($node->stmts);
 
-        if ($this->strict && ! $node->else instanceof Else_ && ! $this->usesAlternativeSyntax($node)) {
-            $line = $node->getEndLine();
-            $id = $this->probe(new Probe(null, true, $this->currentFunction(), $line, $line));
-
-            $this->close($node->getEndFilePos() + 1, ' else { ' . $this->probeCode($id) . '; }');
+        if (! $this->strict || $node->else instanceof Else_) {
+            return;
         }
+
+        $endif = $this->endifToken($node);
+
+        if ($endif instanceof Token) {
+            $id = $this->probe(new Probe(null, true, $this->currentFunction(), $endif->line, $endif->line));
+
+            $this->close($endif->pos, 'else: ' . $this->probeCode($id) . '; ');
+
+            return;
+        }
+
+        $line = $node->getEndLine();
+        $id = $this->probe(new Probe(null, true, $this->currentFunction(), $line, $line));
+
+        $this->close($node->getEndFilePos() + 1, ' else { ' . $this->probeCode($id) . '; }');
     }
 
     /** @param array<Node> $statements */
@@ -397,7 +414,9 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             return;
         }
 
-        $lastLine = $statements[$lastKey]->getEndLine();
+        $last = $statements[$lastKey];
+        // The newline that ends inline HTML belongs to its line, not to the next one php-parser points at.
+        $lastLine = $last->getEndLine() - ($last instanceof InlineHTML && str_ends_with($last->value, "\n") ? 1 : 0);
         $instrumentable = $this->instrumentable($statements);
 
         if ($instrumentable === []) {
@@ -484,16 +503,22 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     }
 
     /**
-     * `if (...): ... endif;` ends with `endif` after its last statement. An unbraced if whose
-     * statement is itself an alternative-syntax if ends together with it, and is not one.
+     * The `endif` of an alternative-syntax if, which ends with it after its last statement. An
+     * unbraced if whose statement is itself an alternative-syntax if ends together with it, and has none.
      */
-    private function usesAlternativeSyntax(If_ $node): bool
+    private function endifToken(If_ $node): ?Token
     {
         $children = [$node->cond, ...$node->stmts, ...$node->elseifs];
         $lastChild = $children[array_key_last($children)];
         $end = $node->getEndTokenPos();
 
-        return $lastChild->getEndTokenPos() !== $end && $this->previousSignificantToken($end)->id === T_ENDIF;
+        if ($lastChild->getEndTokenPos() === $end) {
+            return null;
+        }
+
+        $token = $this->previousSignificantToken($end);
+
+        return $token->id === T_ENDIF ? $token : null;
     }
 
     private function replace(Node $node, string $text): void

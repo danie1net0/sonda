@@ -333,6 +333,43 @@ it('narrows to a Blade view named explicitly, and not to a plain PHP file under 
     expect($runner->environment)->toHaveKey('SONDA_ONLY', $root . '/resources/views/home.blade.php');
 });
 
+it('measures the views of the packages and modules kept in the project, not of its dependencies', function (): void {
+    $root = laravelProject();
+    mkdir($root . '/packages/ui/resources/views', 0777, true);
+    mkdir($root . '/vendor/acme/pkg/resources/views', 0777, true);
+    file_put_contents($root . '/packages/ui/resources/views/button.blade.php', "<button>{{ \$label }}</button>\n");
+    file_put_contents($root . '/vendor/acme/pkg/resources/views/x.blade.php', "<p>{{ \$x }}</p>\n");
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, TestOptions::parse([]), TemporaryDirectory::create());
+
+    expect($runner->environment)->toHaveKey('SONDA_VIEWS', $root . '/packages/ui/resources/views' . PATH_SEPARATOR . $root . '/resources/views')
+        ->toHaveKey('SONDA_TARGET', $root . '/app' . PATH_SEPARATOR . $root . '/packages/ui/resources/views' . PATH_SEPARATOR . $root . '/resources/views');
+});
+
+it('measures the views of the directories given with --views, relative to the project or absolute, each once', function (): void {
+    $root = fakeProject();
+    mkdir($root . '/app/views', 0777, true);
+    file_put_contents($root . '/app/views/page.blade.php', "<p>{{ \$x }}</p>\n");
+    // A source file whose name starts like the views directory is still a source file.
+    file_put_contents($root . '/app/views.php', "<?php\n\necho 1;\n");
+    $runner = new FakeRunner();
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--views=app/views,' . $root . '/app/views']), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($runner->environment)->toHaveKey('SONDA_VIEWS', $root . '/app/views')
+        ->toHaveKey('SONDA_TARGET', $root . '/app' . PATH_SEPARATOR . $root . '/app/views')
+        ->and($output)->toContain('Cobertura: linhas 3/4 (75,00%)');
+});
+
+it('refuses a --views directory that does not exist', function (): void {
+    $root = fakeProject();
+
+    expect(fn (): array => runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--views=themes/none']), TemporaryDirectory::create()))
+        ->toThrow(InvalidArgumentException::class, 'A pasta de views themes/none não existe.');
+});
+
 it('leaves the views out with --no-blade', function (): void {
     $root = laravelProject();
     $runner = new FakeRunner();

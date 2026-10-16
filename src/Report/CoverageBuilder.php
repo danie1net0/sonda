@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Sonda\Report;
 
+use ReflectionProperty;
 use Sonda\Run;
 use SebastianBergmann\CodeCoverage\{CodeCoverage, Filter};
+use SebastianBergmann\CodeCoverage\Data\{ProcessedBranchCoverageData, ProcessedFunctionCoverageData};
+use SebastianBergmann\CodeCoverage\StaticAnalysis\{FileAnalyser, ParsingSourceAnalyser};
 
 use function str_ends_with;
 
@@ -13,8 +16,10 @@ use function str_ends_with;
  * A php-code-coverage object holding a run, ready for any of its reports.
  *
  * A Blade view enters through the analysis copy of its compiled code, whose lines php-code-coverage
- * can tell executable from not; once appended, its lines are mapped back to the template and the
- * file takes the template's path, so every report shows the view itself.
+ * can tell executable from not; once appended, its lines and branches are mapped back to the
+ * template and the file takes the template's path, so every report shows the view itself. The
+ * reports keep reading the copy for the view's code units: it declares the function `view` whose
+ * branches they count.
  */
 final class CoverageBuilder
 {
@@ -31,13 +36,14 @@ final class CoverageBuilder
 
         foreach ($views as $viewPath => [$analysisPath, $lineMap]) {
             $lines[$viewPath] = self::mapped($lines[$analysisPath] ?? [], $lineMap);
+            $functions[$viewPath] = self::mappedFunctions($functions[$analysisPath] ?? [], $lineMap);
             unset($lines[$analysisPath], $functions[$analysisPath]);
         }
 
         $data->setLineCoverage($lines);
         $data->setFunctionCoverage($functions);
 
-        $coverage = self::coverage(self::reported($sourceFiles, $views));
+        $coverage = self::coverage(self::reported($sourceFiles, $views), array_map(static fn (array $view): string => $view[0], $views));
         $coverage->setData($data);
         $coverage->setTests($appended->getTests());
 
@@ -89,14 +95,19 @@ final class CoverageBuilder
         return $reported;
     }
 
-    /** @param list<string> $files */
-    private static function coverage(array $files): CodeCoverage
+    /**
+     * @param list<string>          $files
+     * @param array<string, string> $copies view path => analysis copy, read in place of the template
+     */
+    private static function coverage(array $files, array $copies = []): CodeCoverage
     {
         $filter = new Filter();
         $filter->includeFiles($files);
 
         $coverage = new CodeCoverage(new CoverageDriver(), $filter);
         $coverage->enableBranchAndPathCoverage();
+        // php-code-coverage builds its analyser itself, with these same two settings: the views need their own.
+        new ReflectionProperty(CodeCoverage::class, 'analyser')->setValue($coverage, new FileAnalyser(new ViewSourceAnalyser($copies, new ParsingSourceAnalyser()), true, false));
 
         return $coverage;
     }
@@ -123,5 +134,31 @@ final class CoverageBuilder
         ksort($lines);
 
         return $lines;
+    }
+
+    /**
+     * The branches of a compiled view on the lines of its template. The line map never shrinks
+     * the order of lines, so a branch keeps its ends.
+     *
+     * @param array<string, ProcessedFunctionCoverageData> $functions
+     * @param array<int, int>                              $lineMap
+     *
+     * @return array<string, ProcessedFunctionCoverageData>
+     */
+    private static function mappedFunctions(array $functions, array $lineMap): array
+    {
+        $mapped = [];
+
+        foreach ($functions as $name => $function) {
+            $branches = [];
+
+            foreach ($function->branches as $id => $branch) {
+                $branches[$id] = new ProcessedBranchCoverageData($branch->op_start, $branch->op_end, $lineMap[$branch->line_start], $lineMap[$branch->line_end], $branch->hit, $branch->out, $branch->out_hit);
+            }
+
+            $mapped[$name] = new ProcessedFunctionCoverageData($branches, $function->paths);
+        }
+
+        return $mapped;
     }
 }

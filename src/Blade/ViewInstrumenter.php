@@ -7,12 +7,15 @@ namespace Sonda\Blade;
 use Sonda\{Filesystem, InstrumentationResult, Instrumenter};
 
 /**
- * Instruments a Blade view through its compiled PHP: the probes refer to the compiled lines,
- * and the result carries the line map back to the template and the plain compiled code the
- * report analyses.
+ * Instruments a Blade view through its compiled PHP: the probes refer to the compiled lines and
+ * belong to the function `view`, and the result carries the line map back to the template and
+ * the analysis copy of the compiled code, which declares that function for the report.
  */
 final readonly class ViewInstrumenter
 {
+    /** The function the report counts the branches of a view by. */
+    public const string FUNCTION = 'view';
+
     public function __construct(private Instrumenter $instrumenter)
     {
     }
@@ -22,8 +25,8 @@ final readonly class ViewInstrumenter
     {
         $template = Filesystem::read($viewPath);
         $compiled = $compile($template);
-        $result = $this->instrumenter->instrumentCode($compiled, $compiledPath, $fileId);
+        $result = $this->instrumenter->instrumentCode($compiled, $compiledPath, $fileId, self::FUNCTION);
 
-        return new InstrumentationResult($result->code, $result->probes, LineMap::of($template, $compiled, $compile), $compiled);
+        return new InstrumentationResult($result->code, $result->probes, LineMap::of($template, $compiled, $compile), AnalysisCopy::of($compiled, $template));
     }
 }

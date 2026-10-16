@@ -2,8 +2,13 @@
 
 declare(strict_types=1);
 
-use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run};
-use Sonda\Report\CoverageBuilder;
+use SebastianBergmann\CodeCoverage\Node\{AbstractNode, File};
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\View\Compilers\BladeCompiler;
+use Sonda\Blade\ViewInstrumenter;
+use Sonda\{InstrumentationCache, InstrumentationResult, Instrumenter, Probe, Run};
+use Sonda\Report\{CoverageBuilder, Uncovered};
+use SebastianBergmann\CodeCoverage\Data\ProcessedBranchCoverageData;
 
 it('builds a coverage object with the branch data of the run and the source files never loaded', function (): void {
     $root = TemporaryDirectory::create();
@@ -47,11 +52,45 @@ it('reports a view on the lines of its template, from the coverage of its compil
     $report = $coverage->getReport();
 
     expect($coverage->getData()->lineCoverage())->toBe([$view => [1 => [], 2 => ['sonda'], 4 => ['sonda']]])
-        ->and(array_keys($coverage->getData()->functionCoverage()))->toBe([])
+        ->and($coverage->getData()->functionCoverage())->toBe([$view => []])
         ->and($coverage->filter()->files())->toBe([$view])
         ->and($coverage->getTests())->toHaveKey('sonda')
         ->and($report->numberOfExecutableLines())->toBe(3)
         ->and($report->numberOfExecutedLines())->toBe(2);
+});
+
+it('reports the branches of a view on the lines of its template, as the function view the report counts', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/resources/views', 0777, true);
+    $view = $root . '/resources/views/home.blade.php';
+    file_put_contents($view, "<h1>Home</h1>\n@if (\$show)\n    {{ \$title }}\n@endif\n");
+    $compiler = new BladeCompiler(new Filesystem(), $root . '/compiled');
+    $result = new ViewInstrumenter(new Instrumenter(strict: true))->instrument($view, $root . '/compiled/home.php', 'v', static fn (string $template): string => $compiler->compileString($template));
+    new InstrumentationCache($root . '/cache')->store('view', $result);
+    // Every probe hit but those of the @if body, compiled lines 3 and 4; the synthetic else has no line.
+    $hits = [];
+
+    foreach ($result->probes as $id => $probe) {
+        if ($probe->line === null || $probe->line < 3) {
+            $hits[$id] = 1;
+        }
+    }
+
+    $coverage = CoverageBuilder::build(new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => $hits]), [$view]);
+    $report = $coverage->getReport();
+    $file = array_values(array_filter(iterator_to_array($report, false), static fn (AbstractNode $node): bool => $node instanceof File))[0];
+    $branches = $coverage->getData()->functionCoverage()[$view][ViewInstrumenter::FUNCTION]->branches;
+
+    expect(array_keys($coverage->getData()->functionCoverage()[$view]))->toBe([ViewInstrumenter::FUNCTION])
+        ->and(array_map(static fn (ProcessedBranchCoverageData $branch): array => [$branch->line_start, $branch->line_end, $branch->hit !== []], $branches))->toBe([[3, 3, false], [4, 4, true]])
+        ->and($file)->toBeInstanceOf(File::class)
+        ->and(array_keys($file->functions()))->toBe([ViewInstrumenter::FUNCTION])
+        ->and($file->functions()[ViewInstrumenter::FUNCTION]->startLine)->toBe(1)
+        ->and($report->numberOfExecutableBranches())->toBe(2)
+        ->and($report->numberOfExecutedBranches())->toBe(1)
+        ->and($report->numberOfExecutableLines())->toBe(3)
+        ->and($report->numberOfExecutedLines())->toBe(2)
+        ->and(Uncovered::of($coverage))->toBe([$view => ['lines' => [3], 'branches' => [[3, 3]]]]);
 });
 
 it('keeps a view without run data out of the report, which cannot tell its executable lines', function (): void {
@@ -66,6 +105,7 @@ it('keeps a view without run data out of the report, which cannot tell its execu
     $coverage = CoverageBuilder::build($run, [$other, $view]);
 
     expect(array_keys($coverage->getData()->lineCoverage()))->toBe([$other])
+        ->and($coverage->getData()->lineCoverage()[$other][5])->toBe(['sonda'])
         ->and($coverage->filter()->files())->toBe([$other]);
 });
 
@@ -98,4 +138,33 @@ it('keeps a view out of the report when it is not a source file', function (): v
     $run = new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => [0 => 1]]);
 
     expect(array_keys(CoverageBuilder::build($run, [$other])->getData()->lineCoverage()))->toBe([$other]);
+});
+
+it('leaves out the annotated code of a file the run never loaded, and keeps its deprecated code, as php-code-coverage does', function (): void {
+    $root = TemporaryDirectory::create();
+    $never = $root . '/Never.php';
+    file_put_contents($never, "<?php\n\nfinal class Never\n{\n    /** @codeCoverageIgnore */\n    public function ignored(): int\n    {\n        return 1;\n    }\n\n    /** @deprecated */\n    public function old(): int\n    {\n        return 2;\n    }\n}\n");
+
+    $coverage = CoverageBuilder::build(new Run($root . '/cache', [], []), [$never]);
+
+    expect($coverage->getData()->lineCoverage()[$never])->toBe([14 => []]);
+});
+
+it('reports a view and a source file side by side, each with its own data', function (): void {
+    $root = TemporaryDirectory::create();
+    $view = $root . '/home.blade.php';
+    $other = $root . '/Other.php';
+    file_put_contents($view, "<h1>{{ \$title }}</h1>\n");
+    file_put_contents($other, "<?php\n\nfunction other(): int\n{\n    return 1;\n}\n");
+    $compiled = "<h1><?php echo e(\$title); ?></h1>\n";
+    $cache = new InstrumentationCache($root . '/cache');
+    $cache->store('view', new InstrumentationResult($compiled, [0 => new Probe(1, false, 'view', 0, 0)], [1 => 1, 2 => 1], $compiled));
+    $cache->store('other', new InstrumentationResult('<?php', [0 => new Probe(5, true, 'other', 5, 5)]));
+
+    $run = new Run($root . '/cache', ['v' => [$view, 'view'], 'o' => [$other, 'other']], ['v' => [0 => 1], 'o' => [0 => 1]]);
+
+    $coverage = CoverageBuilder::build($run, [$other, $view]);
+
+    expect($coverage->getData()->lineCoverage())->toBe([$other => [5 => ['sonda']], $view => [1 => ['sonda']]])
+        ->and($coverage->getReport()->numberOfExecutedLines())->toBe(2);
 });

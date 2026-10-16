@@ -14,6 +14,7 @@ final readonly class TestOptions
     /**
      * @param non-empty-string|null $changed
      * @param list<string>          $files
+     * @param list<string>          $views
      * @param non-empty-string|null $html
      * @param non-empty-string|null $clover
      * @param non-empty-string|null $cov
@@ -27,6 +28,7 @@ final readonly class TestOptions
         public bool $fast = true,
         public bool $parallel = true,
         public bool $blade = true,
+        public array $views = [],
         public ?string $configuration = null,
         public ?string $html = null,
         public ?string $clover = null,
@@ -45,6 +47,7 @@ final readonly class TestOptions
         $fast = true;
         $parallel = true;
         $blade = true;
+        $views = [];
         $configuration = null;
         $html = null;
         $clover = null;
@@ -74,6 +77,8 @@ final readonly class TestOptions
                 $changed = self::valueOf($argument, '--changed');
             } elseif (self::valueOf($argument, '--files') !== null) {
                 $files = [...$files, ...array_filter(explode(',', self::valueOf($argument, '--files')))];
+            } elseif (self::valueOf($argument, '--views') !== null) {
+                $views = [...$views, ...array_filter(explode(',', self::valueOf($argument, '--views')))];
             } elseif (self::valueOf($argument, '--html') !== null) {
                 $html = self::valueOf($argument, '--html');
             } elseif (self::valueOf($argument, '--clover') !== null) {
@@ -95,7 +100,7 @@ final readonly class TestOptions
             }
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $blade, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
     }
 
     /**

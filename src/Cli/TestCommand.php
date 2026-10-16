@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Sonda\Cli;
 
+use InvalidArgumentException;
 use RuntimeException;
 use Sonda\{Filesystem, Run, Scope};
 use Sonda\Git\ChangedLines;
-use Sonda\Project\{Runner, TestConfiguration};
+use Sonda\Project\{Runner, TestConfiguration, ViewFolders};
 use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
@@ -140,19 +141,31 @@ final readonly class TestCommand
     }
 
     /**
-     * The Blade views of a Laravel project, `resources/views`, unless `--no-blade` leaves them out.
+     * The Blade views: `resources/views` of a Laravel project and of the packages and modules kept
+     * in it, plus the directories of `--views`; `--no-blade` leaves them all out.
      *
      * @return list<string>
      */
     private function viewDirectories(TestOptions $options, string $projectRoot): array
     {
-        $views = realpath($projectRoot . '/resources/views');
-
-        if (! $options->blade || ! is_file($projectRoot . '/artisan') || $views === false) {
+        if (! $options->blade) {
             return [];
         }
 
-        return [$views];
+        $directories = [];
+        $found = is_file($projectRoot . '/artisan') ? ViewFolders::in($projectRoot) : [];
+
+        foreach ([...$found, ...$options->views] as $directory) {
+            $realDirectory = realpath(str_starts_with($directory, '/') ? $directory : $projectRoot . '/' . $directory);
+
+            if ($realDirectory === false) {
+                throw new InvalidArgumentException("A pasta de views {$directory} não existe.");
+            }
+
+            $directories[$realDirectory] = $realDirectory;
+        }
+
+        return array_values($directories);
     }
 
     /** @param list<string> $directories */

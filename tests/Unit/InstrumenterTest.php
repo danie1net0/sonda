@@ -122,6 +122,7 @@ it('takes as sources the files that decide its output', function (): void {
         $directory . '/SourceEditor.php',
         $directory . '/Edit.php',
         $directory . '/Probe.php',
+        $directory . '/Blade/AnalysisCopy.php',
         $directory . '/Blade/LineMap.php',
         $directory . '/Blade/ViewInstrumenter.php',
     ]);
@@ -264,4 +265,11 @@ it('fails when the parser gives no syntax tree', function (): void {
 
     expect(fn (): InstrumentationResult => new Instrumenter(parser: $parser)->instrument($path, 'file'))
         ->toThrow(RuntimeException::class, "O arquivo {$path} não pôde ser analisado.");
+});
+
+it('names the file-level code as asked, so its branches can count toward a declared function', function (): void {
+    $result = new Instrumenter(strict: true)->instrumentCode("<?php\nif (\$a) {\n    echo 1;\n}\n", '/project/view.php', 'f', 'view');
+
+    expect(array_map(static fn (Probe $probe): string => $probe->functionName, $result->probes))->toBe(['view', 'view', 'view'])
+        ->and(array_filter($result->probes, static fn (Probe $probe): bool => $probe->countsAsBranch()))->toHaveCount(2);
 });

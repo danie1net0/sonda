@@ -29,6 +29,7 @@ final readonly class Application
       --no-fast         sondas sem a referência local por função
       --no-parallel     não usa o ParaTest mesmo quando instalado
       --no-blade        não mede as views do Blade (resources/views) de um projeto Laravel
+      --views=a,b       mede também as views do Blade dessas pastas
       -c <arquivo>      o phpunit.xml a usar, também repassado ao runner
 
     Qualquer outro argumento vai para o runner (php artisan test, pest ou phpunit).

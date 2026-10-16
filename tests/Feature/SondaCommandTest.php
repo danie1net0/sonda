@@ -165,7 +165,7 @@ it('measures the Blade views of a Laravel project, in the subdirectory per worke
 
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (3 tests, 4 assertions)')
-        ->toContain("\nCobertura: linhas 5/9 (55,56%), branches 4/7 (57,14%)\n");
+        ->toContain("\nCobertura: linhas 5/8 (62,50%), branches 5/9 (55,56%)\n");
 });
 
 it('reports the Blade views next to the source, with plain PHPUnit', function (): void {
@@ -174,7 +174,7 @@ it('reports the Blade views next to the source, with plain PHPUnit', function ()
     [$status, $output] = sonda($root, 'test', '--no-parallel', '--html=build/html');
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toContain('Cobertura: linhas 5/9 (55,56%), branches 4/7 (57,14%)')
+        ->and($output)->toContain('Cobertura: linhas 5/8 (62,50%), branches 5/9 (55,56%)')
         ->and($root . '/build/html/resources/views/greeting.blade.php.html')->toBeFile()
         ->and($root . '/build/html/src/Discount.php.html')->toBeFile();
 });

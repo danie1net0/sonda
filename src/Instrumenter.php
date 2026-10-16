@@ -33,7 +33,8 @@ final readonly class Instrumenter
     }
 
     /** @param string $path what `__FILE__` and `__DIR__` in the code stand for */
-    public function instrumentCode(string $code, string $path, string $fileId): InstrumentationResult
+    /** @param string $mainScope the function name of the file-level code (see InstrumentingVisitor) */
+    public function instrumentCode(string $code, string $path, string $fileId, string $mainScope = '{main}'): InstrumentationResult
     {
         $ast = $this->parser->parse($code);
 
@@ -41,7 +42,7 @@ final readonly class Instrumenter
             throw new RuntimeException("O arquivo {$path} não pôde ser analisado.");
         }
 
-        $visitor = new InstrumentingVisitor($this->parser->getTokens(), $fileId, $path, $this->strict, $this->fast);
+        $visitor = new InstrumentingVisitor($this->parser->getTokens(), $fileId, $path, $this->strict, $this->fast, $mainScope);
         $visitor->instrumentTopLevel($ast);
         new NodeTraverser($visitor)->traverse($ast);
 
@@ -73,6 +74,7 @@ final readonly class Instrumenter
         $sources[] = __DIR__ . '/SourceEditor.php';
         $sources[] = __DIR__ . '/Edit.php';
         $sources[] = __DIR__ . '/Probe.php';
+        $sources[] = __DIR__ . '/Blade/AnalysisCopy.php';
         $sources[] = __DIR__ . '/Blade/LineMap.php';
         $sources[] = __DIR__ . '/Blade/ViewInstrumenter.php';
 

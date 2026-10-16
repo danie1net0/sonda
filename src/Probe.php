@@ -38,7 +38,7 @@ final readonly class Probe
         return $lines;
     }
 
-    /** Branches of closures, arrow functions, hooks and file-level code are not reported. */
+    /** Branches of closures, arrow functions, hooks and `{main}` file-level code are not reported: php-code-coverage counts only declared functions. */
     public function countsAsBranch(): bool
     {
         return $this->isBranch && ! str_starts_with($this->functionName, '{');

@@ -6,7 +6,7 @@ use Sonda\InstrumentationResult;
 use Illuminate\Container\Container;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\View\Compilers\BladeCompiler;
-use Sonda\Blade\Views;
+use Sonda\Blade\{AnalysisCopy, Views};
 use Sonda\{Hits, InstrumentationCache, Instrumenter, Settings};
 
 /**
@@ -91,7 +91,7 @@ it('compiles and instruments the Blade views into the compiled directory, once, 
         ->and(file_get_contents($compiler->getCompiledPath($home)))->toBe(file_get_contents($cache->codePath($key)))
         ->toContain('\\' . Hits::class . "::\$current['" . substr(sha1($home), 0, 12) . "']")
         ->and($cache->lineMap($key))->toBe([1 => 1, 2 => 2, 3 => 3, 4 => 3, 5 => 4, 6 => 4])
-        ->and(file_get_contents($cache->analysisPath($key)))->toBe($compiler->compileString((string) file_get_contents($home)))
+        ->and(file_get_contents($cache->analysisPath($key)))->toBe(AnalysisCopy::of($compiler->compileString((string) file_get_contents($home)), (string) file_get_contents($home)))
         ->and(fileperms($compiled) & 0o777)->toBe(0o700)
         ->and(filemtime($compiler->getCompiledPath($home)))->toBeGreaterThanOrEqual(filemtime($home));
 });
