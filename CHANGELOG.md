@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/danie1net0/sonda/compare/v1.8.0...v1.9.0) (2026-10-16)
+
+
+### Features
+
+* fn& e &get ganham sonda, aviso de require direto, shebang preservado ([015ce43](https://github.com/danie1net0/sonda/commit/015ce438ccb06f94067ae379659ffbe2bb44a189))
+
 # [1.8.0](https://github.com/danie1net0/sonda/compare/v1.7.0...v1.8.0) (2026-10-16)
 
 
