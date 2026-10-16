@@ -77,7 +77,9 @@ Cobertura: linhas 11140/11232 (99,18%), branches 4303/4371 (98,44%)
 ```
 
 Qualquer argumento que o Sonda não conheça vai para o runner: `sonda test --filter=Order`,
-`sonda test tests/Feature/Actions`.
+`sonda test tests/Feature/Actions`. Vários caminhos (`sonda test tests/Unit tests/Feature/Actions`)
+rodam em paralelo do mesmo jeito: o ParaTest só aceita um na linha de comando, então o Sonda os
+põe num `phpunit.xml` gerado ao lado do do projeto, apagado no fim.
 
 ### Só o que mudou
 
