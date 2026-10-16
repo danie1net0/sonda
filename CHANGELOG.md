@@ -1,3 +1,17 @@
+# [1.7.0](https://github.com/danie1net0/sonda/compare/v1.6.0...v1.7.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **cli:** caminhos reais para os workers, para um temporário atrás de symlink não perder os dados das views ([d896e64](https://github.com/danie1net0/sonda/commit/d896e649b399ec4de519832100e441903e8e5210))
+
+
+### Features
+
+* **bootstrap:** arquivos da chave files do Composer que estão no alvo são instrumentados ([abd3426](https://github.com/danie1net0/sonda/commit/abd3426d31b37f5c045cd01a3e4f0c8bf339123f))
+* **cli:** vários caminhos de teste rodam em paralelo, por uma configuração gerada ([1d4d787](https://github.com/danie1net0/sonda/commit/1d4d787591e53dc7a2090b5678ba51a1681ca05c))
+* **sondas:** corpo vazio de if e de laço conta como branch; property hook de expressão ganha sonda ([ac4cee5](https://github.com/danie1net0/sonda/commit/ac4cee5708b9d5e6ea57b16d591cf5c4540dae9b))
+
 # [1.6.0](https://github.com/danie1net0/sonda/compare/v1.5.0...v1.6.0) (2026-10-16)
 
 
