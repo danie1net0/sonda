@@ -11,7 +11,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
         '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
-        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--filter=Order', 'tests/Feature',
+        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
     ]);
 
     expect($options)->toEqual(new TestOptions(
@@ -22,6 +22,9 @@ it('reads its own options and passes the rest to the runner', function (): void 
         parallel: false,
         blade: false,
         views: ['themes/dark', 'themes/light', '/views'],
+        text: true,
+        minLines: 90.0,
+        minBranches: 85.5,
         html: 'build/html',
         clover: 'clover.xml',
         cov: 'coverage.cov',
@@ -68,4 +71,13 @@ it('requires a value for the options that take one', function (string $argument,
     ['--changed=', 'A opção --changed precisa de um valor.'],
     ['--html=', 'A opção --html precisa de um valor.'],
     ['-c', 'A opção -c precisa de um arquivo.'],
+]);
+
+it('requires a percentage from 0 to 100 for the floors', function (string $argument, string $option): void {
+    expect(fn (): TestOptions => TestOptions::parse([$argument]))
+        ->toThrow(InvalidArgumentException::class, "A opção {$option} precisa de um número de 0 a 100.");
+})->with([
+    ['--min-lines=abc', '--min-lines'],
+    ['--min-lines=101', '--min-lines'],
+    ['--min-branches=-1', '--min-branches'],
 ]);

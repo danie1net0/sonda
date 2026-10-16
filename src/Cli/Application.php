@@ -30,12 +30,26 @@ final readonly class Application
       --no-parallel     não usa o ParaTest mesmo quando instalado
       --no-blade        não mede as views do Blade (resources/views) de um projeto Laravel
       --views=a,b       mede também as views do Blade dessas pastas
+      --text            lista a cobertura de cada arquivo
+      --min-lines=<n>   falha se a cobertura de linhas do projeto ficar abaixo de n%
+      --min-branches=<n> o mesmo para branches
       -c <arquivo>      o phpunit.xml a usar, também repassado ao runner
 
     Qualquer outro argumento vai para o runner (php artisan test, pest ou phpunit).
+
+    uso: sonda compare <saída> [opções] [argumentos do runner]
+
+    Mede o projeto com o Sonda e com o Xdebug (path coverage) e compara os dois, gravando
+    sonda.cov, xdebug.cov, compare.txt e summary.txt em <saída>. Precisa de um banco privado
+    em DB_DATABASE no ambiente e de uma máquina livre.
+
+    Opções:
+      --processes=<n>   workers do ParaTest, ou filas de lotes (padrão 3)
+      --batch=<n>       testes por lote do lado Xdebug, que numa suíte grande não termina de uma vez
+      --xdebug=<so>     o xdebug.so a carregar
     TEXT;
 
-    public function __construct(private TestCommand $testCommand)
+    public function __construct(private TestCommand $testCommand, private CompareCommand $compareCommand)
     {
     }
 
@@ -54,13 +68,17 @@ final readonly class Application
             return 0;
         }
 
-        if ($command !== 'test') {
+        if (! in_array($command, ['test', 'compare'], true)) {
             fwrite($error, "Comando desconhecido: {$command}\n\n" . self::USAGE . "\n");
 
             return 1;
         }
 
         try {
+            if ($command === 'compare') {
+                return $this->compareCommand->run(CompareOptions::parse(array_slice($arguments, 1)), $projectRoot);
+            }
+
             return $this->testCommand->run(TestOptions::parse(array_slice($arguments, 1)), $projectRoot, $output);
         } catch (InvalidArgumentException|RuntimeException $exception) {
             fwrite($error, $exception->getMessage() . "\n");

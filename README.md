@@ -120,6 +120,8 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--no-parallel` | não usa o ParaTest mesmo quando instalado |
 | `--no-blade` | não mede as views do Blade de um projeto Laravel |
 | `--views=a,b` | mede também as views do Blade dessas pastas |
+| `--text` | lista a cobertura de cada arquivo depois do total |
+| `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou) |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
 
 Cache e execuções ficam fora do projeto, em `$XDG_CACHE_HOME/sonda` ou `~/.cache/sonda`, num
@@ -246,10 +248,11 @@ XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --path-cove
 XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --mutate --class='Sonda\Probe'
 php tools/lint-corpus.php vendor 1   # instrumenta um diretório inteiro e confere que o PHP continua válido
 php tools/compare.php xdebug.cov sonda.cov -v   # compara dois .cov linha a linha e método a método
-tools/compare-with-xdebug.sh <pasta de saída>   # na raiz de um projeto: Sonda, Xdebug com paths e a comparação, com summary.txt
+sonda compare <pasta de saída>   # na raiz de um projeto: Sonda, Xdebug com paths e a comparação, com summary.txt
 ```
 
-O `compare-with-xdebug.sh` roda a suíte duas vezes, com o Sonda e com o Xdebug em `--parallel`, e
+O `sonda compare` (o `tools/compare-with-xdebug.sh`; `--processes`, `--batch` e `--xdebug` viram
+as variáveis abaixo) roda a suíte duas vezes, com o Sonda e com o Xdebug em `--parallel`, e
 deixa `sonda.cov`, `xdebug.cov`, `compare.txt` e `summary.txt` na pasta informada; argumentos extras
 vão para o runner (`tools/compare-with-xdebug.sh saida tests/Feature/Pedidos` mede só essa pasta).
 Ele gera um `phpunit.xml` próprio com `pathCoverage="true"`, porque o ParaTest não aceita

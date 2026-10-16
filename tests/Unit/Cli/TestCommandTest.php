@@ -430,3 +430,26 @@ it('refuses to work under a directory open to other users, before running anythi
         ->toThrow(RuntimeException::class, "O diretório {$refused} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.")
         ->and($runner->calls)->toBe(0);
 })->with(['root', 'project']);
+
+it('lists the coverage of each file with --text', function (): void {
+    $root = fakeProject();
+
+    [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--text']), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($output)->toContain("\nCobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\napp/Order.php: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+});
+
+it('fails below the floors of --min-lines and --min-branches, saying which, and passes at them', function (): void {
+    $root = fakeProject();
+
+    [$below, $belowOutput] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--min-lines=70', '--min-branches=50', '--html=build/html']), TemporaryDirectory::create());
+    [$at] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--min-lines=66.66', '--min-branches=50']), TemporaryDirectory::create());
+    [$failedRun] = runTestCommand(new FakeRunner(status: 2, hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--min-lines=70']), TemporaryDirectory::create());
+
+    expect($below)->toBe(1)
+        ->and($belowOutput)->toContain("Cobertura abaixo do mínimo: linhas 66,67% < 70,00%\n")
+        ->toContain('Relatório HTML em ')
+        ->and($at)->toBe(0)
+        ->and($failedRun)->toBe(2);
+});

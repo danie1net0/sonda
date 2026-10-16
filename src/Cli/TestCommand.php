@@ -9,7 +9,7 @@ use RuntimeException;
 use Sonda\{Filesystem, Run, Scope};
 use Sonda\Git\ChangedLines;
 use Sonda\Project\{Runner, SuiteConfiguration, TestConfiguration, TestSelection, ViewFolders};
-use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, Uncovered};
+use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
@@ -90,6 +90,13 @@ final readonly class TestCommand
         }
 
         fwrite($output, "\n" . $this->summary($coverage) . "\n");
+
+        if ($options->text) {
+            fwrite($output, TextSummary::of($coverage, $projectRoot) . "\n");
+        }
+
+        $belowMinimum = $this->belowMinimum($options, $coverage, $output);
+        $status = $status === 0 && $belowMinimum ? 1 : $status;
         $this->writeReports($options, $coverage, $projectRoot, $output);
 
         if (! $scope->narrowsToFiles()) {
@@ -265,11 +272,39 @@ final readonly class TestCommand
             'Cobertura: linhas %d/%d (%s), branches %d/%d (%s)',
             $report->numberOfExecutedLines(),
             $report->numberOfExecutableLines(),
-            $this->percentage($report->numberOfExecutedLines(), $report->numberOfExecutableLines()),
+            TextSummary::percentage($report->numberOfExecutedLines(), $report->numberOfExecutableLines()),
             $report->numberOfExecutedBranches(),
             $report->numberOfExecutableBranches(),
-            $this->percentage($report->numberOfExecutedBranches(), $report->numberOfExecutableBranches()),
+            TextSummary::percentage($report->numberOfExecutedBranches(), $report->numberOfExecutableBranches()),
         );
+    }
+
+    /**
+     * Whether the whole report falls below the floors of --min-lines and --min-branches, saying so.
+     *
+     * @param resource $output
+     */
+    private function belowMinimum(TestOptions $options, CodeCoverage $coverage, $output): bool
+    {
+        $report = $coverage->getReport();
+        $measures = [];
+        $measures['linhas'] = [$options->minLines, $report->numberOfExecutedLines(), $report->numberOfExecutableLines()];
+        $measures['branches'] = [$options->minBranches, $report->numberOfExecutedBranches(), $report->numberOfExecutableBranches()];
+        $below = [];
+
+        foreach ($measures as $name => [$minimum, $covered, $total]) {
+            if ($minimum !== null && TextSummary::ratio($covered, $total) < $minimum) {
+                $below[] = $name . ' ' . TextSummary::percentage($covered, $total) . ' < ' . TextSummary::format($minimum);
+            }
+        }
+
+        if ($below === []) {
+            return false;
+        }
+
+        fwrite($output, 'Cobertura abaixo do mínimo: ' . implode(', ', $below) . "\n");
+
+        return true;
     }
 
     private function changeSummary(ChangeCoverage $change): string
@@ -278,20 +313,11 @@ final readonly class TestCommand
             'Do que mudou: linhas %d/%d (%s), branches %d/%d (%s)',
             $change->executedLines,
             $change->executableLines,
-            $this->percentage($change->executedLines, $change->executableLines),
+            TextSummary::percentage($change->executedLines, $change->executableLines),
             $change->executedBranches,
             $change->executableBranches,
-            $this->percentage($change->executedBranches, $change->executableBranches),
+            TextSummary::percentage($change->executedBranches, $change->executableBranches),
         );
-    }
-
-    private function percentage(int $covered, int $total): string
-    {
-        if ($total === 0) {
-            return '100,00%';
-        }
-
-        return number_format($covered * 100 / $total, 2, ',', '.') . '%';
     }
 
     private function absolute(string $path, string $root): string

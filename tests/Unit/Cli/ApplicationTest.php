@@ -2,16 +2,20 @@
 
 declare(strict_types=1);
 
-use Sonda\Cli\{Application, ProcessRunner, TestCommand};
+use Sonda\Cli\{Application, CompareCommand, ProcessRunner, TestCommand};
 
 final class RecordingRunner implements ProcessRunner
 {
     /** @var list<string> */
     public array $command = [];
 
+    /** @var array<string, string> */
+    public array $environment = [];
+
     public function run(array $command, array $environment, string $directory): int
     {
         $this->command = $command;
+        $this->environment = $environment;
 
         return 0;
     }
@@ -28,7 +32,7 @@ function application(): array
         throw new RuntimeException('Sem memória para a saída.');
     }
 
-    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda')), $output, $error, $processes];
+    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda'), new CompareCommand($processes, '/sonda')), $output, $error, $processes];
 }
 
 /** @param resource $stream */
@@ -89,4 +93,17 @@ it('hands the arguments after the command to the test command', function (): voi
     $application->run(['test', '--no-parallel', '--filter=Order'], $project, $output, $error);
 
     expect($runner->command)->toBe([PHP_BINARY, 'vendor/bin/phpunit', '--no-coverage', '--bootstrap=/sonda/bootstrap.php', '--filter=Order']);
+});
+
+it('hands the compare command its output directory and options, and reports a missing one', function (): void {
+    [$application, $output, $error, $processes] = application();
+
+    $status = $application->run(['compare', 'build/compare', '--processes=4', '--filter=Order'], '/project', $output, $error);
+    $missing = $application->run(['compare', '--batch=80'], '/project', $output, $error);
+
+    expect($status)->toBe(0)
+        ->and($processes->command)->toBe(['bash', '/sonda/tools/compare-with-xdebug.sh', 'build/compare', '--filter=Order'])
+        ->and($processes->environment)->toBe(['PROCESSES' => '4'])
+        ->and($missing)->toBe(1)
+        ->and(contents($error))->toContain('O comando compare precisa do diretório de saída: sonda compare <saída>.');
 });

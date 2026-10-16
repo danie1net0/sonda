@@ -1,0 +1,32 @@
+name: dependencies
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    name: suite with the newest dependencies
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.5
+          extensions: dom, mbstring, tokenizer, xml
+          coverage: none
+
+      - name: Update dependencies
+        run: composer update --no-interaction --prefer-stable --prefer-dist
+
+      - name: Show what changed
+        run: composer show --direct
+
+      - name: Run the suite
+        run: vendor/bin/pest --parallel

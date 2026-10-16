@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 // Runs from the root of the measured project: its vendor/ brings php-code-coverage for the report.
 
-use Sonda\Cli\{Application, SystemProcessRunner, TestCommand, WorkDirectory};
+use Sonda\Cli\{Application, CompareCommand, SystemProcessRunner, TestCommand, WorkDirectory};
 
 require dirname(__DIR__) . '/autoload.php';
 
@@ -21,6 +21,7 @@ require $projectAutoload;
 
 $arguments = $_SERVER['argv'] ?? null;
 $strings = is_array($arguments) ? array_values(array_filter($arguments, is_string(...))) : [];
-$application = new Application(new TestCommand(new SystemProcessRunner(STDIN, STDOUT, STDERR), dirname(__DIR__), WorkDirectory::default(getenv())));
+$processes = new SystemProcessRunner(STDIN, STDOUT, STDERR);
+$application = new Application(new TestCommand($processes, dirname(__DIR__), WorkDirectory::default(getenv())), new CompareCommand($processes, dirname(__DIR__)));
 
 exit($application->run(array_slice($strings, 1), $projectRoot, STDOUT, STDERR));

@@ -6,7 +6,7 @@ namespace Sonda\Cli;
 
 use InvalidArgumentException;
 
-use function str_starts_with, substr;
+use function is_numeric, str_replace, str_starts_with, substr;
 
 /** The options of `sonda test`; whatever it does not know goes to the test runner. */
 final readonly class TestOptions
@@ -29,6 +29,9 @@ final readonly class TestOptions
         public bool $parallel = true,
         public bool $blade = true,
         public array $views = [],
+        public bool $text = false,
+        public ?float $minLines = null,
+        public ?float $minBranches = null,
         public ?string $configuration = null,
         public ?string $html = null,
         public ?string $clover = null,
@@ -48,6 +51,9 @@ final readonly class TestOptions
         $parallel = true;
         $blade = true;
         $views = [];
+        $text = false;
+        $minLines = null;
+        $minBranches = null;
         $configuration = null;
         $html = null;
         $clover = null;
@@ -73,6 +79,12 @@ final readonly class TestOptions
                 $parallel = false;
             } elseif ($argument === '--no-blade') {
                 $blade = false;
+            } elseif ($argument === '--text') {
+                $text = true;
+            } elseif (self::valueOf($argument, '--min-lines') !== null) {
+                $minLines = self::percentage(self::valueOf($argument, '--min-lines'), '--min-lines');
+            } elseif (self::valueOf($argument, '--min-branches') !== null) {
+                $minBranches = self::percentage(self::valueOf($argument, '--min-branches'), '--min-branches');
             } elseif (self::valueOf($argument, '--changed') !== null) {
                 $changed = self::valueOf($argument, '--changed');
             } elseif (self::valueOf($argument, '--files') !== null) {
@@ -100,7 +112,19 @@ final readonly class TestOptions
             }
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+    }
+
+    /** A percentage from 0 to 100, with comma or point. */
+    private static function percentage(string $value, string $option): float
+    {
+        $number = str_replace(',', '.', $value);
+
+        if (! is_numeric($number) || (float) $number < 0 || (float) $number > 100) {
+            throw new InvalidArgumentException("A opção {$option} precisa de um número de 0 a 100.");
+        }
+
+        return (float) $number;
     }
 
     /**
