@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/danie1net0/sonda/compare/v1.9.0...v1.10.0) (2026-10-16)
+
+
+### Features
+
+* **cli:** sem nada mudado no source, relatórios vazios ou, com piso, o projeto inteiro ([7632624](https://github.com/danie1net0/sonda/commit/76326243dfe40db9cff06b5c88019537fe3d9661))
+
 # [1.9.0](https://github.com/danie1net0/sonda/compare/v1.8.0...v1.9.0) (2026-10-16)
 
 
