@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/danie1net0/sonda/compare/v1.4.0...v1.5.0) (2026-10-16)
+
+
+### Features
+
+* **blade:** mede as views do Blade de projetos Laravel, também nos workers do ParaTest ([b90335b](https://github.com/danie1net0/sonda/commit/b90335bb0dd2b005e39566ae129818741182eecc))
+
 # [1.4.0](https://github.com/danie1net0/sonda/compare/v1.3.0...v1.4.0) (2026-10-16)
 
 
