@@ -35,8 +35,7 @@ final class TextSummary
             );
         }
 
-        sort($lines);
-
+        // php-code-coverage keeps its files in path order: the lines come out sorted.
         return implode("\n", $lines);
     }
 

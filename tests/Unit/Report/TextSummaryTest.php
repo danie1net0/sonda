@@ -20,7 +20,22 @@ it('lists each file with its lines and branches, relative to the root and sorted
     $coverage = CoverageBuilder::build(new Run($root . '/cache', ['o' => [$order, 'order']], ['o' => [0 => 1, 2 => 1]]), [$order, $never]);
 
     expect(TextSummary::of($coverage, $root))->toBe("app/Models/Never.php: linhas 0/1 (0,00%), branches 0/0 (100,00%)\napp/Order.php: linhas 2/3 (66,67%), branches 1/2 (50,00%)")
+        ->and(TextSummary::of($coverage, $root . '/'))->toStartWith('app/Models/Never.php: linhas 0/1')
         ->and(TextSummary::of($coverage, '/elsewhere'))->toStartWith($root . '/app/Models/Never.php: linhas 0/1');
+});
+
+it('lists the files in path order, whatever order the run met them in', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/app');
+    file_put_contents($root . '/app/Zeta.php', "<?php\n\nfunction zeta(): int\n{\n    return 1;\n}\n");
+    file_put_contents($root . '/app/Alpha.php', "<?php\n\nfunction alpha(): int\n{\n    return 1;\n}\n");
+    $cache = new InstrumentationCache($root . '/cache');
+    $cache->store('zeta', new InstrumentationResult('<?php', [0 => new Probe(5, true, 'zeta', 5, 5)]));
+    $cache->store('alpha', new InstrumentationResult('<?php', [0 => new Probe(5, true, 'alpha', 5, 5)]));
+
+    $coverage = CoverageBuilder::build(new Run($root . '/cache', ['z' => [$root . '/app/Zeta.php', 'zeta'], 'a' => [$root . '/app/Alpha.php', 'alpha']], ['z' => [0 => 1], 'a' => [0 => 1]]), [$root . '/app/Zeta.php', $root . '/app/Alpha.php']);
+
+    expect(TextSummary::of($coverage, $root))->toBe("app/Alpha.php: linhas 1/1 (100,00%), branches 1/1 (100,00%)\napp/Zeta.php: linhas 1/1 (100,00%), branches 1/1 (100,00%)");
 });
 
 it('formats percentages the Brazilian way, a whole as all covered', function (): void {

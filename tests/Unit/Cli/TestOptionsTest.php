@@ -73,6 +73,11 @@ it('requires a value for the options that take one', function (string $argument,
     ['-c', 'A opção -c precisa de um arquivo.'],
 ]);
 
+it('accepts the ends of the range for the floors', function (): void {
+    expect(TestOptions::parse(['--min-lines=0', '--min-branches=100']))->minLines->toBe(0.0)
+        ->and(TestOptions::parse(['--min-lines=0', '--min-branches=100']))->minBranches->toBe(100.0);
+});
+
 it('requires a percentage from 0 to 100 for the floors', function (string $argument, string $option): void {
     expect(fn (): TestOptions => TestOptions::parse([$argument]))
         ->toThrow(InvalidArgumentException::class, "A opção {$option} precisa de um número de 0 a 100.");

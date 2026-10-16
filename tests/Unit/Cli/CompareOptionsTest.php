@@ -9,8 +9,9 @@ it('reads the output directory, its own options and leaves the rest to the runne
         ->toEqual(new CompareOptions('build/compare', 6, 80, '/opt/xdebug.so', ['--filter=Order', 'tests/Feature', '-v']));
 });
 
-it('leaves the knobs unset when not given', function (): void {
-    expect(CompareOptions::parse(['out']))->toEqual(new CompareOptions('out'));
+it('leaves the knobs unset when not given, and takes the first argument that is not an option as the output', function (): void {
+    expect(CompareOptions::parse(['out']))->toEqual(new CompareOptions('out'))
+        ->and(CompareOptions::parse(['--filter=Order', 'out', '--processes=1']))->toEqual(new CompareOptions('out', 1, null, null, ['--filter=Order']));
 });
 
 it('requires the output directory', function (): void {
