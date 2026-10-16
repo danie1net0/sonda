@@ -231,7 +231,6 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
   entra com `--views`.
 - Um arquivo do diretório alvo carregado por `require` direto (fora da chave `files` do
   Composer, que é medida) não é instrumentado e aparece inteiro como não coberto.
-- O ParaTest aceita um único caminho de teste: `sonda test a.php b.php` roda sem ele, em série.
 - A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
   (o Xdebug a conta como executada).
 - Testes que leem o arquivo da classe por reflection veem a cópia instrumentada.

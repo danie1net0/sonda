@@ -190,6 +190,18 @@ it('measures a project in parallel with nothing installed in it', function (): v
         ->toContain("\nCobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)\n");
 });
 
+it('runs several test paths in parallel, through a configuration generated for them', function (): void {
+    $root = sondaProject();
+
+    [$status, $output] = sonda($root, 'test', 'tests/DiscountTest.php', 'tests/ShippingTest.php');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('Processes:')
+        ->toContain('OK (2 tests, 3 assertions)')
+        ->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
+        ->and(glob($root . '/.sonda-*'))->toBe([]);
+});
+
 it('measures a project with plain PHPUnit when asked not to run in parallel', function (): void {
     [$status, $output] = sonda(sondaProject(), 'test', '--no-parallel', '--html=build/html');
 

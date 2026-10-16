@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use RuntimeException;
 use Sonda\{Filesystem, Run, Scope};
 use Sonda\Git\ChangedLines;
-use Sonda\Project\{Runner, TestConfiguration, ViewFolders};
+use Sonda\Project\{Runner, SuiteConfiguration, TestConfiguration, TestSelection, ViewFolders};
 use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
@@ -65,11 +65,19 @@ final readonly class TestCommand
         // php-code-coverage keeps real paths: a symlinked temporary directory would lose the views' data.
         $workDirectory = (string) realpath($workDirectory);
         $runsDirectory = $workDirectory . '/runs-' . bin2hex(random_bytes(4));
-        $status = $this->processes->run(
-            [...Runner::command($projectRoot, $options->parallel && $this->hasAtMostOnePath($options->runnerArguments)), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$options->runnerArguments],
-            $this->environment($options, $configuration, $projectRoot, $sourceFiles, $viewDirectories, $workDirectory . '/cache', $runsDirectory),
-            $projectRoot,
-        );
+        [$runnerArguments, $generatedConfiguration] = $this->runnerArguments($options, $configuration, $projectRoot);
+
+        try {
+            $status = $this->processes->run(
+                [...Runner::command($projectRoot, $options->parallel), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$runnerArguments],
+                $this->environment($options, $configuration, $projectRoot, $sourceFiles, $viewDirectories, $workDirectory . '/cache', $runsDirectory),
+                $projectRoot,
+            );
+        } finally {
+            if ($generatedConfiguration !== null) {
+                unlink($generatedConfiguration);
+            }
+        }
 
         try {
             $coverage = CoverageBuilder::build(Run::loadDirectory($runsDirectory), $sourceFiles);
@@ -231,34 +239,22 @@ final readonly class TestCommand
     }
 
     /**
-     * ParaTest takes a single test path: with several, the tests run without it.
+     * The arguments for the runner. ParaTest takes a single test path on its command line: with
+     * several, in parallel, they go into a configuration generated beside the project's one.
      *
-     * @param list<string> $runnerArguments
+     * @return array{0: list<string>, 1: string|null} the arguments and the generated configuration, to remove after the run
      */
-    private function hasAtMostOnePath(array $runnerArguments): bool
+    private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot): array
     {
-        $paths = 0;
-        $skipNext = false;
+        $selection = TestSelection::of($options->runnerArguments);
 
-        foreach ($runnerArguments as $argument) {
-            if ($skipNext) {
-                $skipNext = false;
-
-                continue;
-            }
-
-            if ($argument === '-c' || $argument === '--configuration') {
-                $skipNext = true;
-
-                continue;
-            }
-
-            if (! str_starts_with($argument, '-')) {
-                $paths++;
-            }
+        if (! $options->parallel || count($selection->paths) <= 1) {
+            return [$options->runnerArguments, null];
         }
 
-        return $paths <= 1;
+        $generated = SuiteConfiguration::write($configuration->path, $selection->paths, $projectRoot);
+
+        return [[...$selection->options, '--configuration=' . $generated], $generated];
     }
 
     private function summary(CodeCoverage $coverage): string

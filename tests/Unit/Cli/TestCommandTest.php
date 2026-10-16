@@ -22,6 +22,9 @@ final class FakeRunner implements ProcessRunner
 
     public int $calls = 0;
 
+    /** What the generated configuration held, read while it still existed. */
+    public string $generatedConfiguration = '';
+
     /** @param array<int, int> $hits probes of Order.php to report as hit */
     public function __construct(private readonly int $status = 0, private readonly array $hits = [0 => 1, 1 => 1, 2 => 1], private readonly bool $savesRun = true)
     {
@@ -29,6 +32,12 @@ final class FakeRunner implements ProcessRunner
 
     public function run(array $command, array $environment, string $directory): int
     {
+        foreach ($command as $argument) {
+            if (str_starts_with($argument, '--configuration=' . $directory . '/.sonda-')) {
+                $this->generatedConfiguration = (string) file_get_contents(substr($argument, strlen('--configuration=')));
+            }
+        }
+
         $this->command = $command;
         $this->environment = $environment;
         $this->directory = $directory;
@@ -280,23 +289,34 @@ it('checks a file named explicitly whole even when its change touches no method'
         ->and($output)->toEndWith("Cobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nDo que mudou: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nSem cobertura:\napp/Order.php: linhas 8; branches 8\n");
 });
 
-it('runs in series when given more than one test path, since ParaTest takes a single one', function (): void {
+it('runs several test paths in parallel through a configuration generated beside the project one, and removes it', function (): void {
     $root = fakeProject();
     file_put_contents($root . '/vendor/bin/paratest', '');
+    mkdir($root . '/tests/Unit', 0777, true);
+    mkdir($root . '/tests/Feature');
     $one = new FakeRunner();
     $two = new FakeRunner();
     $configured = new FakeRunner();
-    $configuredTwo = new FakeRunner();
+    $series = new FakeRunner();
 
     runTestCommand($one, $root, TestOptions::parse(['tests/Unit']), TemporaryDirectory::create());
-    runTestCommand($two, $root, TestOptions::parse(['tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
-    runTestCommand($configured, $root, TestOptions::parse(['-c', 'phpunit.xml', '--filter=x', 'tests/Unit']), TemporaryDirectory::create());
-    runTestCommand($configuredTwo, $root, TestOptions::parse(['-c', 'phpunit.xml', 'tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
+    runTestCommand($two, $root, TestOptions::parse(['--filter=x', 'tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
+    runTestCommand($configured, $root, TestOptions::parse(['-c', 'phpunit.xml', 'tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
+    runTestCommand($series, $root, TestOptions::parse(['--no-parallel', 'tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
+
+    $generated = array_values(array_filter($two->command, static fn (string $argument): bool => str_starts_with($argument, '--configuration=')));
 
     expect($one->command[1])->toBe('vendor/bin/paratest')
-        ->and($two->command[1])->toBe('vendor/bin/phpunit')
+        ->and(array_slice($one->command, -1))->toBe(['tests/Unit'])
+        ->and($two->command[1])->toBe('vendor/bin/paratest')
+        ->and(array_slice($two->command, -2))->toEqual(['--filter=x', $generated[0] ?? ''])
+        ->and($generated[0] ?? '')->toMatch('#^--configuration=' . preg_quote($root, '#') . '/\\.sonda-[0-9a-f]{8}\\.phpunit\\.xml$#')
+        ->and($two->generatedConfiguration)->toContain('<directory suffix="Test.php">' . $root . '/tests/Unit</directory>')
+        ->and(glob($root . '/.sonda-*'))->toBe([])
         ->and($configured->command[1])->toBe('vendor/bin/paratest')
-        ->and($configuredTwo->command[1])->toBe('vendor/bin/phpunit');
+        ->and(array_slice($configured->command, -1)[0])->toStartWith('--configuration=' . $root . '/.sonda-')
+        ->and($series->command[1])->toBe('vendor/bin/phpunit')
+        ->and(array_slice($series->command, -2))->toBe(['tests/Unit', 'tests/Feature']);
 });
 
 /** The fake project as a Laravel one: an artisan file and Blade views. */
