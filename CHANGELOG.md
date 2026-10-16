@@ -1,3 +1,15 @@
+# [1.8.0](https://github.com/danie1net0/sonda/compare/v1.7.0...v1.8.0) (2026-10-16)
+
+
+### Bug Fixes
+
+* **tools:** compare-with-xdebug.sh em lotes só toma como pasta de testes um argumento que seja pasta ([0198e61](https://github.com/danie1net0/sonda/commit/0198e61b935522a73bb3b8578ce96d5a4e03c310))
+
+
+### Features
+
+* **cli:** --text, --min-lines/--min-branches e o comando compare; suíte semanal com dependências novas ([2f80108](https://github.com/danie1net0/sonda/commit/2f80108e209fb371894943291951cef8d3dfdbd5))
+
 # [1.7.0](https://github.com/danie1net0/sonda/compare/v1.6.0...v1.7.0) (2026-10-16)
 
 
