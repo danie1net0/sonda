@@ -10,7 +10,7 @@ use Sonda\Git\ChangedLines;
 use Sonda\Project\{Runner, TestConfiguration};
 use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Report\{Clover, PHP};
+use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
 
 use function implode, str_starts_with, substr;
@@ -62,7 +62,7 @@ final readonly class TestCommand
         Filesystem::privateDirectory($this->temporaryRoot);
         Filesystem::privateDirectory($workDirectory);
         $status = $this->processes->run(
-            [...Runner::command($projectRoot, $options->parallel), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$options->runnerArguments],
+            [...Runner::command($projectRoot, $options->parallel && $this->hasAtMostOnePath($options->runnerArguments)), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$options->runnerArguments],
             $this->environment($options, $configuration, $projectRoot, $sourceFiles, $workDirectory . '/cache', $runsDirectory),
             $projectRoot,
         );
@@ -176,6 +176,43 @@ final readonly class TestCommand
             new PHP()->process($coverage, $file);
             fwrite($output, "Relatório .cov em {$file}\n");
         }
+
+        if ($options->cobertura !== null) {
+            $file = $this->reportPath($options->cobertura, $projectRoot);
+            new Cobertura()->process($coverage, $file);
+            fwrite($output, "Relatório Cobertura em {$file}\n");
+        }
+    }
+
+    /**
+     * ParaTest takes a single test path: with several, the tests run without it.
+     *
+     * @param list<string> $runnerArguments
+     */
+    private function hasAtMostOnePath(array $runnerArguments): bool
+    {
+        $paths = 0;
+        $skipNext = false;
+
+        foreach ($runnerArguments as $argument) {
+            if ($skipNext) {
+                $skipNext = false;
+
+                continue;
+            }
+
+            if ($argument === '-c' || $argument === '--configuration') {
+                $skipNext = true;
+
+                continue;
+            }
+
+            if (! str_starts_with($argument, '-')) {
+                $paths++;
+            }
+        }
+
+        return $paths <= 1;
     }
 
     private function summary(CodeCoverage $coverage): string

@@ -10,7 +10,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
-        '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov',
+        '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
         '--no-strict', '--no-fast', '--no-parallel', '--filter=Order', 'tests/Feature',
     ]);
 
@@ -23,6 +23,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         html: 'build/html',
         clover: 'clover.xml',
         cov: 'coverage.cov',
+        cobertura: 'cobertura.xml',
         runnerArguments: ['--filter=Order', 'tests/Feature'],
     ));
 });

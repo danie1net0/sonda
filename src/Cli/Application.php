@@ -24,6 +24,7 @@ final readonly class Application
       --html=<dir>      grava o relatório HTML
       --clover=<arq>    grava o relatório Clover
       --cov=<arq>       grava o .cov do php-code-coverage
+      --cobertura=<arq> grava o relatório Cobertura (o que o GitLab lê no MR)
       --no-strict       não exige o else de todo if nem o lado nulo de ?->
       --no-fast         sondas sem a referência local por função
       --no-parallel     não usa o ParaTest mesmo quando instalado

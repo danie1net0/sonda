@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Sonda\Git;
 
+use RuntimeException;
+
 use function str_ends_with, str_starts_with, substr, trim;
 
 /**
@@ -16,7 +18,7 @@ final class ChangedLines
     /** @return array<string, list<int>|null> real path => changed lines, sorted by path */
     public static function since(string $repository, string $reference): array
     {
-        $base = trim(Git::run($repository, ['merge-base', $reference, 'HEAD']));
+        $base = self::base($repository, $reference);
         $hunks = self::addedLinesByFile(Git::run($repository, ['diff', '--unified=0', $base]));
         $changes = [];
 
@@ -31,6 +33,19 @@ final class ChangedLines
         ksort($changes);
 
         return $changes;
+    }
+
+    /**
+     * The merge base of the reference and HEAD or, when there is none to find (a shallow clone,
+     * as in CI, has no common history), the reference itself: there it already is the base.
+     */
+    private static function base(string $repository, string $reference): string
+    {
+        try {
+            return trim(Git::run($repository, ['merge-base', $reference, 'HEAD']));
+        } catch (RuntimeException) {
+            return trim(Git::run($repository, ['rev-parse', '--verify', $reference]));
+        }
     }
 
     /**

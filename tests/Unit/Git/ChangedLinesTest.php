@@ -73,3 +73,23 @@ it('maps nothing when nothing changed', function (): void {
 
     expect(ChangedLines::since($repository, 'master'))->toBe([]);
 });
+
+it('takes the reference itself as the base when there is no merge base, as in a shallow clone', function (): void {
+    $repository = TemporaryDirectory::create();
+    $git = static fn (string ...$arguments): string => Git::run($repository, [...$arguments]);
+    $git('init', '-q', '-b', 'master');
+    $git('config', 'user.email', 'tests@example.com');
+    $git('config', 'user.name', 'Tests');
+    file_put_contents($repository . '/a.php', "<?php\n// one\n");
+    $git('add', '-A');
+    $git('commit', '-q', '-m', 'base');
+    // An orphan branch shares no history with master: merge-base fails, as it does between the shallow commits of CI.
+    $git('checkout', '-q', '--orphan', 'island');
+    file_put_contents($repository . '/a.php', "<?php\n// two\n");
+    $git('add', '-A');
+    $git('commit', '-q', '-m', 'island');
+    $real = (string) realpath($repository);
+
+    expect(ChangedLines::since($repository, 'master'))->toBe([$real . '/a.php' => [2]])
+        ->and(fn (): array => ChangedLines::since($repository, 'nowhere'))->toThrow(RuntimeException::class);
+});

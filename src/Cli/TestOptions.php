@@ -17,6 +17,7 @@ final readonly class TestOptions
      * @param non-empty-string|null $html
      * @param non-empty-string|null $clover
      * @param non-empty-string|null $cov
+     * @param non-empty-string|null $cobertura
      * @param list<string>          $runnerArguments
      */
     public function __construct(
@@ -29,6 +30,7 @@ final readonly class TestOptions
         public ?string $html = null,
         public ?string $clover = null,
         public ?string $cov = null,
+        public ?string $cobertura = null,
         public array $runnerArguments = [],
     ) {
     }
@@ -45,6 +47,7 @@ final readonly class TestOptions
         $html = null;
         $clover = null;
         $cov = null;
+        $cobertura = null;
         $runnerArguments = [];
         $count = count($arguments);
 
@@ -73,6 +76,8 @@ final readonly class TestOptions
                 $clover = self::valueOf($argument, '--clover');
             } elseif (self::valueOf($argument, '--cov') !== null) {
                 $cov = self::valueOf($argument, '--cov');
+            } elseif (self::valueOf($argument, '--cobertura') !== null) {
+                $cobertura = self::valueOf($argument, '--cobertura');
             } elseif ($argument === '-c' || $argument === '--configuration') {
                 $configuration = $arguments[$index + 1] ?? throw new InvalidArgumentException("A opção {$argument} precisa de um arquivo.");
                 $runnerArguments[] = $argument;
@@ -86,7 +91,7 @@ final readonly class TestOptions
             }
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $configuration, $html, $clover, $cov, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
     }
 
     /**

@@ -202,14 +202,16 @@ it('fails when the run left no coverage data', function (): void {
 it('writes the reports asked for', function (): void {
     $root = fakeProject();
 
-    [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--html=build/html', '--clover=build/clover.xml', '--cov=' . $root . '/build/coverage.cov']), TemporaryDirectory::create());
+    [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--html=build/html', '--clover=build/clover.xml', '--cov=' . $root . '/build/coverage.cov', '--cobertura=build/cobertura.xml']), TemporaryDirectory::create());
 
     expect(is_file($root . '/build/html/index.html'))->toBeTrue()
         ->and(is_file($root . '/build/clover.xml'))->toBeTrue()
         ->and(is_file($root . '/build/coverage.cov'))->toBeTrue()
+        ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('<coverage ')
         ->and($output)->toContain("Relatório HTML em {$root}/build/html\n")
         ->toContain("Relatório Clover em {$root}/build/clover.xml\n")
-        ->toContain("Relatório .cov em {$root}/build/coverage.cov\n");
+        ->toContain("Relatório .cov em {$root}/build/coverage.cov\n")
+        ->toContain("Relatório Cobertura em {$root}/build/cobertura.xml\n");
 });
 
 it('measures the files changed since a reference together with the ones given', function (): void {
@@ -275,6 +277,25 @@ it('checks a file named explicitly whole even when its change touches no method'
     expect($status)->toBe(1)
         ->and($runner->environment)->toHaveKey('SONDA_ONLY', $root . '/app/Order.php')
         ->and($output)->toEndWith("Cobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nDo que mudou: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nSem cobertura:\napp/Order.php: linhas 8; branches 8\n");
+});
+
+it('runs in series when given more than one test path, since ParaTest takes a single one', function (): void {
+    $root = fakeProject();
+    file_put_contents($root . '/vendor/bin/paratest', '');
+    $one = new FakeRunner();
+    $two = new FakeRunner();
+    $configured = new FakeRunner();
+    $configuredTwo = new FakeRunner();
+
+    runTestCommand($one, $root, TestOptions::parse(['tests/Unit']), TemporaryDirectory::create());
+    runTestCommand($two, $root, TestOptions::parse(['tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
+    runTestCommand($configured, $root, TestOptions::parse(['-c', 'phpunit.xml', '--filter=x', 'tests/Unit']), TemporaryDirectory::create());
+    runTestCommand($configuredTwo, $root, TestOptions::parse(['-c', 'phpunit.xml', 'tests/Unit', 'tests/Feature']), TemporaryDirectory::create());
+
+    expect($one->command[1])->toBe('vendor/bin/paratest')
+        ->and($two->command[1])->toBe('vendor/bin/phpunit')
+        ->and($configured->command[1])->toBe('vendor/bin/paratest')
+        ->and($configuredTwo->command[1])->toBe('vendor/bin/phpunit');
 });
 
 it('refuses to work under a directory open to other users, before running anything', function (string $shared): void {

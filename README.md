@@ -86,9 +86,11 @@ sonda test --changed=origin/master
 ```
 
 Mede só os arquivos do `<source>` alterados desde o `merge-base` com a referência: commitados,
-modificados e novos. O veredito cobra 100% **do que mudou**: as linhas que o diff acrescentou ou
-trocou e os métodos e funções em que elas caem, inteiros; arquivo novo é cobrado inteiro. Lacuna
-antiga noutro método do mesmo arquivo não reprova. Lista o que sobrou descoberto e sai com erro:
+modificados e novos. Num clone raso, sem história em comum para achar o `merge-base`, a própria
+referência serve de base, que é o que o CI entrega (`CI_MERGE_REQUEST_DIFF_BASE_SHA` no GitLab).
+O veredito cobra 100% **do que mudou**: as linhas que o diff acrescentou ou trocou e os métodos
+e funções em que elas caem, inteiros; arquivo novo é cobrado inteiro. Lacuna antiga noutro método
+do mesmo arquivo não reprova. Lista o que sobrou descoberto e sai com erro:
 
 ```
 Cobertura: linhas 118/120 (98,33%), branches 61/63 (96,83%)
@@ -110,6 +112,7 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--html=<dir>` | grava o relatório HTML |
 | `--clover=<arq>` | grava o relatório Clover |
 | `--cov=<arq>` | grava o `.cov` do php-code-coverage, que serve para qualquer outro formato |
+| `--cobertura=<arq>` | grava o relatório Cobertura, o formato que o GitLab lê para marcar a cobertura no diff do MR |
 | `--no-strict` | não exige o `else` de todo `if` nem o lado nulo de `?->` |
 | `--no-fast` | sondas sem a referência local por função |
 | `--no-parallel` | não usa o ParaTest mesmo quando instalado |
@@ -195,8 +198,7 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 - Views do Blade e do Livewire não são medidas.
 - Um arquivo do diretório alvo carregado por `require` direto ou pela chave `files` do Composer
   não é instrumentado e aparece inteiro como não coberto.
-- Com o ParaTest, o runner aceita um único caminho de teste: `sonda test a.php b.php` precisa de
-  `--no-parallel`.
+- O ParaTest aceita um único caminho de teste: `sonda test a.php b.php` roda sem ele, em série.
 - A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
   (o Xdebug a conta como executada).
 - Testes que leem o arquivo da classe por reflection veem a cópia instrumentada.
@@ -218,7 +220,9 @@ deixa `sonda.cov`, `xdebug.cov`, `compare.txt` e `summary.txt` na pasta informad
 vão para o runner (`tools/compare-with-xdebug.sh saida tests/Feature/Pedidos` mede só essa pasta).
 Ele gera um `phpunit.xml` próprio com `pathCoverage="true"`, porque o ParaTest não aceita
 `--path-coverage`, e com caminhos absolutos. O `--coverage-filter` do PHPUnit não serve para
-restringir: ele soma ao `<source>` do `phpunit.xml`.
+restringir: ele soma ao `<source>` do `phpunit.xml`. Em suíte grande, `BATCH=80` roda o lado
+Xdebug em lotes de até 80 testes, um processo por lote e `PROCESSES` filas com banco próprio
+(`${DB_DATABASE}_q<N>`), e junta os `.cov` no fim: foi assim que a suíte do Laravel acima terminou.
 
 Todo código novo sai com 100% de linhas e de branches, medidos com Xdebug, e com mutação sem
 sobreviventes além dos equivalentes. Os testes de `tests/Feature` rodam o `bin/sonda` e o
