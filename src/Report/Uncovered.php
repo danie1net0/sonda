@@ -11,7 +11,8 @@ use SebastianBergmann\CodeCoverage\Node\File;
 use function implode, str_starts_with, substr;
 
 /**
- * What a report leaves uncovered, per file: lines never executed and branches never taken.
+ * What a report leaves uncovered, per file: lines never executed and branches never taken,
+ * in the whole report or within what a change touched.
  *
  * Reads the report tree, so it agrees with the summaries and the HTML: only the branches of
  * the methods and functions declared in the file count, as there.
@@ -23,7 +24,23 @@ final class Uncovered
     /** @return array<string, Gaps> by file, only the files with gaps */
     public static function of(CodeCoverage $coverage): array
     {
-        $gaps = [];
+        return self::ofChanges($coverage, [])->uncovered;
+    }
+
+    /**
+     * The gaps within what a change touched. In a file with changed lines, only those lines and
+     * the methods and functions they fall in are checked; a file mapped to null (a new one) or
+     * absent from the changes is checked whole.
+     *
+     * @param array<string, list<int>|null> $changes changed lines by real path
+     */
+    public static function ofChanges(CodeCoverage $coverage, array $changes): ChangeCoverage
+    {
+        $uncovered = [];
+        $executableLines = 0;
+        $executedLines = 0;
+        $executableBranches = 0;
+        $executedBranches = 0;
 
         foreach ($coverage->getReport() as $node) {
             if (! $node instanceof File) {
@@ -31,16 +48,37 @@ final class Uncovered
             }
 
             $file = $node->pathAsString();
+            $changedLines = $changes[$file] ?? null;
+            $functions = self::countedFunctions($node);
+            $checkedLines = null;
 
-            foreach ($node->lineCoverageData() as $line => $tests) {
-                if ($tests === []) {
-                    $gaps[$file]['lines'][] = $line;
-                }
+            if ($changedLines !== null) {
+                $functions = self::touched($functions, $changedLines);
+                $checkedLines = self::checkedLines($changedLines, $functions);
             }
 
+            $lines = [];
+
+            foreach ($node->lineCoverageData() as $line => $tests) {
+                if ($tests === null || ($checkedLines !== null && ! isset($checkedLines[$line]))) {
+                    continue;
+                }
+
+                $executableLines++;
+
+                if ($tests === []) {
+                    $lines[] = $line;
+
+                    continue;
+                }
+
+                $executedLines++;
+            }
+
+            $branches = [];
             $branchData = $node->functionCoverageData();
 
-            foreach (self::countedFunctions($node) as $function) {
+            foreach (array_keys($functions) as $function) {
                 $data = $branchData[$function] ?? null;
 
                 // A function never loaded in the run has no branch data: its lines already say so.
@@ -49,23 +87,26 @@ final class Uncovered
                 }
 
                 foreach ($data->branches as $branch) {
+                    $executableBranches++;
+
                     if ($branch->hit === []) {
-                        $gaps[$file]['branches'][] = [$branch->line_start, $branch->line_end];
+                        $branches[] = [$branch->line_start, $branch->line_end];
+
+                        continue;
                     }
+
+                    $executedBranches++;
                 }
+            }
+
+            sort($branches);
+
+            if ($lines !== [] || $branches !== []) {
+                $uncovered[$file] = ['lines' => $lines, 'branches' => $branches];
             }
         }
 
-        $uncovered = [];
-
-        foreach ($gaps as $file => $fileGaps) {
-            $branches = $fileGaps['branches'] ?? [];
-            sort($branches);
-
-            $uncovered[$file] = ['lines' => $fileGaps['lines'] ?? [], 'branches' => $branches];
-        }
-
-        return $uncovered;
+        return new ChangeCoverage($uncovered, $executableLines, $executedLines, $executableBranches, $executedBranches);
     }
 
     /**
@@ -97,21 +138,68 @@ final class Uncovered
     }
 
     /**
-     * The keys of the branch data that the report counts: `Class->method` and function names.
+     * The functions the report counts, with their line spans: `Class->method` for the methods of
+     * classes and traits, and the functions by name.
      *
-     * @return list<string>
+     * @return array<string, array{0: int, 1: int}> name => [first line, last line]
      */
     private static function countedFunctions(File $node): array
     {
-        $functions = array_keys($node->functions());
+        $functions = [];
+
+        foreach ($node->functions() as $name => $function) {
+            $functions[$name] = [$function->startLine, $function->endLine];
+        }
 
         foreach ([...$node->classes(), ...$node->traits()] as $className => $class) {
             foreach ($class->methods as $methodName => $method) {
-                $functions[] = $className . '->' . $methodName;
+                $functions[$className . '->' . $methodName] = [$method->startLine, $method->endLine];
             }
         }
 
         return $functions;
+    }
+
+    /**
+     * The functions a changed line falls in.
+     *
+     * @param array<string, array{0: int, 1: int}> $functions
+     * @param list<int>                            $changedLines
+     *
+     * @return array<string, array{0: int, 1: int}>
+     */
+    private static function touched(array $functions, array $changedLines): array
+    {
+        $touched = [];
+
+        foreach ($functions as $name => [$start, $end]) {
+            if (array_any($changedLines, static fn (int $line): bool => $line >= $start && $line <= $end)) {
+                $touched[$name] = [$start, $end];
+            }
+        }
+
+        return $touched;
+    }
+
+    /**
+     * The changed lines and every line of the functions they touch, as a set.
+     *
+     * @param list<int>                            $changedLines
+     * @param array<string, array{0: int, 1: int}> $functions
+     *
+     * @return array<int, int> line => line
+     */
+    private static function checkedLines(array $changedLines, array $functions): array
+    {
+        $lines = array_flip($changedLines);
+
+        foreach ($functions as [$start, $end]) {
+            for ($line = $start; $line <= $end; $line++) {
+                $lines[$line] = $line;
+            }
+        }
+
+        return $lines;
     }
 
     /**

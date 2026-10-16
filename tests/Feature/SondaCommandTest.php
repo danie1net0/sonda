@@ -96,15 +96,56 @@ it('measures a project with plain PHPUnit when asked not to run in parallel', fu
         ->toContain('Relatório HTML em ');
 });
 
-it('fails on the uncovered parts of the files changed since a reference', function (): void {
+it('fails on the uncovered parts of the methods changed since a reference', function (): void {
+    $root = sondaProject();
+    commitEverything($root);
+    file_put_contents($root . '/src/Shipping.php', str_replace('? 30 : 10;', '? 30 : 10; // changed', (string) file_get_contents($root . '/src/Shipping.php')));
+
+    [$status, $output] = sonda($root, 'test', '--changed=master');
+
+    expect($status)->toBe(1)
+        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n");
+});
+
+it('passes a change that touches no method, whatever the file leaves uncovered', function (): void {
     $root = sondaProject();
     commitEverything($root);
     file_put_contents($root . '/src/Shipping.php', str_replace('final class', "/** changed */\nfinal class", (string) file_get_contents($root . '/src/Shipping.php')));
 
     [$status, $output] = sonda($root, 'test', '--changed=master');
 
+    expect($status)->toBe(0)
+        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 0/0 (100,00%), branches 0/0 (100,00%)\nO que mudou está 100% coberto.\n");
+});
+
+it('checks a new file whole', function (): void {
+    $root = sondaProject();
+    commitEverything($root);
+    file_put_contents($root . '/src/Fresh.php', "<?php\n\ndeclare(strict_types=1);\n\nnamespace Fixture\\Project;\n\nfinal class Fresh\n{\n    public static function nothing(): int\n    {\n        return 1;\n    }\n}\n");
+
+    [$status, $output] = sonda($root, 'test', '--changed=master');
+
     expect($status)->toBe(1)
-        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 12\n");
+        ->and($output)->toContain("Cobertura: linhas 0/1 (0,00%), branches 0/0 (100,00%)\nDo que mudou: linhas 0/1 (0,00%), branches 0/0 (100,00%)\nSem cobertura:\nsrc/Fresh.php: linhas 11\n");
+});
+
+it('checks the files named explicitly whole, even when they also changed', function (): void {
+    $root = sondaProject();
+    commitEverything($root);
+    file_put_contents($root . '/src/Shipping.php', str_replace('final class', "/** changed */\nfinal class", (string) file_get_contents($root . '/src/Shipping.php')));
+
+    [$status, $output] = sonda($root, 'test', '--changed=master', '--files=src/Shipping.php');
+
+    expect($status)->toBe(1)
+        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 12\n");
+});
+
+it('checks the files named explicitly whole, without a change summary', function (): void {
+    [$status, $output] = sonda(sondaProject(), 'test', '--files=src/Shipping.php');
+
+    expect($status)->toBe(1)
+        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n")
+        ->not->toContain('Do que mudou');
 });
 
 it('runs nothing when the changes are outside the source', function (): void {

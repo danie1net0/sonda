@@ -86,24 +86,27 @@ sonda test --changed=origin/master
 ```
 
 Mede só os arquivos do `<source>` alterados desde o `merge-base` com a referência: commitados,
-modificados e novos. Lista o que sobrou descoberto e sai com erro:
+modificados e novos. O veredito cobra 100% **do que mudou**: as linhas que o diff acrescentou ou
+trocou e os métodos e funções em que elas caem, inteiros; arquivo novo é cobrado inteiro. Lacuna
+antiga noutro método do mesmo arquivo não reprova. Lista o que sobrou descoberto e sai com erro:
 
 ```
 Cobertura: linhas 118/120 (98,33%), branches 61/63 (96,83%)
+Do que mudou: linhas 40/42 (95,24%), branches 18/20 (90,00%)
 Sem cobertura:
 app/Actions/Scheduling/BookAppointmentAction.php: linhas 57-58; branches 57-60
 app/Models/ScheduleResource.php: branches 272
 ```
 
 É o uso pensado para o CI: um job que mede só o que o MR tocou e exige 100%. `--files=a.php,b.php`
-faz o mesmo com uma lista explícita.
+cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 
 ### Opções
 
 | Opção | Efeito |
 |---|---|
-| `--changed=<ref>` | mede só os arquivos alterados desde o merge-base com a referência e falha se sobrar algo descoberto |
-| `--files=a,b` | mede só esses arquivos, com a mesma exigência |
+| `--changed=<ref>` | mede só os arquivos alterados desde o merge-base com a referência e falha se as linhas mudadas ou os métodos tocados tiverem algo descoberto |
+| `--files=a,b` | mede só esses arquivos e falha se sobrar algo descoberto neles, inteiros |
 | `--html=<dir>` | grava o relatório HTML |
 | `--clover=<arq>` | grava o relatório Clover |
 | `--cov=<arq>` | grava o `.cov` do php-code-coverage, que serve para qualquer outro formato |

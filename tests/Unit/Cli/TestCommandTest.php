@@ -230,6 +230,53 @@ it('measures the files changed since a reference together with the ones given', 
         ->and($runner->environment)->toHaveKey('SONDA_ONLY', implode(PATH_SEPARATOR, [$root . '/app/Extra.php', $root . '/app/Kept.php', $root . '/app/Order.php']));
 });
 
+/** The fake project under git, with the base commit done. */
+function committedFakeProject(): string
+{
+    $root = fakeProject();
+    Git::run($root, ['init', '-q', '-b', 'master']);
+    Git::run($root, ['config', 'user.email', 'tests@example.com']);
+    Git::run($root, ['config', 'user.name', 'Tests']);
+    Git::run($root, ['add', '-A']);
+    Git::run($root, ['commit', '-q', '-m', 'base']);
+
+    return $root;
+}
+
+it('passes when what changed is fully covered, whatever else the file leaves uncovered', function (): void {
+    $root = committedFakeProject();
+    // The class line changes: outside every method, so line 8 staying uncovered does not matter.
+    file_put_contents($root . '/app/Order.php', "<?php\n\nfinal class Order // changed\n{\n    public function total(int \$quantity): int\n    {\n        if (\$quantity > 10) {\n            return 10;\n        }\n\n        return \$quantity;\n    }\n}\n");
+    $runner = new FakeRunner(hits: [0 => 1, 2 => 1]);
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master']), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($output)->toEndWith("Do que mudou: linhas 0/0 (100,00%), branches 0/0 (100,00%)\nO que mudou está 100% coberto.\n");
+});
+
+it('checks the whole method a change falls in and says how much of what changed is covered', function (): void {
+    $root = committedFakeProject();
+    file_put_contents($root . '/app/Order.php', "<?php\n\nfinal class Order\n{\n    public function total(int \$quantity): int\n    {\n        if (\$quantity > 10) {\n            return 10;\n        }\n\n        return \$quantity; // changed\n    }\n}\n");
+
+    [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master']), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($output)->toEndWith("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nDo que mudou: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nO que mudou está 100% coberto.\n");
+});
+
+it('checks a file named explicitly whole even when its change touches no method', function (): void {
+    $root = committedFakeProject();
+    file_put_contents($root . '/app/Order.php', "<?php\n\nfinal class Order // changed\n{\n    public function total(int \$quantity): int\n    {\n        if (\$quantity > 10) {\n            return 10;\n        }\n\n        return \$quantity;\n    }\n}\n");
+    $runner = new FakeRunner(hits: [0 => 1, 2 => 1]);
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--files=app/Order.php']), TemporaryDirectory::create());
+
+    expect($status)->toBe(1)
+        ->and($runner->environment)->toHaveKey('SONDA_ONLY', $root . '/app/Order.php')
+        ->and($output)->toEndWith("Cobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nDo que mudou: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nSem cobertura:\napp/Order.php: linhas 8; branches 8\n");
+});
+
 it('refuses to work under a directory open to other users, before running anything', function (string $shared): void {
     $root = fakeProject();
     $temporary = TemporaryDirectory::create();

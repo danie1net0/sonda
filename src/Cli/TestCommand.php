@@ -6,9 +6,9 @@ namespace Sonda\Cli;
 
 use RuntimeException;
 use Sonda\{Filesystem, Run, Scope};
-use Sonda\Git\ChangedFiles;
+use Sonda\Git\ChangedLines;
 use Sonda\Project\{Runner, TestConfiguration};
-use Sonda\Report\{CoverageBuilder, SourceFiles, Uncovered};
+use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, PHP};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
@@ -18,7 +18,8 @@ use function implode, str_starts_with, substr;
 /**
  * `sonda test`: runs the project's tests instrumented, then reports the coverage of the
  * `<source>` of its phpunit.xml. With `--changed=<ref>` or `--files=`, only those files are
- * measured and anything left uncovered fails the command.
+ * measured and anything left uncovered fails the command: in a changed file, the changed lines
+ * and the methods they touch; in a new file or one named in `--files=`, the whole file.
  */
 final readonly class TestCommand
 {
@@ -37,10 +38,17 @@ final readonly class TestCommand
     public function run(TestOptions $options, string $projectRoot, $output): int
     {
         $configuration = TestConfiguration::load(
-            $options->configuration !== null ? self::absolute($options->configuration, $projectRoot) : TestConfiguration::find($projectRoot),
+            $options->configuration !== null ? $this->absolute($options->configuration, $projectRoot) : TestConfiguration::find($projectRoot),
         );
-        $onlyFiles = $this->onlyFiles($options, $projectRoot);
-        $scope = new Scope($configuration->sourceDirectories, $configuration->excludedDirectories, $onlyFiles);
+        $changes = $options->changed !== null ? ChangedLines::since($projectRoot, $options->changed) : [];
+        $explicitFiles = $this->explicitFiles($options, $projectRoot);
+
+        // A file named explicitly is checked whole, even when it also changed.
+        foreach ($explicitFiles as $file) {
+            unset($changes[$file]);
+        }
+
+        $scope = new Scope($configuration->sourceDirectories, $configuration->excludedDirectories, [...$explicitFiles, ...array_keys($changes)]);
         $sourceFiles = $this->sourceFiles($scope);
 
         if ($scope->narrowsToFiles() && $sourceFiles === []) {
@@ -76,26 +84,35 @@ final readonly class TestCommand
             return $status;
         }
 
-        $uncovered = Uncovered::of($coverage);
+        $change = Uncovered::ofChanges($coverage, $changes);
 
-        if ($uncovered === []) {
-            fwrite($output, "Os arquivos alterados estão 100% cobertos.\n");
+        if ($options->changed !== null) {
+            fwrite($output, $this->changeSummary($change) . "\n");
+        }
+
+        if ($change->uncovered === []) {
+            fwrite($output, ($options->changed !== null ? 'O que mudou está 100% coberto.' : 'Os arquivos alterados estão 100% cobertos.') . "\n");
 
             return $status;
         }
 
-        fwrite($output, "Sem cobertura:\n" . Uncovered::describe($uncovered, $projectRoot) . "\n");
+        fwrite($output, "Sem cobertura:\n" . Uncovered::describe($change->uncovered, $projectRoot) . "\n");
 
         return $status === 0 ? 1 : $status;
     }
 
-    /** @return list<string> */
-    private function onlyFiles(TestOptions $options, string $projectRoot): array
+    /**
+     * The files of `--files=`, as the real paths the report uses when they exist.
+     *
+     * @return list<string>
+     */
+    private function explicitFiles(TestOptions $options, string $projectRoot): array
     {
-        $files = array_map(static fn (string $file): string => self::absolute($file, $projectRoot), $options->files);
+        $files = [];
 
-        if ($options->changed !== null) {
-            return [...$files, ...ChangedFiles::since($projectRoot, $options->changed)];
+        foreach ($options->files as $file) {
+            $absolute = $this->absolute($file, $projectRoot);
+            $files[] = realpath($absolute) ?: $absolute;
         }
 
         return $files;
@@ -143,7 +160,7 @@ final readonly class TestCommand
     private function writeReports(TestOptions $options, CodeCoverage $coverage, string $projectRoot, $output): void
     {
         if ($options->html !== null) {
-            $directory = self::absolute($options->html, $projectRoot);
+            $directory = $this->absolute($options->html, $projectRoot);
             new HtmlReport()->process($coverage, $directory);
             fwrite($output, "Relatório HTML em {$directory}\n");
         }
@@ -176,6 +193,19 @@ final readonly class TestCommand
         );
     }
 
+    private function changeSummary(ChangeCoverage $change): string
+    {
+        return sprintf(
+            'Do que mudou: linhas %d/%d (%s), branches %d/%d (%s)',
+            $change->executedLines,
+            $change->executableLines,
+            $this->percentage($change->executedLines, $change->executableLines),
+            $change->executedBranches,
+            $change->executableBranches,
+            $this->percentage($change->executedBranches, $change->executableBranches),
+        );
+    }
+
     private function percentage(int $covered, int $total): string
     {
         if ($total === 0) {
@@ -185,7 +215,7 @@ final readonly class TestCommand
         return number_format($covered * 100 / $total, 2, ',', '.') . '%';
     }
 
-    private static function absolute(string $path, string $root): string
+    private function absolute(string $path, string $root): string
     {
         return str_starts_with($path, '/') ? $path : $root . '/' . $path;
     }

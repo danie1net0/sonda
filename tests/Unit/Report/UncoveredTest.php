@@ -133,3 +133,108 @@ it('counts the branches of methods, trait methods and functions, not those of cl
     // Lines absent from the raw data are not executable to php-code-coverage: `never()` shows nowhere.
     expect(Uncovered::of($coverage))->toBe([$file => ['lines' => [], 'branches' => [[7, 7], [19, 19]]]]);
 });
+
+it('narrows the gaps of a changed file to its changed lines and the methods they fall in', function (): void {
+    ['order' => $order, 'paid' => $paid, 'run' => $run] = partlyCoveredProject();
+    $coverage = CoverageBuilder::build($run, [$order, $paid]);
+
+    // Line 12 is inside Order->total (lines 5-16): the whole method is checked; Paid.php, absent from the changes, is checked whole.
+    $change = Uncovered::ofChanges($coverage, [$order => [12]]);
+
+    expect($change)
+        ->uncovered->toBe([$order => ['lines' => [8, 12, 13], 'branches' => [[8, 8]]]])
+        ->executableLines->toBe(7)
+        ->executedLines->toBe(4)
+        ->executableBranches->toBe(4)
+        ->executedBranches->toBe(3);
+});
+
+it('checks nothing of a changed file when the changed lines fall outside every method and executable line', function (): void {
+    ['order' => $order, 'paid' => $paid, 'run' => $run] = partlyCoveredProject();
+    $coverage = CoverageBuilder::build($run, [$order, $paid]);
+
+    // Line 4 opens the class, line 17 closes it; line 3 of Paid.php declares the class.
+    $change = Uncovered::ofChanges($coverage, [$order => [4, 17], $paid => [3]]);
+
+    expect($change)
+        ->uncovered->toBe([])
+        ->executableLines->toBe(0)
+        ->executedLines->toBe(0)
+        ->executableBranches->toBe(0)
+        ->executedBranches->toBe(0);
+});
+
+it('takes a change on the first or the last line of a method as touching it', function (): void {
+    ['order' => $order, 'paid' => $paid, 'run' => $run] = partlyCoveredProject();
+    $coverage = CoverageBuilder::build($run, [$order, $paid]);
+
+    $first = Uncovered::ofChanges($coverage, [$order => [5], $paid => [3]]);
+    $last = Uncovered::ofChanges($coverage, [$order => [16], $paid => [3]]);
+
+    expect($first->uncovered)->toBe([$order => ['lines' => [8, 12, 13], 'branches' => [[8, 8]]]])
+        ->and($first->executableLines)->toBe(6)
+        ->and($first->executableBranches)->toBe(3)
+        ->and($last->uncovered)->toBe($first->uncovered)
+        ->and($last->executableLines)->toBe(6);
+});
+
+it('checks a new file whole', function (): void {
+    ['order' => $order, 'paid' => $paid, 'run' => $run] = partlyCoveredProject();
+    $coverage = CoverageBuilder::build($run, [$order, $paid]);
+
+    $change = Uncovered::ofChanges($coverage, [$order => null, $paid => [3]]);
+
+    expect($change)
+        ->uncovered->toBe([$order => ['lines' => [8, 12, 13], 'branches' => [[8, 8]]]])
+        ->executableLines->toBe(6)
+        ->executedLines->toBe(3);
+});
+
+it('checks only the function the change falls in, up to its last line, among several in a file', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/app');
+    $file = $root . '/app/functions.php';
+    file_put_contents($file, "<?php\n\nfunction first(): int\n{\n    return 1;\n}\n\nfunction second(int \$flag): int\n{\n    if (\$flag > 0) {\n        return 2;\n    }\n\n    return 3; }\n");
+    $cache = new InstrumentationCache($root . '/cache');
+    $cache->store('functions', new InstrumentationResult('<?php', [
+        0 => new Probe(5, true, 'first', 3, 6),
+        1 => new Probe(10, true, 'second', 8, 14),
+        2 => new Probe(11, true, 'second', 11, 11),
+        3 => new Probe(14, false, 'second', 0, 0),
+    ]));
+    $run = new Run($root . '/cache', ['f' => [$file, 'functions']], ['f' => [1 => 1]]);
+    $coverage = CoverageBuilder::build($run, [$file]);
+
+    // Line 9 opens second(): first() stays out, and the last line of second(), 14, is checked too.
+    $change = Uncovered::ofChanges($coverage, [$file => [9]]);
+
+    expect($change)
+        ->uncovered->toBe([$file => ['lines' => [11, 14], 'branches' => [[11, 11]]]])
+        ->executableLines->toBe(3)
+        ->executedLines->toBe(1)
+        ->executableBranches->toBe(2)
+        ->executedBranches->toBe(1);
+});
+
+it('checks a changed executable line outside every function', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/app');
+    $file = $root . '/app/script.php';
+    file_put_contents($file, "<?php\n\nfunction first(): int\n{\n    return 1;\n}\n\necho first();\necho 2;\n");
+    $cache = new InstrumentationCache($root . '/cache');
+    $cache->store('script', new InstrumentationResult('<?php', [
+        0 => new Probe(5, true, 'first', 3, 6),
+        1 => new Probe(8, false, '{main}', 0, 0),
+        2 => new Probe(9, false, '{main}', 0, 0),
+    ]));
+    $run = new Run($root . '/cache', ['s' => [$file, 'script']], ['s' => [0 => 1, 1 => 1]]);
+    $coverage = CoverageBuilder::build($run, [$file]);
+
+    $change = Uncovered::ofChanges($coverage, [$file => [8, 9]]);
+
+    expect($change)
+        ->uncovered->toBe([$file => ['lines' => [9], 'branches' => []]])
+        ->executableLines->toBe(2)
+        ->executedLines->toBe(1)
+        ->executableBranches->toBe(0);
+});
