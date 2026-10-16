@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/danie1net0/sonda/compare/v1.5.0...v1.6.0) (2026-10-16)
+
+
+### Features
+
+* **blade:** branches das views, pastas de views de pacotes e módulos, e --views ([329aab0](https://github.com/danie1net0/sonda/commit/329aab005a0ad350d5c6a1df78aa86fa7cb66afc))
+
 # [1.5.0](https://github.com/danie1net0/sonda/compare/v1.4.0...v1.5.0) (2026-10-16)
 
 
