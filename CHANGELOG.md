@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/danie1net0/sonda/compare/v1.3.0...v1.4.0) (2026-10-16)
+
+
+### Features
+
+* **cli:** --cobertura, base sem merge-base, vários caminhos em série e lotes no compare-with-xdebug ([02c36f7](https://github.com/danie1net0/sonda/commit/02c36f771423247ad55b994b8323d6a7925aa9fe))
+
 # [1.3.0](https://github.com/danie1net0/sonda/compare/v1.2.1...v1.3.0) (2026-10-16)
 
 
