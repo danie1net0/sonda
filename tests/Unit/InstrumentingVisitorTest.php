@@ -321,7 +321,7 @@ it('gives a multi-line arrow function every line but those of nested functions',
         ]);
 });
 
-it('leaves by-reference arrow functions unwrapped', function (): void {
+it('turns a by-reference arrow function with only parameters into a closure without a use clause', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
     $get = fn &(array &$items) => $items;
@@ -329,10 +329,11 @@ it('leaves by-reference arrow functions unwrapped', function (): void {
 
     expect($code)->toBe(expected(<<<'PHP'
     <?php
-    {p0}$get = fn &(array &$items) => $items;
+    {p0}$get = function &(array &$items) { {p1} return $items; };
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(2, true, '{closure}', 2, 2, [2]),
         ]);
 });
 
@@ -379,7 +380,7 @@ it('leaves constant expressions untouched', function (): void {
         ]);
 });
 
-it('probes property hooks with a block body or an expression body, not one returning by reference', function (): void {
+it('probes property hooks with a block body, an expression body, and one returning by reference as a block', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
     class Person
@@ -407,13 +408,14 @@ it('probes property hooks with a block body or an expression body, not one retur
             set => {o1}strtoupper($value){c};
         }
         public array $items {
-            &get => $this->items;
+            &get { {p2} return $this->items; }
         }
     }
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(6, true, '{hook}', 6, 6),
             1 => new Probe(8, true, '{hook}', 8, 8, [8]),
+            2 => new Probe(11, true, '{hook}', 11, 11, [11]),
         ]);
 });
 
@@ -1614,9 +1616,69 @@ it('gives back the CRLF that the probe tag eats before inline HTML that starts w
     expect($code)->toBe(expected("<?php {p0} ?>\r\n\r\n<p>x</p><?php {p1}echo 1;\r\n"));
 });
 
-it('leaves a hook declared without a body alone', function (): void {
-    [$code, $probes] = instrumentCode("<?php\nabstract class Shape\n{\n    abstract public string \$name { get; }\n}\n");
+it('leaves a hook declared without a body alone, by reference or not', function (): void {
+    [$code, $probes] = instrumentCode("<?php\nabstract class Shape\n{\n    abstract public string \$name { get; }\n    abstract public array \$items { &get; }\n}\n");
 
-    expect($code)->toBe("<?php\nabstract class Shape\n{\n    abstract public string \$name { get; }\n}\n")
+    expect($code)->toBe("<?php\nabstract class Shape\n{\n    abstract public string \$name { get; }\n    abstract public array \$items { &get; }\n}\n")
         ->and($probes)->toBe([]);
+});
+
+it('turns an arrow function returning by reference into the closure it stands for, with a probe', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+    <?php
+    $f = fn&(int $x, $y = A::B): int => $a[$x];
+    $g = static fn&() => $b;
+    $h = fn&($x) => $x + array_map(fn ($y) => $y + $z + $x, $list)[0] + (function () use ($w) { $q = $w; return $q; })() + $_GET['k'] + $GLOBALS['g'] + $this->v + $z;
+    $i = #[Pure] fn&(): array => $items;
+    PHP . "\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+    <?php
+    {p0}$f = function &(int $x, $y = A::B) use ($a): int { {p4} return $a[$x]; };
+    {p1}$g = static function &() use ($b) { {p5} return $b; };
+    {p2}$h = function &($x) use ($z, $list, $w) { {p6} return $x + array_map(fn ($y) => {o7}$y + $z + $x{c}, $list)[0] + (function () use ($w) { {p8}$q = $w; {p9}return $q; })() + $_GET['k'] + $GLOBALS['g'] + $this->v + $z; };
+    {p3}$i = #[Pure] function &() use ($items): array { {p10} return $items; };
+    PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(3, false, '{main}', 0, 0),
+            2 => new Probe(4, false, '{main}', 0, 0),
+            3 => new Probe(5, false, '{main}', 0, 0),
+            4 => new Probe(2, true, '{closure}', 2, 2, [2]),
+            5 => new Probe(3, true, '{closure}', 3, 3, [3]),
+            6 => new Probe(4, true, '{closure}', 4, 4, []),
+            7 => new Probe(4, true, '{closure}', 4, 4, [4]),
+            8 => new Probe(4, true, '{closure}', 4, 4),
+            9 => new Probe(4, false, '{closure}', 0, 0),
+            10 => new Probe(5, true, '{closure}', 5, 5, [5]),
+        ]);
+});
+
+it('keeps the reference an arrow function returns, probe included', function (): void {
+    $source = <<<'PHP'
+    <?php
+    $holder = new class {
+        public array $items = [1, 2];
+
+        public function first(): Closure
+        {
+            return fn&() => $this->items[0];
+        }
+    };
+    $first = &$holder->first()();
+    $first = 9;
+
+    return $holder->items;
+    PHP . "\n";
+    [$code] = instrumentCode($source);
+
+    expect(eval('?>' . str_replace("'f'", "'t'", $code)))->toBe([9, 2])
+        ->and(eval('?>' . $source))->toBe([9, 2]);
+});
+
+it('leaves a shebang alone, which PHP drops only at the very start of the file', function (): void {
+    [$code, $probes] = instrumentCode("#!/usr/bin/env php\n<?php\ndeclare(strict_types=1);\n\necho 1;\n");
+
+    expect($code)->toBe(expected("#!/usr/bin/env php\n<?php\ndeclare(strict_types=1);\n\n{p0}echo 1;\n"))
+        ->and($probes)->toEqual([0 => new Probe(5, false, '{main}', 0, 0)]);
 });

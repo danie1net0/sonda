@@ -42,7 +42,7 @@ final readonly class Instrumenter
             throw new RuntimeException("O arquivo {$path} não pôde ser analisado.");
         }
 
-        $visitor = new InstrumentingVisitor($this->parser->getTokens(), $fileId, $path, $this->strict, $this->fast, $mainScope);
+        $visitor = new InstrumentingVisitor($this->parser->getTokens(), $code, $fileId, $path, $this->strict, $this->fast, $mainScope);
         $visitor->instrumentTopLevel($ast);
         new NodeTraverser($visitor)->traverse($ast);
 

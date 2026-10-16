@@ -45,3 +45,9 @@ it('formats percentages the Brazilian way, a whole as all covered', function ():
         ->and(TextSummary::ratio(1, 4))->toBe(25.0)
         ->and(TextSummary::format(1234.5))->toBe('1.234,50%');
 });
+
+it('keeps a path outside the root as it is', function (): void {
+    expect(TextSummary::relative('/project/app/A.php', '/project'))->toBe('app/A.php')
+        ->and(TextSummary::relative('/project/app/A.php', '/project/'))->toBe('app/A.php')
+        ->and(TextSummary::relative('/elsewhere/A.php', '/project'))->toBe('/elsewhere/A.php');
+});

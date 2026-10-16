@@ -207,6 +207,9 @@ No modo estrito, que é o padrão:
 
 - Corpo vazio de `if`, `elseif`, `else` e laço é um desfecho como outro qualquer: ganha uma
   sonda sem linha, e conta como branch.
+- `fn&(...) => expr` vira a closure que ele abrevia, `function &(...) use (...) { sonda; return expr; }`,
+  com as variáveis da expressão capturadas por valor como a arrow function faz; `&get => expr`
+  vira `&get { sonda; return expr; }`. A referência devolvida fica intacta.
 - Todo `if` sem `else` ganha um `else` sintético: os dois desfechos precisam ser testados. O
   Xdebug conta blocos básicos, então um `if` sem `else` cuja condição é sempre verdadeira dá
   100% nele e não no Sonda.
@@ -229,12 +232,12 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 
 ## Limitações conhecidas
 
-- Arrow function por referência (`fn&`) e property hook por referência (`&get`) não são
-  instrumentados: a sonda em volta da expressão quebraria a referência.
 - Views do Blade: só as pastas `resources/views` do projeto são achadas sozinhas; outra pasta
   entra com `--views`.
 - Um arquivo do diretório alvo carregado por `require` direto (fora da chave `files` do
-  Composer, que é medida) não é instrumentado e aparece inteiro como não coberto.
+  Composer, que é medida) não é instrumentado e aparece inteiro como não coberto. O comando
+  avisa antes de rodar, resolvendo `__DIR__`, `__FILE__` e `dirname()` no argumento do `require`,
+  e recusa rodar quando o arquivo também está na chave `files`: seria declarado duas vezes.
 - A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
   (o Xdebug a conta como executada).
 - Testes que leem o arquivo da classe por reflection veem a cópia instrumentada.

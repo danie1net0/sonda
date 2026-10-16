@@ -81,3 +81,11 @@ it('claims nothing from a listing that is not a list of files', function (): voi
 
     expect(ComposerFiles::claim($autoload, new Scope([$root . '/app'])))->toBe([]);
 });
+
+it('lists the files Composer would require that exist, by identifier, without claiming them', function (): void {
+    ['root' => $root, 'autoload' => $autoload] = vendorWithFiles();
+    $before = $GLOBALS['__composer_autoload_files'] ?? null;
+
+    expect(ComposerFiles::listed($autoload))->toBe(['app1' => (string) realpath($root . '/app/helpers.php'), 'lib1' => (string) realpath($root . '/lib/helpers.php')])
+        ->and($GLOBALS['__composer_autoload_files'] ?? null)->toBe($before);
+});

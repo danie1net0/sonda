@@ -453,3 +453,29 @@ it('fails below the floors of --min-lines and --min-branches, saying which, and 
         ->and($at)->toBe(0)
         ->and($failedRun)->toBe(2);
 });
+
+it('warns before the run about a file of the source that another one requires directly, which is not measured', function (): void {
+    $root = fakeProject();
+    file_put_contents($root . '/app/helpers.php', "<?php\n\nfunction fake_helper(): int\n{\n    return 1;\n}\n");
+    file_put_contents($root . '/app/Boot.php', "<?php\n\nrequire __DIR__ . '/helpers.php';\n");
+    $runner = new FakeRunner();
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse([]), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($output)->toStartWith("Aviso: app/helpers.php é carregado por require direto em app/Boot.php:3 e não é medido; só o autoloader instrumenta.\n")
+        ->and($runner->calls)->toBe(1);
+});
+
+it("refuses to run when a file of Composer's files autoload is also required directly, which would declare it twice", function (): void {
+    $root = fakeProject();
+    mkdir($root . '/vendor/composer');
+    file_put_contents($root . '/app/helpers.php', "<?php\n\nfunction fake_helper(): int\n{\n    return 1;\n}\n");
+    file_put_contents($root . '/app/Boot.php', "<?php\n\nrequire_once __DIR__ . '/helpers.php';\n");
+    file_put_contents($root . '/vendor/composer/autoload_files.php', "<?php\n\nreturn ['h' => dirname(__DIR__, 2) . '/app/helpers.php'];\n");
+    $runner = new FakeRunner();
+
+    expect(fn (): array => runTestCommand($runner, $root, TestOptions::parse([]), TemporaryDirectory::create()))
+        ->toThrow(RuntimeException::class, 'app/helpers.php está na chave files do Composer e ainda é carregado por require direto em app/Boot.php:3: sob o Sonda seria declarado duas vezes. Tire o require.')
+        ->and($runner->calls)->toBe(0);
+});

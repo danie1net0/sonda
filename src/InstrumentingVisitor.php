@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sonda;
 
+use PhpParser\Node\Expr\Variable;
 use PhpParser\{Node, NodeFinder, NodeVisitor, NodeVisitorAbstract, Token};
 use SplObjectStorage;
 use PhpParser\Node\{AttributeGroup, Expr, Identifier, Name, Param, PropertyHook, PropertyItem, Scalar, StaticVar, Stmt};
@@ -12,7 +13,7 @@ use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, D
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
-use function str_ends_with, str_starts_with, dirname;
+use function implode, in_array, str_ends_with, str_starts_with, substr, trim, dirname;
 
 /**
  * Walks the AST and records the edits (probe insertions) and the probe metadata of a file.
@@ -29,6 +30,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 {
     /** The probes refer to the class by its fully qualified name, whatever namespace the file is in. */
     private const string HITS = '\\' . Hits::class;
+
+    private const array SUPERGLOBALS = ['GLOBALS', '_SERVER', '_GET', '_POST', '_FILES', '_COOKIE', '_SESSION', '_REQUEST', '_ENV'];
 
     /** @var list<Edit> */
     private array $edits = [];
@@ -62,10 +65,11 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     /**
      * @param array<Token> $tokens
+     * @param string       $code      the source the tokens come from
      * @param string       $mainScope the function name of the file-level code: `{main}`, whose branches are
      *                                not reported, or the name of a function declared in the analysis copy
      */
-    public function __construct(private readonly array $tokens, private readonly string $fileId, private readonly string $path, private readonly bool $strict, private readonly bool $fast, string $mainScope = '{main}')
+    public function __construct(private readonly array $tokens, private readonly string $code, private readonly string $fileId, private readonly string $path, private readonly bool $strict, private readonly bool $fast, string $mainScope = '{main}')
     {
         $this->scope = ['name' => $mainScope, 'local' => false];
         $this->enclosingClassNames = new SplObjectStorage();
@@ -191,9 +195,114 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     {
         $this->enterScope($node, '{closure}', false);
 
-        if (! $node->byRef) {
-            $this->wrapExpression($node->expr, true, $this->ownLines($node->expr));
+        if ($node->byRef) {
+            $this->rewriteByReferenceArrowFunction($node);
+
+            return;
         }
+
+        $this->wrapExpression($node->expr, true, $this->ownLines($node->expr));
+    }
+
+    /**
+     * `fn&(...) => expr` cannot hold a probe around its expression, which must stay a reference: it
+     * becomes the closure it is sugar for, `function &(...) use (...) { probe; return expr; }`, with
+     * the variables of the expression captured by value, as the arrow function captures them.
+     */
+    private function rewriteByReferenceArrowFunction(ArrowFunction $node): void
+    {
+        $fn = $this->nextTokenOfKind($node->getStartTokenPos(), T_FN);
+        $signatureEnd = $node->returnType instanceof Node ? $node->returnType->getStartFilePos() : $node->expr->getStartFilePos();
+        // From the `&` to the `=>` (or to the return type): `&(int $x) ` with its colon trimmed.
+        $parameters = trim(rtrim(rtrim($this->sourceBetween($fn->pos + 2, $signatureEnd)), '=>:'));
+        $returnType = $node->returnType instanceof Node ? ': ' . $this->sourceBetween($node->returnType->getStartFilePos(), $node->returnType->getEndFilePos() + 1) : '';
+        $captured = $this->capturedVariables($node);
+        $use = $captured === [] ? '' : ' use ($' . implode(', $', $captured) . ')';
+        $line = $node->expr->getStartLine();
+        $id = $this->probe(new Probe($line, true, $this->currentFunction(), $line, $node->expr->getEndLine(), $this->ownLines($node->expr)));
+
+        $this->edits[] = Edit::opening($fn->pos, 'function ' . $parameters . $use . $returnType . ' { ' . $this->probeCode($id) . '; return ', $node->expr->getStartFilePos() - $fn->pos);
+        $this->close($node->expr->getEndFilePos() + 1, '; }');
+    }
+
+    /**
+     * The variables an arrow function takes from its scope: those its expression reads, minus its
+     * parameters; the parameters of nested arrow functions and the bodies of nested closures do not
+     * count, but what those closures `use` does.
+     *
+     * @return list<string>
+     */
+    private function capturedVariables(ArrowFunction $node): array
+    {
+        $found = [];
+        $this->collectVariables($node->expr, ['this', ...$this->parameterNames($node->params)], $found);
+
+        return $found;
+    }
+
+    /**
+     * @param list<string> $excluded
+     * @param list<string> $found
+     */
+    private function collectVariables(Node $node, array $excluded, array &$found): void
+    {
+        if ($node instanceof Closure) {
+            foreach ($node->uses as $use) {
+                $this->collectVariables($use->var, $excluded, $found);
+            }
+
+            return;
+        }
+
+        if ($node instanceof ArrowFunction) {
+            $excluded = [...$excluded, ...$this->parameterNames($node->params)];
+        }
+
+        if ($node instanceof Variable && is_string($node->name) && ! in_array($node->name, $excluded, true) && ! in_array($node->name, $found, true) && ! in_array($node->name, self::SUPERGLOBALS, true)) {
+            $found[] = $node->name;
+        }
+
+        foreach ($node->getSubNodeNames() as $name) {
+            $child = $node->$name;
+
+            foreach (is_array($child) ? $child : [$child] as $item) {
+                if ($item instanceof Node) {
+                    $this->collectVariables($item, $excluded, $found);
+                }
+            }
+        }
+    }
+
+    /**
+     * @param array<Param> $parameters
+     *
+     * @return list<string>
+     */
+    private function parameterNames(array $parameters): array
+    {
+        $names = [];
+
+        foreach ($parameters as $parameter) {
+            if ($parameter->var instanceof Variable && is_string($parameter->var->name)) {
+                $names[] = $parameter->var->name;
+            }
+        }
+
+        return $names;
+    }
+
+    private function nextTokenOfKind(int $position, int $kind): Token
+    {
+        while ($this->tokens[$position]->id !== $kind) {
+            $position++;
+        }
+
+        return $this->tokens[$position];
+    }
+
+    private function sourceBetween(int $start, int $end): string
+    {
+        return substr($this->code, $start, $end - $start);
     }
 
     private function enterPropertyHook(PropertyHook $node): void
@@ -202,7 +311,14 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
         if (is_array($node->body)) {
             $this->statementList($node->body, true);
-        } elseif ($node->body instanceof Expr && ! $node->byRef) {
+        } elseif ($node->body instanceof Expr && $node->byRef) {
+            // `&get => expr;` must return a reference: it becomes `&get { probe; return expr; }`.
+            $arrow = $this->nextTokenOfKind($node->getStartTokenPos(), T_DOUBLE_ARROW);
+            $line = $node->body->getStartLine();
+            $id = $this->probe(new Probe($line, true, $this->currentFunction(), $line, $node->body->getEndLine(), $this->ownLines($node->body)));
+            $this->edits[] = Edit::opening($arrow->pos, '{ ' . $this->probeCode($id) . '; return', 2);
+            $this->close($node->getEndFilePos() + 1, ' }');
+        } elseif ($node->body instanceof Expr) {
             $this->wrapExpression($node->body, true, $this->ownLines($node->body));
         }
     }
@@ -669,6 +785,11 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             if ($statement instanceof Nop || $statement instanceof Namespace_ || $statement instanceof Declare_
                 || $statement instanceof HaltCompiler || $statement instanceof Use_ || $statement instanceof GroupUse
                 || $statement instanceof ClassLike || $statement instanceof Function_ || $statement instanceof Const_) {
+                continue;
+            }
+
+            // A shebang is dropped by PHP only as the very first bytes: a probe before it would print it.
+            if ($statement instanceof InlineHTML && $statement->getStartFilePos() === 0 && str_starts_with($statement->value, '#!')) {
                 continue;
             }
 

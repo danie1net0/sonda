@@ -14,7 +14,6 @@ final class TextSummary
 {
     public static function of(CodeCoverage $coverage, string $root): string
     {
-        $prefix = rtrim($root, '/') . '/';
         $lines = [];
 
         foreach ($coverage->getReport() as $node) {
@@ -22,10 +21,9 @@ final class TextSummary
                 continue;
             }
 
-            $path = $node->pathAsString();
             $lines[] = sprintf(
                 '%s: linhas %d/%d (%s), branches %d/%d (%s)',
-                str_starts_with($path, $prefix) ? substr($path, strlen($prefix)) : $path,
+                self::relative($node->pathAsString(), $root),
                 $node->numberOfExecutedLines(),
                 $node->numberOfExecutableLines(),
                 self::percentage($node->numberOfExecutedLines(), $node->numberOfExecutableLines()),
@@ -37,6 +35,14 @@ final class TextSummary
 
         // php-code-coverage keeps its files in path order: the lines come out sorted.
         return implode("\n", $lines);
+    }
+
+    /** The path relative to the root, or as given when it lies elsewhere. */
+    public static function relative(string $path, string $root): string
+    {
+        $prefix = rtrim($root, '/') . '/';
+
+        return str_starts_with($path, $prefix) ? substr($path, strlen($prefix)) : $path;
     }
 
     /** `97,50%`; nothing to cover counts as all covered. */

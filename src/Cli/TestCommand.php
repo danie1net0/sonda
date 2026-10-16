@@ -6,9 +6,9 @@ namespace Sonda\Cli;
 
 use InvalidArgumentException;
 use RuntimeException;
-use Sonda\{Filesystem, Run, Scope};
+use Sonda\{ComposerFiles, Filesystem, Run, Scope};
 use Sonda\Git\ChangedLines;
-use Sonda\Project\{Runner, SuiteConfiguration, TestConfiguration, TestSelection, ViewFolders};
+use Sonda\Project\{DirectRequires, Runner, SuiteConfiguration, TestConfiguration, TestSelection, ViewFolders};
 use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
@@ -65,6 +65,7 @@ final readonly class TestCommand
         // php-code-coverage keeps real paths: a symlinked temporary directory would lose the views' data.
         $workDirectory = (string) realpath($workDirectory);
         $runsDirectory = $workDirectory . '/runs-' . bin2hex(random_bytes(4));
+        $this->warnAboutDirectRequires($sourceFiles, $scope, $projectRoot, $output);
         [$runnerArguments, $generatedConfiguration] = $this->runnerArguments($options, $configuration, $projectRoot);
 
         try {
@@ -242,6 +243,30 @@ final readonly class TestCommand
             $file = $this->reportPath($options->cobertura, $projectRoot);
             new Cobertura()->process($coverage, $file);
             fwrite($output, "Relatório Cobertura em {$file}\n");
+        }
+    }
+
+    /**
+     * A file of the scope that another file requires directly runs from its original, not from
+     * the instrumented copy, and shows no coverage: said before the run. One that Composer's
+     * `files` autoload also lists would be declared twice under the Sonda, so that one stops the run.
+     *
+     * @param list<string> $sourceFiles
+     * @param resource     $output
+     */
+    private function warnAboutDirectRequires(array $sourceFiles, Scope $scope, string $projectRoot, $output): void
+    {
+        $listed = array_flip(ComposerFiles::listed($projectRoot . '/vendor/autoload.php'));
+
+        foreach (DirectRequires::in($sourceFiles, $scope) as $require) {
+            $where = TextSummary::relative($require->file, $projectRoot) . ':' . $require->line;
+            $target = TextSummary::relative($require->target, $projectRoot);
+
+            if (isset($listed[$require->target])) {
+                throw new RuntimeException("{$target} está na chave files do Composer e ainda é carregado por require direto em {$where}: sob o Sonda seria declarado duas vezes. Tire o require.");
+            }
+
+            fwrite($output, "Aviso: {$target} é carregado por require direto em {$where} e não é medido; só o autoloader instrumenta.\n");
         }
     }
 

@@ -36,7 +36,7 @@ function instrumentCode(string $code, bool $strict = false, bool $fast = false, 
     $parser = new ParserFactory()->createForHostVersion();
     $ast = (array) $parser->parse($code);
 
-    $visitor = new InstrumentingVisitor($parser->getTokens(), 'f', $path, $strict, $fast);
+    $visitor = new InstrumentingVisitor($parser->getTokens(), $code, 'f', $path, $strict, $fast);
     $visitor->instrumentTopLevel($ast);
     new NodeTraverser($visitor)->traverse($ast);
 
