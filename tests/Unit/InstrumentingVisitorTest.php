@@ -379,7 +379,7 @@ it('leaves constant expressions untouched', function (): void {
         ]);
 });
 
-it('probes property hooks with a block body', function (): void {
+it('probes property hooks with a block body or an expression body, not one returning by reference', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
     class Person
@@ -389,6 +389,9 @@ it('probes property hooks with a block body', function (): void {
                 return 'x';
             }
             set => strtoupper($value);
+        }
+        public array $items {
+            &get => $this->items;
         }
     }
     PHP . "\n");
@@ -401,12 +404,16 @@ it('probes property hooks with a block body', function (): void {
             get {
                 {p0}return 'x';
             }
-            set => strtoupper($value);
+            set => {o1}strtoupper($value){c};
+        }
+        public array $items {
+            &get => $this->items;
         }
     }
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(6, true, '{hook}', 6, 6),
+            1 => new Probe(8, true, '{hook}', 8, 8, [8]),
         ]);
 });
 
@@ -517,20 +524,73 @@ it('keeps the alternative syntax', function (): void {
         ]);
 });
 
-it('ignores empty bodies', function (): void {
+it('probes empty bodies as outcomes without a line, in braces, in the alternative syntax and in a do', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php
     if ($a) {
+    } elseif ($b) {
+    } else {
     }
+    while ($a) {}
+    for (;;) {}
+    foreach ($a as $b) {}
+    do {} while ($a);
+    if ($a):
+    elseif ($b):
+    else:
+    endif;
+    while ($a): endwhile;
+    for (;;): endfor;
+    foreach ($a as $b): endforeach;
+    if ($a);
     PHP . "\n");
 
     expect($code)->toBe(expected(<<<'PHP'
     <?php
     {p0}if ($a) {
-    }
+    {p10}} elseif ({o11}$b{c}) {
+    {p12}} else {
+    {p13}}
+    {p1}while ($a) {{p14}}
+    {p2}for (;;) {{p15}}
+    {p3}foreach ($a as $b) {{p16}}
+    {p4}do {{p18}} while ({o17}$a{c});
+    {p5}if ($a):{p19}
+    elseif ({o20}$b{c}):{p21}
+    else:{p22}
+    endif;
+    {p6}while ($a): {p23}endwhile;
+    {p7}for (;;): {p24}endfor;
+    {p8}foreach ($a as $b): {p25}endforeach;
+    {p9}if ($a);
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(6, false, '{main}', 0, 0),
+            2 => new Probe(7, false, '{main}', 0, 0),
+            3 => new Probe(8, false, '{main}', 0, 0),
+            4 => new Probe(9, false, '{main}', 0, 0),
+            5 => new Probe(10, false, '{main}', 0, 0),
+            6 => new Probe(14, false, '{main}', 0, 0),
+            7 => new Probe(15, false, '{main}', 0, 0),
+            8 => new Probe(16, false, '{main}', 0, 0),
+            9 => new Probe(17, false, '{main}', 0, 0),
+            10 => new Probe(null, true, '{main}', 3, 3),
+            11 => new Probe(3, false, '{main}', 3, 3),
+            12 => new Probe(null, true, '{main}', 4, 4),
+            13 => new Probe(null, true, '{main}', 5, 5),
+            14 => new Probe(null, true, '{main}', 6, 6),
+            15 => new Probe(null, true, '{main}', 7, 7),
+            16 => new Probe(null, true, '{main}', 8, 8),
+            17 => new Probe(9, false, '{main}', 9, 9),
+            18 => new Probe(null, true, '{main}', 9, 9),
+            19 => new Probe(null, true, '{main}', 10, 10),
+            20 => new Probe(11, false, '{main}', 11, 11),
+            21 => new Probe(null, true, '{main}', 11, 11),
+            22 => new Probe(null, true, '{main}', 12, 12),
+            23 => new Probe(null, true, '{main}', 14, 14),
+            24 => new Probe(null, true, '{main}', 15, 15),
+            25 => new Probe(null, true, '{main}', 16, 16),
         ]);
 });
 
@@ -1298,7 +1358,7 @@ it('adds an else before the endif of alternative-syntax ifs, with or without sta
     elseif ({o4}$b{c}):
         {p5}echo 2;
     else: {p3} endif;
-    {p1}if ($c): else: {p6} endif;
+    {p1}if ($c): {p6}else: {p7} endif;
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, false, '{main}', 0, 0),
@@ -1308,6 +1368,7 @@ it('adds an else before the endif of alternative-syntax ifs, with or without sta
             4 => new Probe(4, false, '{main}', 4, 4),
             5 => new Probe(5, true, '{main}', 5, 5),
             6 => new Probe(null, true, '{main}', 7, 7),
+            7 => new Probe(null, true, '{main}', 7, 7),
         ]);
 });
 

@@ -109,11 +109,11 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $node instanceof PropertyHook => $this->enterPropertyHook($node),
             $node instanceof If_ => $this->enterIf($node),
             $node instanceof ElseIf_,
-            $node instanceof Do_ => $this->enterConditionalBody($node->cond, $node->stmts),
+            $node instanceof Do_ => $this->enterConditionalBody($node, $node->cond, $node->stmts),
             $node instanceof Else_,
             $node instanceof While_,
             $node instanceof For_,
-            $node instanceof Foreach_ => $this->body($node->stmts),
+            $node instanceof Foreach_ => $this->body($node, $node->stmts),
             $node instanceof Case_ => $this->enterCase($node),
             $node instanceof TryCatch,
             $node instanceof Block => $this->statementList($node->stmts, false),
@@ -202,6 +202,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
         if (is_array($node->body)) {
             $this->statementList($node->body, true);
+        } elseif ($node->body instanceof Expr && ! $node->byRef) {
+            $this->wrapExpression($node->body, true, $this->ownLines($node->body));
         }
     }
 
@@ -213,7 +215,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function enterIf(If_ $node): void
     {
-        $this->body($node->stmts);
+        $this->body($node, $node->stmts);
 
         if (! $this->strict || $node->else instanceof Else_) {
             return;
@@ -236,10 +238,10 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     }
 
     /** @param array<Node> $statements */
-    private function enterConditionalBody(Expr $condition, array $statements): void
+    private function enterConditionalBody(Node $owner, Expr $condition, array $statements): void
     {
         $this->wrapExpression($condition, false);
-        $this->body($statements);
+        $this->body($owner, $statements);
     }
 
     private function enterCase(Case_ $node): void
@@ -375,13 +377,16 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     /**
      * Body of if/elseif/else/loops. An unbraced body (always a single statement) gets
-     * braces, so its probe can go before it.
+     * braces, so its probe can go before it. An empty body gets a probe of its own, with
+     * no line: running it is an outcome, even though no line runs.
      *
      * @param array<Node> $statements
      */
-    private function body(array $statements): void
+    private function body(Node $owner, array $statements): void
     {
         if ($statements === []) {
+            $this->emptyBody($owner);
+
             return;
         }
 
@@ -491,6 +496,67 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     private function isShortEcho(Node $statement): bool
     {
         return $this->tokens[$statement->getStartTokenPos()]->id === T_OPEN_TAG_WITH_ECHO;
+    }
+
+    /**
+     * A branch probe inside an empty body: before its closing brace, before the `endif`-like
+     * keyword of the alternative syntax, or after the `:` that opens an empty `else:`. A body
+     * that is a lone `;` has nowhere to hold one.
+     */
+    private function emptyBody(Node $owner): void
+    {
+        $closing = $this->bodyClosing($owner);
+        $position = match (true) {
+            $closing->text === '}' => $closing->pos,
+            $closing->text === '{', $closing->text === ':' => $closing->pos + 1,
+            default => $this->alternativeClosingPosition($owner->getEndTokenPos()),
+        };
+
+        if ($position === null) {
+            return;
+        }
+
+        $line = $closing->line;
+        $id = $this->probe(new Probe(null, true, $this->currentFunction(), $line, $line));
+
+        // A closing edit, added before the synthetic else of the same if: at the same position, it stays first.
+        $this->close($position, $this->probeCode($id) . ';');
+    }
+
+    /**
+     * The token that closes the body of a node: the brace a `do` opens with, the brace or colon
+     * before the `elseif` or `else` that follows an `if`, or else the last token of the node.
+     */
+    private function bodyClosing(Node $owner): Token
+    {
+        if ($owner instanceof Do_) {
+            return $this->tokens[$this->nextSignificantToken($owner->getStartTokenPos())];
+        }
+
+        $follower = $owner instanceof If_ ? ($owner->elseifs[0] ?? $owner->else) : null;
+
+        if ($follower instanceof Node) {
+            return $this->previousSignificantToken($follower->getStartTokenPos());
+        }
+
+        return $this->tokens[$owner->getEndTokenPos()];
+    }
+
+    /** The position of the `endif`, `endwhile`, `endfor` or `endforeach` that ends a body, when there is one. */
+    private function alternativeClosingPosition(int $end): ?int
+    {
+        $token = $this->previousSignificantToken($end);
+
+        return $token->is([T_ENDIF, T_ENDWHILE, T_ENDFOR, T_ENDFOREACH]) ? $token->pos : null;
+    }
+
+    private function nextSignificantToken(int $position): int
+    {
+        do {
+            $position++;
+        } while ($this->tokens[$position]->isIgnorable());
+
+        return $position;
     }
 
     /** The function ends on its closing brace: a body without statements runs only that line. */

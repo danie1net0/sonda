@@ -200,6 +200,8 @@ braços de `?:` e `match`, e o valor não nulo de `?->`.
 
 No modo estrito, que é o padrão:
 
+- Corpo vazio de `if`, `elseif`, `else` e laço é um desfecho como outro qualquer: ganha uma
+  sonda sem linha, e conta como branch.
 - Todo `if` sem `else` ganha um `else` sintético: os dois desfechos precisam ser testados. O
   Xdebug conta blocos básicos, então um `if` sem `else` cuja condição é sempre verdadeira dá
   100% nele e não no Sonda.
@@ -222,9 +224,8 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 
 ## Limitações conhecidas
 
-- Corpo vazio de `if` e de laço não ganha sonda.
-- Property hook com corpo de expressão (`set => ...`) e arrow function por referência (`fn&`)
-  não são instrumentados.
+- Arrow function por referência (`fn&`) e property hook por referência (`&get`) não são
+  instrumentados: a sonda em volta da expressão quebraria a referência.
 - Views do Blade: só as pastas `resources/views` do projeto são achadas sozinhas; outra pasta
   entra com `--views`.
 - Um arquivo do diretório alvo carregado por `require` direto ou pela chave `files` do Composer
