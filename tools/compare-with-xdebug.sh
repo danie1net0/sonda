@@ -5,7 +5,8 @@
 #   DB_DATABASE=<banco privado> tools/compare-with-xdebug.sh <diretório de saída> [argumentos do runner...]
 #
 # Variáveis: PROCESSES (workers do ParaTest ou filas de lotes, padrão 3), XDEBUG_SO (caminho do
-# xdebug.so) e BATCH (testes por lote; com ela o lado Xdebug roda em lotes, ver abaixo).
+# xdebug.so) e BATCH (testes por lote; com ela o lado Xdebug roda em lotes, ver abaixo; nos lotes
+# só a pasta de testes, primeiro argumento do runner quando é uma pasta, é considerada).
 # Saída: sonda.cov, xdebug.cov, compare.txt e summary.txt no diretório informado.
 #
 # O Xdebug com paths custa ~30x o tempo da suíte, e o php-code-coverage acumula, a cada teste, os
@@ -138,7 +139,9 @@ fi
 #    e o PCOV, se houver, disputa a cobertura com ele.
 export PHP_INI_SCAN_DIR="$OUT/ini" XDEBUG_MODE=coverage LARAVEL_PARALLEL_TESTING=1
 if [ "$BATCH" -gt 0 ]; then
-    xdebug_in_batches "${1:-tests}"
+    # A pasta de testes é o primeiro argumento do runner quando ele é uma pasta; os demais não chegam aos lotes.
+    tests_root=tests; [ $# -gt 0 ] && [ -d "$1" ] && tests_root=$1
+    xdebug_in_batches "$tests_root"
 else
     step "xdebug: início, $PROCESSES workers"
     start=$(date +%s)
