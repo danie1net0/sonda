@@ -97,6 +97,7 @@ it('runs the project tests instrumented and reports the coverage of its source',
         ->and($runner->environment)->toBe([
             'SONDA_AUTOLOAD' => $root . '/vendor/autoload.php',
             'SONDA_TARGET' => $root . '/app',
+            'SONDA_VIEWS' => '',
             'SONDA_EXCLUDE' => $root . '/app/Providers',
             'SONDA_ONLY' => '',
             'SONDA_CACHE' => $work . '/cache',
@@ -296,6 +297,50 @@ it('runs in series when given more than one test path, since ParaTest takes a si
         ->and($two->command[1])->toBe('vendor/bin/phpunit')
         ->and($configured->command[1])->toBe('vendor/bin/paratest')
         ->and($configuredTwo->command[1])->toBe('vendor/bin/phpunit');
+});
+
+/** The fake project as a Laravel one: an artisan file and Blade views. */
+function laravelProject(): string
+{
+    $root = fakeProject();
+    mkdir($root . '/resources/views/mail', 0777, true);
+    file_put_contents($root . '/artisan', '<?php');
+    file_put_contents($root . '/resources/views/home.blade.php', "<h1>{{ \$title }}</h1>\n");
+    file_put_contents($root . '/resources/views/mail/welcome.blade.php', "<p>{{ \$name }}</p>\n");
+    file_put_contents($root . '/resources/views/plain.php', "<?php echo 'not blade';\n");
+
+    return $root;
+}
+
+it('measures the Blade views of a Laravel project along with its source', function (): void {
+    $root = laravelProject();
+    $runner = new FakeRunner();
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse([]), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($runner->environment)->toHaveKey('SONDA_VIEWS', $root . '/resources/views')
+        ->toHaveKey('SONDA_TARGET', $root . '/app' . PATH_SEPARATOR . $root . '/resources/views')
+        ->and($output)->toContain("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+});
+
+it('narrows to a Blade view named explicitly, and not to a plain PHP file under the views', function (): void {
+    $root = laravelProject();
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, TestOptions::parse(['--files=resources/views/home.blade.php,resources/views/plain.php']), TemporaryDirectory::create());
+
+    expect($runner->environment)->toHaveKey('SONDA_ONLY', $root . '/resources/views/home.blade.php');
+});
+
+it('leaves the views out with --no-blade', function (): void {
+    $root = laravelProject();
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, TestOptions::parse(['--no-blade']), TemporaryDirectory::create());
+
+    expect($runner->environment)->toHaveKey('SONDA_VIEWS', '')
+        ->toHaveKey('SONDA_TARGET', $root . '/app');
 });
 
 it('refuses to work under a directory open to other users, before running anything', function (string $shared): void {

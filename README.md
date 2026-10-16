@@ -116,6 +116,7 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--no-strict` | não exige o `else` de todo `if` nem o lado nulo de `?->` |
 | `--no-fast` | sondas sem a referência local por função |
 | `--no-parallel` | não usa o ParaTest mesmo quando instalado |
+| `--no-blade` | não mede as views do Blade de um projeto Laravel |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
 
 Cache e execuções ficam fora do projeto, em `$XDG_CACHE_HOME/sonda` ou `~/.cache/sonda`, num
@@ -147,6 +148,7 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
 | `SONDA_STRICT=1` | não | semântica estrita de branches |
 | `SONDA_FAST=1` | não | referência local por função: sondas mais baratas |
 | `SONDA_CHAIN` | não | bootstrap original do projeto, quando não é só o autoload |
+| `SONDA_VIEWS` | não | pastas de views do Blade a medir, separadas por `PATH_SEPARATOR` |
 
 ## Como funciona
 
@@ -160,6 +162,24 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
    código executado em data provider não conta como coberto.
 4. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
    workers e monta o relatório com o php-code-coverage.
+
+## Views do Blade
+
+Num projeto Laravel (com `artisan` e `resources/views`), as views do Blade entram na medição
+junto com o `<source>`: cada `.blade.php` aparece nos relatórios com as linhas de diretiva e de
+echo (`@if`, `@foreach`, `{{ }}`, `<x-componente>`) cobertas ou não, e entra no veredito do
+`--changed` pelas linhas mudadas. `--no-blade` deixa as views de fora. Branches das views ainda
+não contam.
+
+Como funciona: a primeira vez que um teste sobe a aplicação, o Sonda compila todas as views com
+o compilador Blade dela (diretivas próprias incluídas), instrumenta o PHP compilado e grava o
+resultado onde o Laravel vai incluí-lo, numa pasta de views compiladas só deste processo, apontada
+por `VIEW_COMPILED_PATH` no ambiente (a configuração padrão do Laravel lê essa variável). O cache
+do projeto em `storage/framework/views` não é tocado. As linhas do PHP compilado voltam para as
+linhas do template por um mapa: um marcador inserido antes de cada construção sobrevive à
+compilação e diz de que linha ela veio. A cópia instrumentada fica mais nova que o template, para
+o Laravel não a compilar de novo sem sondas; com `--parallel`, cada worker tem a própria pasta, e a
+subpasta por token que o teste paralelo do Laravel usa é criada antes da cópia.
 
 ## Semântica dos branches
 
@@ -195,7 +215,7 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 - `if` em sintaxe alternativa (`endif`) não ganha o `else` sintético.
 - Property hook com corpo de expressão (`set => ...`) e arrow function por referência (`fn&`)
   não são instrumentados.
-- Views do Blade e do Livewire não são medidas.
+- Views do Blade: só linhas, sem branches; views de pacotes (fora de `resources/views`) não entram.
 - Um arquivo do diretório alvo carregado por `require` direto ou pela chave `files` do Composer
   não é instrumentado e aparece inteiro como não coberto.
 - O ParaTest aceita um único caminho de teste: `sonda test a.php b.php` roda sem ele, em série.

@@ -26,13 +26,50 @@ final readonly class InstrumentationCache
         return is_file($this->codePath($key));
     }
 
+    /** The path of the plain compiled code of a view, the file the report analyses. */
+    public function analysisPath(string $key): string
+    {
+        return $this->directory . '/' . $key . '.view.php';
+    }
+
     /** The map is written before the code, so a cached file always has its map. */
     public function store(string $key, InstrumentationResult $result): void
     {
         Filesystem::privateDirectory($this->directory);
 
         $this->writeAtomically($this->mapPath($key), serialize($result->probes));
+
+        if ($result->lineMap !== null) {
+            $this->writeAtomically($this->linesPath($key), serialize($result->lineMap));
+            $this->writeAtomically($this->analysisPath($key), $result->analysisCode ?? '');
+        }
+
         $this->writeAtomically($this->codePath($key), $result->code);
+    }
+
+    /**
+     * The line map of a view, or null for a file instrumented as it is.
+     *
+     * @return array<int, int>|null compiled line => template line
+     */
+    public function lineMap(string $key): ?array
+    {
+        if (! is_file($this->linesPath($key))) {
+            return null;
+        }
+
+        $contents = unserialize(Filesystem::read($this->linesPath($key)), ['allowed_classes' => false]);
+        $map = [];
+
+        foreach (is_array($contents) ? $contents : [null] as $compiledLine => $templateLine) {
+            if (! is_int($compiledLine) || ! is_int($templateLine)) {
+                throw new RuntimeException("O mapa de linhas {$key} está corrompido no cache {$this->directory}.");
+            }
+
+            $map[$compiledLine] = $templateLine;
+        }
+
+        return $map;
     }
 
     /** @return array<int, Probe> */
@@ -55,6 +92,11 @@ final readonly class InstrumentationCache
     private function mapPath(string $key): string
     {
         return $this->directory . '/' . $key . '.map';
+    }
+
+    private function linesPath(string $key): string
+    {
+        return $this->directory . '/' . $key . '.lines';
     }
 
     /** Parallel test workers may write the same file: each writes its own temporary file. */

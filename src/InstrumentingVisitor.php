@@ -12,7 +12,7 @@ use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, D
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
-use function dirname;
+use function str_starts_with, dirname;
 
 /**
  * Walks the AST and records the edits (probe insertions) and the probe metadata of a file.
@@ -421,7 +421,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
                 continue;
             }
 
-            $this->edits[] = Edit::opening($statement->getStartFilePos(), ($isFirst ? $prefix : '') . $this->probeCode($id) . ';');
+            $code = ($isFirst ? $prefix : '') . $this->probeCode($id) . ';';
+
+            // Inline HTML runs as an echo: its probe opens PHP mode for itself. The closing tag eats
+            // one newline, so a newline the HTML starts with (at the top of the file) is given back.
+            if ($statement instanceof InlineHTML) {
+                $code = '<?php ' . $code . ' ?>' . $this->leadingNewline($this->tokens[$statement->getStartTokenPos()]->text);
+            }
+
+            $this->edits[] = Edit::opening($statement->getStartFilePos(), $code);
         }
     }
 
@@ -445,6 +453,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     {
         $this->edits[] = Edit::opening($expression->getStartFilePos(), '((' . $this->probeCode($id) . ') ? (');
         $this->close($expression->getEndFilePos() + 1, ') : null)');
+    }
+
+    private function leadingNewline(string $text): string
+    {
+        if (str_starts_with($text, "\r\n")) {
+            return "\r\n";
+        }
+
+        return str_starts_with($text, "\n") ? "\n" : '';
     }
 
     /**
@@ -546,8 +563,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     }
 
     /**
-     * Statements that can have a probe before them: declarations, `use`, `declare`, comments
-     * and inline HTML cannot.
+     * Statements that can have a probe before them: declarations, `use`, `declare` and comments
+     * cannot.
      *
      * @param array<Node> $statements
      *
@@ -560,8 +577,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         foreach ($statements as $statement) {
             if ($statement instanceof Nop || $statement instanceof Namespace_ || $statement instanceof Declare_
                 || $statement instanceof HaltCompiler || $statement instanceof Use_ || $statement instanceof GroupUse
-                || $statement instanceof ClassLike || $statement instanceof Function_ || $statement instanceof Const_
-                || $statement instanceof InlineHTML) {
+                || $statement instanceof ClassLike || $statement instanceof Function_ || $statement instanceof Const_) {
                 continue;
             }
 

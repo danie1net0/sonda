@@ -30,6 +30,18 @@ final class Filesystem
      */
     public static function privateDirectory(string $directory): void
     {
+        self::ensureDirectory($directory);
+
+        $info = new SplFileInfo($directory);
+
+        if ($info->getOwner() !== getmyuid() || ($info->getPerms() & 0o077) !== 0) {
+            throw new RuntimeException("O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
+        }
+    }
+
+    /** Creates a directory with its parents when it is missing; an existing one is left as it is. */
+    public static function ensureDirectory(string $directory): void
+    {
         if (! is_dir($directory)) {
             // Parallel test workers may create it at the same time: the loser's warning is noise.
             set_error_handler(static fn (): bool => true);
@@ -41,14 +53,8 @@ final class Filesystem
             }
         }
 
-        $info = new SplFileInfo($directory);
-
-        if (! $info->isDir()) {
+        if (! is_dir($directory)) {
             throw new RuntimeException("Não foi possível criar o diretório {$directory}.");
-        }
-
-        if ($info->getOwner() !== getmyuid() || ($info->getPerms() & 0o077) !== 0) {
-            throw new RuntimeException("O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
         }
     }
 

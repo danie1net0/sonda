@@ -86,3 +86,13 @@ it('keeps the cache directory of the first run when merging', function (): void 
 
     expect($merged->cacheDirectory)->toBe('/first');
 });
+
+it('reads the line map and the analysis copy of a view from its cache', function (): void {
+    $directory = TemporaryDirectory::create();
+    new InstrumentationCache($directory)->store('view', new InstrumentationResult('<?php', [], [1 => 4], '<?php clean();'));
+    $run = new Run($directory, [], []);
+
+    expect($run->lineMapOf('view'))->toBe([1 => 4])
+        ->and($run->lineMapOf('missing'))->toBeNull()
+        ->and($run->analysisPathOf('view'))->toBe($directory . '/view.view.php');
+});

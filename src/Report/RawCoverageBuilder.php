@@ -31,7 +31,9 @@ final class RawCoverageBuilder
                 continue;
             }
 
-            $coverage[$path] = self::fileCoverage($run->probesOf($cacheKey), $run->hits[$fileId] ?? []);
+            // A view's probes refer to its compiled code: the data is keyed by the analysis copy of it.
+            $key = $run->lineMapOf($cacheKey) === null ? $path : $run->analysisPathOf($cacheKey);
+            $coverage[$key] = self::fileCoverage($run->probesOf($cacheKey), $run->hits[$fileId] ?? []);
         }
 
         return RawCodeCoverageData::fromXdebugWithPathCoverage($coverage);

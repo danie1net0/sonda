@@ -82,3 +82,56 @@ final class RevivalWitness
         return [];
     }
 }
+
+it('stores the line map and the analysis copy of a view beside its code', function (): void {
+    $directory = TemporaryDirectory::create();
+    $cache = new InstrumentationCache($directory);
+
+    $cache->store('view', new InstrumentationResult('<?php probe();', [], [1 => 2, 2 => 2, 3 => 5], '<?php clean();'));
+
+    expect($cache->lineMap('view'))->toBe([1 => 2, 2 => 2, 3 => 5])
+        ->and($cache->analysisPath('view'))->toBe($directory . '/view.view.php')
+        ->and(file_get_contents($directory . '/view.view.php'))->toBe('<?php clean();')
+        ->and(file_get_contents($directory . '/view.php'))->toBe('<?php probe();')
+        ->and(array_map(basename(...), glob($directory . '/*')))->toBe(['view.lines', 'view.map', 'view.php', 'view.view.php']);
+});
+
+it('has no line map for a file instrumented as it is', function (): void {
+    $directory = TemporaryDirectory::create();
+    $cache = new InstrumentationCache($directory);
+    $cache->store('key', new InstrumentationResult('<?php', []));
+
+    expect($cache->lineMap('key'))->toBeNull()
+        ->and(array_map(basename(...), glob($directory . '/*')))->toBe(['key.map', 'key.php']);
+});
+
+it('rejects a line map that is not made of line numbers', function (string $contents): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/bad.lines', $contents);
+
+    expect(fn (): ?array => new InstrumentationCache($directory)->lineMap('bad'))
+        ->toThrow(RuntimeException::class, "O mapa de linhas bad está corrompido no cache {$directory}.");
+})->with([
+    'not an array' => [serialize('x')],
+    'a string key' => [serialize(['a' => 1])],
+    'a string value' => [serialize([1 => 'b'])],
+]);
+
+it('writes an empty analysis copy when a view result has none', function (): void {
+    $directory = TemporaryDirectory::create();
+    $cache = new InstrumentationCache($directory);
+
+    $cache->store('view', new InstrumentationResult('<?php', [], [1 => 1]));
+
+    expect(file_get_contents($cache->analysisPath('view')))->toBe('');
+});
+
+it('revives nothing from a line map, so a foreign object cannot run code', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/bad.lines', serialize([1 => new RevivalWitness()]));
+    RevivalWitness::$revived = false;
+
+    expect(fn (): ?array => new InstrumentationCache($directory)->lineMap('bad'))
+        ->toThrow(RuntimeException::class, "O mapa de linhas bad está corrompido no cache {$directory}.")
+        ->and(RevivalWitness::$revived)->toBeFalse();
+});

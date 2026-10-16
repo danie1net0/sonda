@@ -30,7 +30,8 @@ it('reads the required settings and defaults the optional ones', function (): vo
         ->outputDirectory->toBe('/tmp/runs')
         ->strict->toBeFalse()
         ->fast->toBeFalse()
-        ->chainedBootstrap->toBeNull();
+        ->chainedBootstrap->toBeNull()
+        ->viewDirectories->toBe([]);
 });
 
 it('reads the optional settings', function (): void {
@@ -41,6 +42,7 @@ it('reads the optional settings', function (): void {
         'SONDA_STRICT' => '1',
         'SONDA_FAST' => '1',
         'SONDA_CHAIN' => 'tests/bootstrap.php',
+        'SONDA_VIEWS' => 'resources/views' . PATH_SEPARATOR . 'other/views',
     ]));
 
     expect($settings)
@@ -49,7 +51,8 @@ it('reads the optional settings', function (): void {
         ->onlyFiles->toBe(['app/Order.php'])
         ->strict->toBeTrue()
         ->fast->toBeTrue()
-        ->chainedBootstrap->toBe('tests/bootstrap.php');
+        ->chainedBootstrap->toBe('tests/bootstrap.php')
+        ->viewDirectories->toBe(['resources/views', 'other/views']);
 });
 
 it('turns on flags only with the value 1', function (): void {

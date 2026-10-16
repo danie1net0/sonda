@@ -25,6 +25,7 @@
     "phpunit/phpunit": "^12.0"
   },
   "require-dev": {
+    "illuminate/view": "^13",
     "laravel/pint": "^1.14",
     "pestphp/pest": "^4.0",
     "pestphp/pest-plugin-arch": "^4.0",

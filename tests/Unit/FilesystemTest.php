@@ -63,3 +63,23 @@ it('refuses a directory other users can enter', function (): void {
     expect(fn () => Filesystem::privateDirectory($directory))
         ->toThrow(RuntimeException::class, "O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
 });
+
+it('creates a directory with its parents, and leaves an existing one as it is', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/shared', 0o755);
+
+    Filesystem::ensureDirectory($root . '/nested/deeper');
+    Filesystem::ensureDirectory($root . '/shared');
+
+    expect(is_dir($root . '/nested/deeper'))->toBeTrue()
+        ->and(fileperms($root . '/nested/deeper') & 0o777)->toBe(0o700)
+        ->and(fileperms($root . '/shared') & 0o777)->toBe(0o755);
+});
+
+it('fails when a directory cannot be ensured, without letting the warning through', function (): void {
+    error_clear_last();
+
+    expect(fn () => Filesystem::ensureDirectory('/usr/sonda-cannot-ensure'))
+        ->toThrow(RuntimeException::class, 'Não foi possível criar o diretório /usr/sonda-cannot-ensure.')
+        ->and(error_get_last())->toBeNull();
+})->skip(getmyuid() === 0, 'root cria onde quiser');

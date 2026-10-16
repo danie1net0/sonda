@@ -28,6 +28,7 @@ final readonly class Application
       --no-strict       não exige o else de todo if nem o lado nulo de ?->
       --no-fast         sondas sem a referência local por função
       --no-parallel     não usa o ParaTest mesmo quando instalado
+      --no-blade        não mede as views do Blade (resources/views) de um projeto Laravel
       -c <arquivo>      o phpunit.xml a usar, também repassado ao runner
 
     Qualquer outro argumento vai para o runner (php artisan test, pest ou phpunit).

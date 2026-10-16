@@ -13,7 +13,7 @@ use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
 
-use function implode, str_starts_with, substr;
+use function implode, str_ends_with, str_starts_with, substr;
 
 /**
  * `sonda test`: runs the project's tests instrumented, then reports the coverage of the
@@ -48,8 +48,9 @@ final readonly class TestCommand
             unset($changes[$file]);
         }
 
-        $scope = new Scope($configuration->sourceDirectories, $configuration->excludedDirectories, [...$explicitFiles, ...array_keys($changes)]);
-        $sourceFiles = $this->sourceFiles($scope);
+        $viewDirectories = $this->viewDirectories($options, $projectRoot);
+        $scope = new Scope([...$configuration->sourceDirectories, ...$viewDirectories], $configuration->excludedDirectories, [...$explicitFiles, ...array_keys($changes)]);
+        $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
 
         if ($scope->narrowsToFiles() && $sourceFiles === []) {
             fwrite($output, "Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
@@ -63,7 +64,7 @@ final readonly class TestCommand
         Filesystem::privateDirectory($workDirectory);
         $status = $this->processes->run(
             [...Runner::command($projectRoot, $options->parallel && $this->hasAtMostOnePath($options->runnerArguments)), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$options->runnerArguments],
-            $this->environment($options, $configuration, $projectRoot, $sourceFiles, $workDirectory . '/cache', $runsDirectory),
+            $this->environment($options, $configuration, $projectRoot, $sourceFiles, $viewDirectories, $workDirectory . '/cache', $runsDirectory),
             $projectRoot,
         );
 
@@ -118,13 +119,19 @@ final readonly class TestCommand
         return $files;
     }
 
-    /** @return list<string> */
-    private function sourceFiles(Scope $scope): array
+    /**
+     * The files of the scope: the PHP files of the source and the Blade views of the view directories.
+     *
+     * @param list<string> $viewDirectories
+     *
+     * @return list<string>
+     */
+    private function sourceFiles(Scope $scope, array $viewDirectories): array
     {
         $files = [];
 
         foreach (SourceFiles::findAll($scope->targetDirectories(), $scope->excludedDirectories()) as $file) {
-            if ($scope->includes($file)) {
+            if ($scope->includes($file) && (str_ends_with($file, '.blade.php') || ! $this->isUnder($file, $viewDirectories))) {
                 $files[] = $file;
             }
         }
@@ -133,18 +140,42 @@ final readonly class TestCommand
     }
 
     /**
+     * The Blade views of a Laravel project, `resources/views`, unless `--no-blade` leaves them out.
+     *
+     * @return list<string>
+     */
+    private function viewDirectories(TestOptions $options, string $projectRoot): array
+    {
+        $views = realpath($projectRoot . '/resources/views');
+
+        if (! $options->blade || ! is_file($projectRoot . '/artisan') || $views === false) {
+            return [];
+        }
+
+        return [$views];
+    }
+
+    /** @param list<string> $directories */
+    private function isUnder(string $file, array $directories): bool
+    {
+        return array_any($directories, static fn (string $directory): bool => str_starts_with($file, $directory . '/'));
+    }
+
+    /**
      * @param list<string> $sourceFiles
+     * @param list<string> $viewDirectories
      *
      * @return array<string, string>
      */
-    private function environment(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $sourceFiles, string $cacheDirectory, string $runsDirectory): array
+    private function environment(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $sourceFiles, array $viewDirectories, string $cacheDirectory, string $runsDirectory): array
     {
         $autoload = $projectRoot . '/vendor/autoload.php';
         $chained = $configuration->bootstrap !== null && realpath($configuration->bootstrap) !== realpath($autoload) ? $configuration->bootstrap : '';
 
         $environment = [];
         $environment['SONDA_AUTOLOAD'] = $autoload;
-        $environment['SONDA_TARGET'] = implode(PATH_SEPARATOR, $configuration->sourceDirectories);
+        $environment['SONDA_TARGET'] = implode(PATH_SEPARATOR, [...$configuration->sourceDirectories, ...$viewDirectories]);
+        $environment['SONDA_VIEWS'] = implode(PATH_SEPARATOR, $viewDirectories);
         $environment['SONDA_EXCLUDE'] = implode(PATH_SEPARATOR, $configuration->excludedDirectories);
         $environment['SONDA_ONLY'] = $options->changed !== null || $options->files !== [] ? implode(PATH_SEPARATOR, $sourceFiles) : '';
         $environment['SONDA_CACHE'] = $cacheDirectory;

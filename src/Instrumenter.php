@@ -29,7 +29,12 @@ final readonly class Instrumenter
 
     public function instrument(string $path, string $fileId): InstrumentationResult
     {
-        $code = Filesystem::read($path);
+        return $this->instrumentCode(Filesystem::read($path), $path, $fileId);
+    }
+
+    /** @param string $path what `__FILE__` and `__DIR__` in the code stand for */
+    public function instrumentCode(string $code, string $path, string $fileId): InstrumentationResult
+    {
         $ast = $this->parser->parse($code);
 
         if ($ast === null) {
@@ -68,6 +73,8 @@ final readonly class Instrumenter
         $sources[] = __DIR__ . '/SourceEditor.php';
         $sources[] = __DIR__ . '/Edit.php';
         $sources[] = __DIR__ . '/Probe.php';
+        $sources[] = __DIR__ . '/Blade/LineMap.php';
+        $sources[] = __DIR__ . '/Blade/ViewInstrumenter.php';
 
         return $sources;
     }

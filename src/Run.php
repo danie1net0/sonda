@@ -82,6 +82,27 @@ final readonly class Run
     /** @return array<int, Probe> */
     public function probesOf(string $cacheKey): array
     {
-        return new InstrumentationCache($this->cacheDirectory)->probes($cacheKey);
+        return $this->cache()->probes($cacheKey);
+    }
+
+    /**
+     * The line map of a view, or null for a file instrumented as it is.
+     *
+     * @return array<int, int>|null compiled line => template line
+     */
+    public function lineMapOf(string $cacheKey): ?array
+    {
+        return $this->cache()->lineMap($cacheKey);
+    }
+
+    /** The plain compiled code of a view, the file the report analyses. */
+    public function analysisPathOf(string $cacheKey): string
+    {
+        return $this->cache()->analysisPath($cacheKey);
+    }
+
+    private function cache(): InstrumentationCache
+    {
+        return new InstrumentationCache($this->cacheDirectory);
     }
 }

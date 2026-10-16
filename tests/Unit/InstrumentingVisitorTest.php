@@ -61,7 +61,7 @@ it('skips declarations, use, const and comments', function (): void {
         ]);
 });
 
-it('skips inline HTML', function (): void {
+it('probes inline HTML in a PHP tag of its own, as the echo it is', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php echo 1; ?>
     <p>html</p>
@@ -70,13 +70,24 @@ it('skips inline HTML', function (): void {
 
     expect($code)->toBe(expected(<<<'PHP'
     <?php {p0}echo 1; ?>
-    <p>html</p>
-    <?php {p1}echo 2;
+    <?php {p1} ?><p>html</p>
+    <?php {p2}echo 2;
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(1, false, '{main}', 0, 0),
-            1 => new Probe(3, false, '{main}', 0, 0),
+            1 => new Probe(2, false, '{main}', 0, 0),
+            2 => new Probe(3, false, '{main}', 0, 0),
         ]);
+});
+
+it('gives back the newline the closing tag of the probe eats at the top of a template', function (): void {
+    [$unix] = instrumentCode("\n<p>x</p>\n<?php echo 1;\n");
+    [$windows] = instrumentCode("\r\n<p>x</p>\r\n<?php echo 1;\r\n");
+    [$plain] = instrumentCode("<p>x</p>\n<?php echo 1;\n");
+
+    expect($unix)->toBe(expected("<?php {p0} ?>\n\n<p>x</p>\n<?php {p1}echo 1;\n"))
+        ->and($windows)->toBe(expected("<?php {p0} ?>\r\n\r\n<p>x</p>\r\n<?php {p1}echo 1;\r\n"))
+        ->and($plain)->toBe(expected("<?php {p0} ?><p>x</p>\n<?php {p1}echo 1;\n"));
 });
 
 it('stops at __halt_compiler', function (): void {
@@ -1367,27 +1378,33 @@ it('keeps probes inside PHP mode in templates', function (): void {
     PHP . "\n", strict: true);
 
     expect($code)->toBe(expected(<<<'PHP'
-    <ul>
-    <?php {p0}if ($items !== []) { ?>
-        <?php {p2}foreach ($items as $item): ?>
-            <li><?= {o4}$item{c}, ' ', $item ?></li>
+    <?php {p0} ?><ul>
+    <?php {p1}if ($items !== []) { ?>
+    <?php {p4} ?>    <?php {p5}foreach ($items as $item): ?>
+    <?php {p7} ?>        <li><?= {o8}$item{c}, ' ', $item ?><?php {p9} ?></li>
         <?php endforeach ?>
-    <?php } else { {p3} } ?>
-    <?php {p1}if ($footer): ?>
-        <p>end</p>
+    <?php } else { {p6} } ?>
+    <?php {p2}if ($footer): ?>
+    <?php {p10} ?>    <p>end</p>
     <?php endif ?>
-    </ul>
+    <?php {p3} ?></ul>
     PHP . "\n"))
         ->and($probes)->toEqual([
-            0 => new Probe(2, false, '{main}', 0, 0),
-            1 => new Probe(7, false, '{main}', 0, 0),
-            2 => new Probe(3, true, '{main}', 3, 6),
-            3 => new Probe(null, true, '{main}', 6, 6),
-            4 => new Probe(4, true, '{main}', 4, 5),
+            0 => new Probe(1, false, '{main}', 0, 0),
+            1 => new Probe(2, false, '{main}', 0, 0),
+            2 => new Probe(7, false, '{main}', 0, 0),
+            3 => new Probe(10, false, '{main}', 0, 0),
+            4 => new Probe(3, true, '{main}', 3, 6),
+            5 => new Probe(3, false, '{main}', 0, 0),
+            6 => new Probe(null, true, '{main}', 6, 6),
+            7 => new Probe(4, true, '{main}', 4, 5),
+            8 => new Probe(4, false, '{main}', 0, 0),
+            9 => new Probe(4, false, '{main}', 0, 0),
+            10 => new Probe(8, true, '{main}', 8, 9),
         ]);
 });
 
-it('skips the local reference when a function starts with a short echo', function (): void {
+it('binds the local reference inside the tag of inline HTML that opens a function', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php function row(string $name): void { ?>
         <td><?= $name ?></td>
@@ -1397,13 +1414,15 @@ it('skips the local reference when a function starts with a short echo', functio
 
     expect($code)->toBe(expected(<<<'PHP'
     <?php function row(string $name): void { ?>
-        <td><?= {o0}$name{c} ?></td>
-        <?php {p1}echo 1; ?>
+    <?php {ref}{l0} ?>    <td><?= {L1}$name{c} ?><?php {l2} ?></td>
+        <?php {l3}echo 1; ?>
     <?php }
     PHP . "\n"))
         ->and($probes)->toEqual([
             0 => new Probe(2, true, 'row', 2, 3),
-            1 => new Probe(3, false, 'row', 0, 0),
+            1 => new Probe(2, false, 'row', 0, 0),
+            2 => new Probe(2, false, 'row', 0, 0),
+            3 => new Probe(3, false, 'row', 0, 0),
         ]);
 });
 it('probes the value before each ?->, keeping the chain', function (): void {

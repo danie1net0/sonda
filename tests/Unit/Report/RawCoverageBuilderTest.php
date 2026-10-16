@@ -85,3 +85,12 @@ it('keeps reading the files that follow one that is not a source file', function
     expect(RawCoverageBuilder::build($run, ['/app/Order.php'])->lineCoverage())
         ->toBe(['/app/Order.php' => [3 => 1]]);
 });
+
+it('keys the probes of a view by the analysis copy of its compiled code', function (): void {
+    $directory = TemporaryDirectory::create();
+    new InstrumentationCache($directory)->store('view', new InstrumentationResult('<?php', [0 => new Probe(1, false, '{main}', 0, 0), 1 => new Probe(2, false, '{main}', 0, 0)], [1 => 2, 2 => 2], '<?php'));
+    $run = new Run($directory, ['v' => ['/resources/views/a.blade.php', 'view']], ['v' => [0 => 1]]);
+
+    expect(RawCoverageBuilder::build($run, ['/resources/views/a.blade.php'])->lineCoverage())
+        ->toBe([$directory . '/view.view.php' => [1 => 1, 2 => -1]]);
+});

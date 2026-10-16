@@ -51,6 +51,70 @@ function sondaProject(): string
     return $root;
 }
 
+/**
+ * The project as a Laravel one: an artisan file, a Blade view, and a test that renders it the way
+ * Laravel does, compiling it when it is missing, from a subdirectory per worker under parallel testing.
+ */
+function laravelLikeProject(): string
+{
+    $root = sondaProject();
+    // Stands in for Laravel's artisan: `artisan test [--parallel]` runs ParaTest or PHPUnit with the other arguments.
+    file_put_contents($root . '/artisan', <<<'ARTISAN'
+    <?php
+    $arguments = array_slice($argv, 2);
+    $parallel = in_array('--parallel', $arguments, true);
+    $runner = __DIR__ . '/vendor/bin/' . ($parallel ? 'paratest' : 'phpunit');
+    $command = [PHP_BINARY, $runner, ...array_filter($arguments, static fn (string $argument): bool => $argument !== '--parallel')];
+    passthru(implode(' ', array_map(escapeshellarg(...), $command)), $status);
+    exit($status);
+    ARTISAN);
+    mkdir($root . '/resources/views', 0777, true);
+    file_put_contents($root . '/resources/views/greeting.blade.php', "<p>Olá, {{ \$name }}</p>\n@if (\$loud)\n    <strong>!</strong>\n@endif\n");
+    file_put_contents($root . '/tests/GreetingTest.php', <<<'GREETING'
+    <?php
+
+    declare(strict_types=1);
+
+    namespace Fixture\Project\Tests;
+
+    use Illuminate\Container\Container;
+    use Illuminate\Filesystem\Filesystem;
+    use Illuminate\View\Compilers\BladeCompiler;
+    use PHPUnit\Framework\TestCase;
+
+    final class GreetingTest extends TestCase
+    {
+        protected function setUp(): void
+        {
+            $token = getenv('TEST_TOKEN');
+            $compiled = (getenv('VIEW_COMPILED_PATH') ?: sys_get_temp_dir() . '/greeting-' . getmypid()) . ($token === false ? '' : '/test_' . $token);
+            $container = new Container();
+            $container->instance('blade.compiler', new BladeCompiler(new Filesystem(), $compiled));
+            Container::setInstance($container);
+        }
+
+        public function testGreets(): void
+        {
+            $compiler = Container::getInstance()->make('blade.compiler');
+            $view = dirname(__DIR__) . '/resources/views/greeting.blade.php';
+
+            if ($compiler->isExpired($view)) {
+                $compiler->compile($view);
+            }
+
+            $name = 'Sonda';
+            $loud = false;
+            ob_start();
+            include $compiler->getCompiledPath($view);
+
+            self::assertSame("<p>Olá, Sonda</p>\n", ob_get_clean());
+        }
+    }
+    GREETING);
+
+    return $root;
+}
+
 /** @return array{0: int, 1: string} the exit code and everything the command printed */
 function sonda(string $root, string ...$arguments): array
 {
@@ -94,6 +158,36 @@ it('measures a project with plain PHPUnit when asked not to run in parallel', fu
     expect($status)->toBe(0)
         ->and($output)->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
         ->toContain('Relatório HTML em ');
+});
+
+it('measures the Blade views of a Laravel project, in the subdirectory per worker of its parallel testing', function (): void {
+    [$status, $output] = sonda(laravelLikeProject(), 'test');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain("\nCobertura: linhas 5/9 (55,56%), branches 4/7 (57,14%)\n");
+});
+
+it('reports the Blade views next to the source, with plain PHPUnit', function (): void {
+    $root = laravelLikeProject();
+
+    [$status, $output] = sonda($root, 'test', '--no-parallel', '--html=build/html');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('Cobertura: linhas 5/9 (55,56%), branches 4/7 (57,14%)')
+        ->and($root . '/build/html/resources/views/greeting.blade.php.html')->toBeFile()
+        ->and($root . '/build/html/src/Discount.php.html')->toBeFile();
+});
+
+it('leaves the Blade views out when asked', function (): void {
+    $root = laravelLikeProject();
+
+    [$status, $output] = sonda($root, 'test', '--no-blade', '--html=build/html');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
+        ->and(is_dir($root . '/build/html/resources'))->toBeFalse();
 });
 
 it('fails on the uncovered parts of the methods changed since a reference', function (): void {

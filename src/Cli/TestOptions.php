@@ -26,6 +26,7 @@ final readonly class TestOptions
         public bool $strict = true,
         public bool $fast = true,
         public bool $parallel = true,
+        public bool $blade = true,
         public ?string $configuration = null,
         public ?string $html = null,
         public ?string $clover = null,
@@ -43,6 +44,7 @@ final readonly class TestOptions
         $strict = true;
         $fast = true;
         $parallel = true;
+        $blade = true;
         $configuration = null;
         $html = null;
         $clover = null;
@@ -66,6 +68,8 @@ final readonly class TestOptions
                 $fast = false;
             } elseif ($argument === '--no-parallel') {
                 $parallel = false;
+            } elseif ($argument === '--no-blade') {
+                $blade = false;
             } elseif (self::valueOf($argument, '--changed') !== null) {
                 $changed = self::valueOf($argument, '--changed');
             } elseif (self::valueOf($argument, '--files') !== null) {
@@ -91,7 +95,7 @@ final readonly class TestOptions
             }
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
     }
 
     /**

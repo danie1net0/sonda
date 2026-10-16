@@ -11,7 +11,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
         '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
-        '--no-strict', '--no-fast', '--no-parallel', '--filter=Order', 'tests/Feature',
+        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--filter=Order', 'tests/Feature',
     ]);
 
     expect($options)->toEqual(new TestOptions(
@@ -20,6 +20,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         strict: false,
         fast: false,
         parallel: false,
+        blade: false,
         html: 'build/html',
         clover: 'clover.xml',
         cov: 'coverage.cov',

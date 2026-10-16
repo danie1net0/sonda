@@ -122,6 +122,8 @@ it('takes as sources the files that decide its output', function (): void {
         $directory . '/SourceEditor.php',
         $directory . '/Edit.php',
         $directory . '/Probe.php',
+        $directory . '/Blade/LineMap.php',
+        $directory . '/Blade/ViewInstrumenter.php',
     ]);
 });
 
