@@ -68,5 +68,31 @@ it('refuses a configuration that is not XML', function (): void {
     file_put_contents($root . '/phpunit.xml', 'not xml');
 
     expect(fn (): string => SuiteConfiguration::write('phpunit.xml', ['tests/Unit'], $root))
-        ->toThrow(RuntimeException::class, "O arquivo {$root}/phpunit.xml não é um XML válido.");
+        ->toThrow(RuntimeException::class, "O arquivo {$root}/phpunit.xml não é um XML válido.")
+        ->and(libxml_use_internal_errors())->toBeFalse()
+        ->and(libxml_get_errors())->toBe([]);
+});
+
+it('leaves no libxml error behind when the caller collects them', function (): void {
+    ['root' => $root] = configuredProject();
+    file_put_contents($root . '/phpunit.xml', '<phpunit><testsuites>');
+    libxml_use_internal_errors(true);
+
+    try {
+        expect(fn (): string => SuiteConfiguration::write('phpunit.xml', ['tests/Unit'], $root))->toThrow(RuntimeException::class)
+            ->and(libxml_get_errors())->toBe([])
+            ->and(libxml_use_internal_errors())->toBeTrue();
+    } finally {
+        libxml_use_internal_errors(false);
+    }
+});
+
+it('takes the suffix only from a directory of a suite, not from the source', function (): void {
+    ['root' => $root] = configuredProject('<testsuites><testsuite name="Feature"><directory>tests/Feature</directory></testsuite></testsuites>');
+    file_put_contents($root . '/phpunit.xml', str_replace('<directory>src</directory>', '<directory suffix=".inc">src</directory>', (string) file_get_contents($root . '/phpunit.xml')));
+
+    $xml = simplexml_load_file(SuiteConfiguration::write('phpunit.xml', ['tests/Unit'], $root));
+
+    expect($xml)->toBeInstanceOf(SimpleXMLElement::class)
+        ->and((string) $xml->testsuites->testsuite->directory['suffix'])->toBe('Test.php');
 });

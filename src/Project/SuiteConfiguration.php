@@ -87,9 +87,11 @@ final class SuiteConfiguration
     /** The suffix of the project's own suites, which tells its test files apart; PHPUnit's default otherwise. */
     private static function suffix(DOMDocument $document): string
     {
-        foreach ($document->getElementsByTagName('directory') as $directory) {
-            if ($directory->parentNode?->nodeName === 'testsuite' && $directory->hasAttribute('suffix')) {
-                return $directory->getAttribute('suffix');
+        foreach ($document->getElementsByTagName('testsuite') as $testsuite) {
+            foreach ($testsuite->getElementsByTagName('directory') as $directory) {
+                if ($directory->hasAttribute('suffix')) {
+                    return $directory->getAttribute('suffix');
+                }
             }
         }
 

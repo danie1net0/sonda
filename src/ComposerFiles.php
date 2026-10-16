@@ -27,7 +27,7 @@ final class ComposerFiles
         }
 
         $files = require $listing;
-        /** @var array<string, true> $loaded what Composer takes as already required */
+        /** @var array<int|string, true> $loaded what Composer takes as already required */
         $loaded = $GLOBALS['__composer_autoload_files'] ?? [];
         $claimed = [];
 
@@ -35,7 +35,7 @@ final class ComposerFiles
             $path = is_string($file) ? realpath($file) : false;
 
             if ($path !== false && $scope->includes($path)) {
-                $loaded[(string) $identifier] = true;
+                $loaded[$identifier] = true;
                 $claimed[] = $path;
             }
         }

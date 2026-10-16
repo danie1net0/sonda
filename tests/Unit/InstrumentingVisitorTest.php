@@ -1613,3 +1613,10 @@ it('gives back the CRLF that the probe tag eats before inline HTML that starts w
 
     expect($code)->toBe(expected("<?php {p0} ?>\r\n\r\n<p>x</p><?php {p1}echo 1;\r\n"));
 });
+
+it('leaves a hook declared without a body alone', function (): void {
+    [$code, $probes] = instrumentCode("<?php\nabstract class Shape\n{\n    abstract public string \$name { get; }\n}\n");
+
+    expect($code)->toBe("<?php\nabstract class Shape\n{\n    abstract public string \$name { get; }\n}\n")
+        ->and($probes)->toBe([]);
+});
