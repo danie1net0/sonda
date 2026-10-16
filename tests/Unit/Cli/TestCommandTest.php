@@ -179,6 +179,43 @@ it('runs nothing when none of the given files is in the source', function (): vo
         ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
 });
 
+it('still writes the reports asked for, empty, when there is nothing to measure', function (): void {
+    $root = fakeProject();
+    $runner = new FakeRunner();
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--html=build/html', '--cobertura=build/cobertura.xml', '--clover=build/clover.xml']), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($runner->calls)->toBe(0)
+        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\nRelatório HTML em {$root}/build/html\nRelatório Clover em {$root}/build/clover.xml\nRelatório Cobertura em {$root}/build/cobertura.xml\n")
+        ->and($root . '/build/html/index.html')->toBeFile()
+        ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('lines-valid="0"');
+});
+
+it('keeps the views in the whole-project run a floor asks for', function (): void {
+    $root = laravelProject();
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--min-lines=1']), TemporaryDirectory::create());
+
+    expect($runner->calls)->toBe(1)
+        ->and($runner->environment)->toHaveKey('SONDA_TARGET', $root . '/app' . PATH_SEPARATOR . $root . '/resources/views')
+        ->toHaveKey('SONDA_VIEWS', $root . '/resources/views');
+});
+
+it('measures the whole project when nothing in scope changed but a floor was asked for', function (): void {
+    $root = fakeProject();
+    $runner = new FakeRunner(hits: [0 => 1, 2 => 1]);
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--min-lines=70']), TemporaryDirectory::create());
+
+    expect($status)->toBe(1)
+        ->and($runner->calls)->toBe(1)
+        ->and($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
+        ->toContain("\nCobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\n")
+        ->toContain("Cobertura abaixo do mínimo: linhas 66,67% < 70,00%\n");
+});
+
 it('keeps the exit code of a failing test run', function (): void {
     $root = fakeProject();
 

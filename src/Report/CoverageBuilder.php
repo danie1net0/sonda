@@ -50,6 +50,12 @@ final class CoverageBuilder
         return $coverage;
     }
 
+    /** A report of nothing: what the reports are written from when there was nothing to measure. */
+    public static function empty(): CodeCoverage
+    {
+        return self::coverage([]);
+    }
+
     /**
      * The views of the run that enter the report, with their analysis copies and line maps.
      *

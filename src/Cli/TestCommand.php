@@ -54,9 +54,19 @@ final readonly class TestCommand
         $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
 
         if ($scope->narrowsToFiles() && $sourceFiles === []) {
-            fwrite($output, "Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
+            if ($options->minLines === null && $options->minBranches === null) {
+                fwrite($output, "Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
+                // The reports asked for still exist, empty, for whatever reads them after the job.
+                $this->writeReports($options, CoverageBuilder::empty(), $projectRoot, $output);
 
-            return 0;
+                return 0;
+            }
+
+            // A floor is a promise about the whole project: it is checked even when nothing in scope changed.
+            fwrite($output, "Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n");
+            $changes = [];
+            $scope = new Scope([...$configuration->sourceDirectories, ...$viewDirectories], $configuration->excludedDirectories);
+            $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
         }
 
         $workDirectory = $this->temporaryRoot . '/' . substr(sha1($projectRoot), 0, 12);
