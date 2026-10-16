@@ -6,13 +6,15 @@ declare(strict_types=1);
 // Settings come from the environment (see Sonda\Settings::fromEnvironment).
 
 use Composer\Autoload\ClassLoader;
-use Sonda\{Instrumenter, InstrumentingAutoloader, Run, Settings};
+use Sonda\{ComposerFiles, Instrumenter, InstrumentingAutoloader, Run, Settings};
 use Sonda\Blade\Views;
 use Sonda\PhpUnit\CollectionWindow;
 
 require __DIR__ . '/autoload.php';
 
 $settings = Settings::fromEnvironment(getenv());
+// Composer's `files` in scope are claimed first, so Composer skips them; they load instrumented below.
+$claimedFiles = ComposerFiles::claim($settings->autoloadPath, $settings->scope());
 $composer = require $settings->autoloadPath;
 
 if (! $composer instanceof ClassLoader) {
@@ -22,6 +24,11 @@ if (! $composer instanceof ClassLoader) {
 $instrumenter = new Instrumenter($settings->strict, $settings->fast);
 $autoloader = new InstrumentingAutoloader($composer, $settings->scope(), $settings->cacheDirectory, $instrumenter);
 $autoloader->register();
+
+foreach ($claimedFiles as $claimedFile) {
+    $autoloader->loadFile($claimedFile);
+}
+
 $views = Views::configure($settings, $instrumenter);
 CollectionWindow::open();
 

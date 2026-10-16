@@ -52,6 +52,12 @@ final class InstrumentingAutoloader
             return;
         }
 
+        $this->loadFile($path);
+    }
+
+    /** Loads a file of the scope from its instrumented copy: a class file, or one of Composer's `files`. */
+    public function loadFile(string $path): void
+    {
         $fileId = substr(sha1($path), 0, 12);
         $key = sha1($path . filemtime($path) . $this->instrumenter->fingerprint());
 

@@ -155,7 +155,8 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
 
 1. O bootstrap registra um autoloader na frente do Composer. Uma classe do diretório alvo é
    carregada de uma cópia instrumentada, guardada em cache por caminho, data de modificação e
-   versão do instrumentador.
+   versão do instrumentador. Os arquivos da chave `files` do Composer que estão no alvo (helpers)
+   são reservados antes de o autoload do Composer rodar e carregados instrumentados logo depois.
 2. A instrumentação lê o arquivo com o `nikic/php-parser` e insere as sondas por posição de
    byte no fonte original, sem reimprimir o código. Nenhuma linha muda de número, e `__FILE__` e
    `__DIR__` continuam apontando para o arquivo original.
@@ -228,8 +229,8 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
   instrumentados: a sonda em volta da expressão quebraria a referência.
 - Views do Blade: só as pastas `resources/views` do projeto são achadas sozinhas; outra pasta
   entra com `--views`.
-- Um arquivo do diretório alvo carregado por `require` direto ou pela chave `files` do Composer
-  não é instrumentado e aparece inteiro como não coberto.
+- Um arquivo do diretório alvo carregado por `require` direto (fora da chave `files` do
+  Composer, que é medida) não é instrumentado e aparece inteiro como não coberto.
 - O ParaTest aceita um único caminho de teste: `sonda test a.php b.php` roda sem ele, em série.
 - A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
   (o Xdebug a conta como executada).

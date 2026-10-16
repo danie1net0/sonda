@@ -160,3 +160,21 @@ it('leaves the excluded directories and the files out of a narrowed scope to Com
 
     expect($autoloader->run()->files)->toBe([]);
 });
+
+it("loads a file of the scope by its path from its instrumented copy, as one of Composer's files", function (): void {
+    ['directory' => $directory, 'loader' => $loader] = fixtureProject();
+    $function = 'helper' . bin2hex(random_bytes(6));
+    file_put_contents($directory . '/app/helpers.php', "<?php\n\nfunction {$function}(int \$x): int\n{\n    return \$x + 1;\n}\n");
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
+
+    $autoloader->loadFile($directory . '/app/helpers.php');
+
+    $result = $function(1);
+
+    $run = $autoloader->run();
+    $fileId = array_key_first($run->files);
+
+    expect($result)->toBe(2)
+        ->and($run->files)->toBe([$fileId => [$directory . '/app/helpers.php', $run->files[$fileId][1]]])
+        ->and($run->hits[$fileId])->not->toBe([]);
+});

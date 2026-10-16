@@ -25,11 +25,21 @@ function sondaProject(): string
         }
     }
 
+    // Composer's own autoload.php also requires the `files` entries it skips when already claimed.
     file_put_contents($root . '/vendor/autoload.php', <<<PHP
     <?php
     \$loader = require '{$sonda}/vendor/autoload.php';
     \$loader->addPsr4('Fixture\\\\Project\\\\', __DIR__ . '/../src');
     \$loader->addPsr4('Fixture\\\\Project\\\\Tests\\\\', __DIR__ . '/../tests');
+
+    if (is_file(__DIR__ . '/composer/autoload_files.php')) {
+        foreach (require __DIR__ . '/composer/autoload_files.php' as \$identifier => \$file) {
+            if (empty(\$GLOBALS['__composer_autoload_files'][\$identifier])) {
+                \$GLOBALS['__composer_autoload_files'][\$identifier] = true;
+                require \$file;
+            }
+        }
+    }
 
     return \$loader;
     PHP);
@@ -115,6 +125,34 @@ function laravelLikeProject(): string
     return $root;
 }
 
+/** The project with a helpers file in Composer's `files` autoload, and a test that uses it. */
+function helpersProject(): string
+{
+    $root = sondaProject();
+    mkdir($root . '/vendor/composer');
+    file_put_contents($root . '/src/helpers.php', "<?php\n\nfunction fixture_discounted(int \$price, bool \$member): int\n{\n    if (\$member) {\n        return \$price - 1;\n    }\n\n    return \$price;\n}\n");
+    file_put_contents($root . '/vendor/composer/autoload_files.php', "<?php\n\nreturn ['fixture-helpers' => dirname(__DIR__, 2) . '/src/helpers.php'];\n");
+    file_put_contents($root . '/tests/HelpersTest.php', <<<'HELPERS'
+    <?php
+
+    declare(strict_types=1);
+
+    namespace Fixture\Project\Tests;
+
+    use PHPUnit\Framework\TestCase;
+
+    final class HelpersTest extends TestCase
+    {
+        public function testMemberDiscount(): void
+        {
+            self::assertSame(9, fixture_discounted(10, true));
+        }
+    }
+    HELPERS);
+
+    return $root;
+}
+
 /** @return array{0: int, 1: string} the exit code and everything the command printed */
 function sonda(string $root, string ...$arguments): array
 {
@@ -188,6 +226,17 @@ it('leaves the Blade views out when asked', function (): void {
         ->and($output)->toContain('OK (3 tests, 4 assertions)')
         ->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
         ->and(is_dir($root . '/build/html/resources'))->toBeFalse();
+});
+
+it("measures the helpers of Composer's files autoload, in parallel and in series", function (): void {
+    [$status, $output] = sonda(helpersProject(), 'test');
+    [$seriesStatus, $seriesOutput] = sonda(helpersProject(), 'test', '--no-parallel');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain("\nCobertura: linhas 5/8 (62,50%), branches 6/10 (60,00%)\n")
+        ->and($seriesStatus)->toBe(0, $seriesOutput)
+        ->and($seriesOutput)->toContain('Cobertura: linhas 5/8 (62,50%), branches 6/10 (60,00%)');
 });
 
 it('fails on the uncovered parts of the methods changed since a reference', function (): void {
