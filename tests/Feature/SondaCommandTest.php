@@ -303,6 +303,31 @@ it('checks the files named explicitly whole, without a change summary', function
         ->not->toContain('Do que mudou');
 });
 
+it('measures the whole project, views included, when nothing changed in the source but a floor was asked for', function (): void {
+    $root = laravelLikeProject();
+    commitEverything($root);
+    file_put_contents($root . '/src/Ignored/Legacy.php', "<?php\n// changed\n");
+
+    [$status, $output] = sonda($root, 'test', '--changed=master', '--min-lines=50', '--cobertura=build/cobertura.xml');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
+        ->toContain('Cobertura: linhas 5/8 (62,50%), branches 5/9 (55,56%)')
+        ->and($root . '/build/cobertura.xml')->toBeFile();
+});
+
+it('writes the reports asked for even when nothing changed in the source', function (): void {
+    $root = sondaProject();
+    commitEverything($root);
+    file_put_contents($root . '/src/Ignored/Legacy.php', "<?php\n// changed\n");
+
+    [$status, $output] = sonda($root, 'test', '--changed=master', '--cobertura=build/cobertura.xml');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\nRelatório Cobertura em {$root}/build/cobertura.xml\n")
+        ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('lines-valid="0"');
+});
+
 it('runs nothing when the changes are outside the source', function (): void {
     $root = sondaProject();
     commitEverything($root);
