@@ -1,3 +1,10 @@
+## [1.10.3](https://github.com/danie1net0/sonda/compare/v1.10.2...v1.10.3) (2026-10-18)
+
+
+### Bug Fixes
+
+* **sondas:** if sem else antes do endif não captura o else: sintético ([5152a43](https://github.com/danie1net0/sonda/commit/5152a43345b3dba7c48f92759dcb54d242bb7ebc))
+
 ## [1.10.2](https://github.com/danie1net0/sonda/compare/v1.10.1...v1.10.2) (2026-10-18)
 
 
