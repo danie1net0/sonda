@@ -1811,3 +1811,18 @@ it('keeps as decisions the view conditions that only resemble what Blade writes'
 
     expect($branchLines)->toBe([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
 });
+
+it('closes an if left without an else before the synthetic else: of the alternative-syntax if around it', function (): void {
+    $source = "<?php\nif (\$a) :\nif (isset(\$__messageOriginal)) { \$message = \$__messageOriginal; }\nendif;\n"
+        . "if (\$b) :\nx();\nelseif (\$c) :\nif (isset(\$message)) y();\nendif;\n"
+        . "if (\$d) :\nif (\$e) { z(); } else { w(); }\nendif;\n";
+
+    [$code] = instrumentCode($source, strict: true, mainScope: 'view');
+    $path = TemporaryDirectory::create() . '/view.php';
+    file_put_contents($path, $code);
+    exec(sprintf('%s -l %s 2>&1', escapeshellarg(PHP_BINARY), escapeshellarg($path)), $lint, $status);
+
+    expect($status)->toBe(0, implode("\n", $lint))
+        ->and(substr_count($code, '; else: '))->toBe(2)
+        ->and(substr_count($code, 'else: '))->toBe(3);
+});

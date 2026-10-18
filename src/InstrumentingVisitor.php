@@ -366,8 +366,11 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
         if ($endif instanceof Token) {
             $id = $this->probe(new Probe(null, true, $this->currentFunction(), $endif->line, $endif->line));
+            // An if without else right before the endif would take the else: as its own (dangling else);
+            // an empty statement closes it first.
+            $separator = $this->endsWithIfWithoutElse($node) ? '; ' : '';
 
-            $this->close($endif->pos, 'else: ' . $this->probeCode($id) . '; ');
+            $this->close($endif->pos, $separator . 'else: ' . $this->probeCode($id) . '; ');
 
             return;
         }
@@ -716,6 +719,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         $id = $this->probe(new Probe($line, true, $this->currentFunction(), $line, $line));
 
         $this->edits[] = Edit::opening($function->getEndFilePos(), $this->probeCode($id) . ';');
+    }
+
+    /** Whether the last statement before the `endif` is an if left without an else, braced or not. */
+    private function endsWithIfWithoutElse(If_ $node): bool
+    {
+        $body = $node->elseifs === [] ? $node->stmts : $node->elseifs[array_key_last($node->elseifs)]->stmts;
+        $last = $body === [] ? null : $body[array_key_last($body)];
+
+        return $last instanceof If_ && ! $last->else instanceof Else_;
     }
 
     /**
