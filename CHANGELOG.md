@@ -1,3 +1,10 @@
+## [1.10.2](https://github.com/danie1net0/sonda/compare/v1.10.1...v1.10.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **deps:** recursion-context 7.0.1 no mínimo, a do SplObjectStorage::offsetExists ([0fbe743](https://github.com/danie1net0/sonda/commit/0fbe743827fbe655b4a8070cf77b09432e07dd35))
+
 ## [1.10.1](https://github.com/danie1net0/sonda/compare/v1.10.0...v1.10.1) (2026-10-18)
 
 
