@@ -1,3 +1,10 @@
+## [1.10.1](https://github.com/danie1net0/sonda/compare/v1.10.0...v1.10.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **blade:** o que o Blade e o Livewire escrevem em volta do template não conta como decisão ([7c9cc51](https://github.com/danie1net0/sonda/commit/7c9cc51e5b51c1b09ca529dd8855b81c9cf0d564))
+
 # [1.10.0](https://github.com/danie1net0/sonda/compare/v1.9.0...v1.10.0) (2026-10-16)
 
 
