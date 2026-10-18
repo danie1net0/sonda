@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Sonda;
 
-use PhpParser\Node\Expr\Variable;
+use PhpParser\Node\Arg;
 use PhpParser\{Node, NodeFinder, NodeVisitor, NodeVisitorAbstract, Token};
 use SplObjectStorage;
 use PhpParser\Node\{AttributeGroup, Expr, Identifier, Name, Param, PropertyHook, PropertyItem, Scalar, StaticVar, Stmt};
-use PhpParser\Node\Expr\{ArrowFunction, BinaryOp, ClassConstFetch, Closure, ConstFetch, Empty_, Isset_, Match_, NullsafeMethodCall, NullsafePropertyFetch, Ternary};
+use PhpParser\Node\Expr\{ArrayDimFetch, ArrowFunction, BinaryOp, ClassConstFetch, Closure, ConstFetch, Empty_, FuncCall, Instanceof_, Isset_, Match_, MethodCall, New_, NullsafeMethodCall, NullsafePropertyFetch, StaticCall, Ternary, Variable};
 use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, Declare_, Do_, ElseIf_, Else_, EnumCase, Finally_, For_, Foreach_, Function_, GroupUse, HaltCompiler, If_, InlineHTML, Namespace_, Nop, TryCatch, Use_, While_};
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
-use function implode, in_array, str_ends_with, str_starts_with, substr, trim, dirname;
+use function array_all, implode, in_array, preg_match, str_ends_with, str_starts_with, substr, trim, dirname;
 
 /**
  * Walks the AST and records the edits (probe insertions) and the probe metadata of a file.
@@ -30,6 +30,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 {
     /** The probes refer to the class by its fully qualified name, whatever namespace the file is in. */
     private const string HITS = '\\' . Hits::class;
+
+    private const string LIVEWIRE_EXTEND_BLADE = 'Livewire\\Mechanisms\\ExtendBlade\\ExtendBlade';
 
     private const array SUPERGLOBALS = ['GLOBALS', '_SERVER', '_GET', '_POST', '_FILES', '_COOKIE', '_SESSION', '_REQUEST', '_ENV'];
 
@@ -60,6 +62,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /** @var SplObjectStorage<Node, array{name: string, local: bool}> the scope in force before each function-like node */
     private SplObjectStorage $enclosingScopes;
 
+    /** Compiled Blade view: the code Blade writes around the template is not probed as decisions. */
+    private readonly bool $view;
+
+    /** @var SplObjectStorage<Node, true> conditions Blade wrote around the template, left alone */
+    private SplObjectStorage $bookkeeping;
+
+    /** @var SplObjectStorage<Node, true> bodies Blade wrote around the template: lines, not outcomes */
+    private SplObjectStorage $plainBodies;
+
     /** @var array<int, int> object ids of nodes where an undefined value gives no warning */
     private array $silentNodes = [];
 
@@ -72,6 +83,9 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     public function __construct(private readonly array $tokens, private readonly string $code, private readonly string $fileId, private readonly string $path, private readonly bool $strict, private readonly bool $fast, string $mainScope = '{main}')
     {
         $this->scope = ['name' => $mainScope, 'local' => false];
+        $this->view = $mainScope !== '{main}';
+        $this->bookkeeping = new SplObjectStorage();
+        $this->plainBodies = new SplObjectStorage();
         $this->enclosingClassNames = new SplObjectStorage();
         $this->enclosingScopes = new SplObjectStorage();
     }
@@ -98,7 +112,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     {
         $this->visitIndex++;
 
-        if ($this->isConstantContext($node)) {
+        if ($this->isConstantContext($node) || $this->isLivewireGuard($node) || isset($this->bookkeeping[$node]) || $this->isBladeDefault($node)) {
             return NodeVisitor::DONT_TRAVERSE_CHILDREN;
         }
 
@@ -114,10 +128,10 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $node instanceof If_ => $this->enterIf($node),
             $node instanceof ElseIf_,
             $node instanceof Do_ => $this->enterConditionalBody($node, $node->cond, $node->stmts),
-            $node instanceof Else_,
+            $node instanceof Else_ => $this->body($node, $node->stmts, ! isset($this->plainBodies[$node])),
+            $node instanceof Foreach_ => $this->body($node, $node->stmts, ! $this->isBladeLoop($node)),
             $node instanceof While_,
-            $node instanceof For_,
-            $node instanceof Foreach_ => $this->body($node, $node->stmts),
+            $node instanceof For_ => $this->body($node, $node->stmts),
             $node instanceof Case_ => $this->enterCase($node),
             $node instanceof TryCatch,
             $node instanceof Block => $this->statementList($node->stmts, false),
@@ -331,6 +345,17 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function enterIf(If_ $node): void
     {
+        if ($node->elseifs === [] && $this->isBladeCondition($node->cond)) {
+            $this->bookkeeping[$node->cond] = true;
+            $this->body($node, $node->stmts, false);
+
+            if ($node->else instanceof Else_) {
+                $this->plainBodies[$node->else] = true;
+            }
+
+            return;
+        }
+
         $this->body($node, $node->stmts);
 
         if (! $this->strict || $node->else instanceof Else_) {
@@ -461,6 +486,12 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function enterTernary(Ternary $node): void
     {
+        if ($this->isBladeCondition($node->cond)) {
+            $this->bookkeeping[$node->cond] = true;
+
+            return;
+        }
+
         if ($node->if instanceof Expr) {
             $this->wrapExpression($node->if, true);
         }
@@ -494,14 +525,17 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /**
      * Body of if/elseif/else/loops. An unbraced body (always a single statement) gets
      * braces, so its probe can go before it. An empty body gets a probe of its own, with
-     * no line: running it is an outcome, even though no line runs.
+     * no line: running it is an outcome, even though no line runs. A body Blade wrote around the
+     * template is not an outcome: its lines are probed, the decision is not.
      *
      * @param array<Node> $statements
      */
-    private function body(Node $owner, array $statements): void
+    private function body(Node $owner, array $statements, bool $isOutcome = true): void
     {
         if ($statements === []) {
-            $this->emptyBody($owner);
+            if ($isOutcome) {
+                $this->emptyBody($owner);
+            }
 
             return;
         }
@@ -510,7 +544,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
         $previous = $this->previousSignificantToken($first->getStartTokenPos())->text;
 
         if ($previous === '{' || $previous === ':') {
-            $this->statementList($statements, true);
+            $this->statementList($statements, $isOutcome);
 
             return;
         }
@@ -519,7 +553,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             return;
         }
 
-        $this->statementList($statements, true, '{ ');
+        $this->statementList($statements, $isOutcome, '{ ');
         $this->close($first->getEndFilePos() + 1, ' }');
     }
 
@@ -800,6 +834,93 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     }
 
     /** Constant-expression contexts: probes are not valid there. */
+    /**
+     * Livewire wraps every `@if`, `@unless` and `@foreach` of a compiled view in
+     * `if (ExtendBlade::isRenderingLivewireComponent()): ... endif;`, which only prints markers and
+     * tracks loops. Its outcome depends on how the view is rendered, not on the template: probing it
+     * would give each directive a branch that no test can take. It is left alone, body included.
+     */
+    private function isLivewireGuard(Node $node): bool
+    {
+        return $node instanceof If_
+            && $node->elseifs === [] && ! $node->else instanceof Else_
+            && $node->cond instanceof StaticCall
+            && $node->cond->class instanceof Name && $node->cond->class->toString() === self::LIVEWIRE_EXTEND_BLADE
+            && $node->cond->name instanceof Identifier && $node->cond->name->toString() === 'isRenderingLivewireComponent';
+    }
+
+    /**
+     * A condition Blade writes around the template, whose outcome depends on how the view is rendered
+     * and not on the template: the save and restore of `$component`, `$attributes` and `$message`
+     * around a component tag or `@error`, `$component->shouldRender()`, and the checks `@props` and
+     * `@aware` make on `$__key` and the other variables Blade names with two underscores.
+     */
+    private function isBladeCondition(Expr $condition): bool
+    {
+        if (! $this->view) {
+            return false;
+        }
+
+        return match (true) {
+            $condition instanceof BooleanAnd => $this->isBladeCondition($condition->left) && $this->isBladeCondition($condition->right),
+            $condition instanceof Isset_ => array_all($condition->vars, fn (Expr $variable): bool => $this->isBladeSaved($variable)),
+            $condition instanceof Instanceof_ => $condition->expr instanceof Variable && $condition->expr->name === 'attributes',
+            $condition instanceof MethodCall => $condition->var instanceof Variable && $condition->var->name === 'component'
+                && $condition->name instanceof Identifier && $condition->name->toString() === 'shouldRender',
+            $condition instanceof FuncCall => $condition->args !== [] && array_all($condition->getArgs(), fn (Arg $argument): bool => $this->isBladeVariable($argument->value)),
+            default => false,
+        };
+    }
+
+    /** `$component`, `$attributes` and `$message`, which Blade saves and restores, and their saved copies. */
+    private function isBladeSaved(Expr $variable): bool
+    {
+        return $variable instanceof Variable && is_string($variable->name)
+            && (in_array($variable->name, ['component', 'attributes', 'message'], true) || preg_match('/^__(component|attributes|message)Original/', $variable->name) === 1);
+    }
+
+    /** A variable Blade names with two underscores, `$$__key` included, or an element of one. */
+    private function isBladeVariable(Expr $expression): bool
+    {
+        if ($expression instanceof ArrayDimFetch) {
+            return $this->isBladeVariable($expression->var);
+        }
+
+        if (! $expression instanceof Variable) {
+            return false;
+        }
+
+        return is_string($expression->name) ? str_starts_with($expression->name, '__') : $this->isBladeVariable($expression->name);
+    }
+
+    /**
+     * The defaults Blade fills in: `$$__key ?? $__value` in `@props`, `$__key ??= ...` in `@livewire`,
+     * `$__errorArgs[1] ?? 'default'` in `@error`, and `$attributes ??= new ComponentAttributeBag`.
+     */
+    private function isBladeDefault(Node $node): bool
+    {
+        if (! $this->view) {
+            return false;
+        }
+
+        if ($node instanceof Coalesce) {
+            return $this->isBladeVariable($node->left);
+        }
+
+        if ($node instanceof Expr\AssignOp\Coalesce) {
+            return $this->isBladeVariable($node->var) || ($node->var instanceof Variable && $node->var->name === 'attributes' && $node->expr instanceof New_);
+        }
+
+        return false;
+    }
+
+    /** The loops `@props` and `@aware` run over the attributes, as `$__key => $__value`. */
+    private function isBladeLoop(Foreach_ $node): bool
+    {
+        return $this->view && $node->keyVar instanceof Variable && $node->keyVar->name === '__key'
+            && $node->valueVar instanceof Variable && $node->valueVar->name === '__value';
+    }
+
     private function isConstantContext(Node $node): bool
     {
         return $node instanceof Param || $node instanceof PropertyItem || $node instanceof Node\Const_

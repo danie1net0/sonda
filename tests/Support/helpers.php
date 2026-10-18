@@ -31,12 +31,12 @@ final class TemporaryDirectory
  *
  * @return array{0: string, 1: array<int, Probe>}
  */
-function instrumentCode(string $code, bool $strict = false, bool $fast = false, string $path = '/project/src/File.php'): array
+function instrumentCode(string $code, bool $strict = false, bool $fast = false, string $path = '/project/src/File.php', string $mainScope = '{main}'): array
 {
     $parser = new ParserFactory()->createForHostVersion();
     $ast = (array) $parser->parse($code);
 
-    $visitor = new InstrumentingVisitor($parser->getTokens(), $code, 'f', $path, $strict, $fast);
+    $visitor = new InstrumentingVisitor($parser->getTokens(), $code, 'f', $path, $strict, $fast, $mainScope);
     $visitor->instrumentTopLevel($ast);
     new NodeTraverser($visitor)->traverse($ast);
 

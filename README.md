@@ -192,6 +192,14 @@ compilação e diz de que linha ela veio. A cópia instrumentada fica mais nova 
 o Laravel não a compilar de novo sem sondas; com `--parallel`, cada worker tem a própria pasta, e a
 subpasta por token que o teste paralelo do Laravel usa é criada antes da cópia.
 
+O que o Blade e o Livewire escrevem em volta do template não conta como decisão, porque o desfecho
+depende de como a view é renderizada e nenhum teste o controla: a guarda
+`if (ExtendBlade::isRenderingLivewireComponent())` que o Livewire põe em cada `@if`, `@unless` e
+`@foreach`; o salvar e restaurar de `$component`, `$attributes` e `$message` em volta de uma tag de
+componente e do `@error`; o `$component->shouldRender()`; os laços, `if` e `??` com que `@props`,
+`@aware` e `@livewire` tratam `$__key` e as outras variáveis de dois sublinhados. As linhas desse
+código continuam medidas; as decisões do template (`@error`, `@forelse`, `@if`...) também.
+
 Para o php-code-coverage, que só conta branches de funções declaradas, cada view é a função
 `view`: a cópia do compilado que o relatório analisa no lugar do template declara essa função
 em volta do código (com os `use` apagados, que não cabem numa função), e as sondas da view

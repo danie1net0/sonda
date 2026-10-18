@@ -1682,3 +1682,132 @@ it('leaves a shebang alone, which PHP drops only at the very start of the file',
     expect($code)->toBe(expected("#!/usr/bin/env php\n<?php\ndeclare(strict_types=1);\n\n{p0}echo 1;\n"))
         ->and($probes)->toEqual([0 => new Probe(5, false, '{main}', 0, 0)]);
 });
+
+it("leaves alone the guards Livewire wraps around each directive of a compiled view, whose outcome no test controls", function (): void {
+    $guard = '<?php if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?>';
+    $compiled = $guard . "<!--[if BLOCK]><![endif]--><?php endif; ?><?php if(\$a): ?>\n  <p>x</p>\n<?php endif; ?>"
+        . $guard . "<?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>\n"
+        . "<?php if(\Other\ExtendBlade::isRenderingLivewireComponent()): ?>y<?php endif; ?>\n";
+
+    [$code, $probes] = instrumentCode($compiled, strict: true);
+
+    expect($code)->toBe(expected(
+        '<?php {p0}if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?>'
+        . "<!--[if BLOCK]><![endif]--><?php endif; ?><?php {p1}if(\$a): ?>\n<?php {p4} ?>  <p>x</p>\n<?php else: {p5} endif; ?>"
+        . '<?php {p2}if(\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()): ?>'
+        . "<?php \Livewire\Features\SupportCompiledWireKeys\SupportCompiledWireKeys::closeLoop(); ?><?php endif; ?>\n"
+        . "<?php {p3}if(\Other\ExtendBlade::isRenderingLivewireComponent()): ?><?php {p6} ?>y<?php else: {p7} endif; ?>\n",
+    ))
+        ->and(array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))->toHaveCount(4);
+});
+
+it('probes an if that only looks like a Livewire guard: another method, an else, an elseif or a dynamic class', function (): void {
+    $source = "<?php\n"
+        . "if (\Livewire\Mechanisms\ExtendBlade\ExtendBlade::other()) { a(); }\n"
+        . "if (\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()) { a(); } else { b(); }\n"
+        . "if (\Livewire\Mechanisms\ExtendBlade\ExtendBlade::isRenderingLivewireComponent()) { a(); } elseif (\$c) { b(); }\n"
+        . "if (\$class::isRenderingLivewireComponent()) { a(); }\n"
+        . "if (\Livewire\Mechanisms\ExtendBlade\ExtendBlade::{\$method}()) { a(); }\n";
+
+    [, $probes] = instrumentCode($source, strict: true);
+
+    $branchLines = array_values(array_unique(array_map(static fn (Probe $probe): int => $probe->lineStart, array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))));
+    sort($branchLines);
+
+    expect($branchLines)->toBe([2, 3, 4, 5, 6]);
+});
+
+/** What Blade 13 and Livewire 3 compile a component tag, @props, @aware, @livewire, @error and @forelse to. */
+function bladeBookkeeping(): string
+{
+    return <<<'PHP'
+    <?php if (isset($component)) { $__componentOriginalf0 = $component; } ?>
+    <?php if (isset($attributes)) { $__attributesOriginalf0 = $attributes; } ?>
+    <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'x'] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+    <?php if ($component->shouldRender()): ?>
+    <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+    <?php $attributes = $attributes->except([]); ?>
+    <?php endif; ?>
+    <?php echo $__env->renderComponent(); ?>
+    <?php endif; ?>
+    <?php if (isset($__attributesOriginalf0)): ?>
+    <?php $attributes = $__attributesOriginalf0; ?>
+    <?php endif; ?>
+    <?php $attributes ??= new \Illuminate\View\ComponentAttributeBag;
+    foreach ($attributes->all() as $__key => $__value) {
+        if (in_array($__key, $__propNames)) {
+            $$__key = $$__key ?? $__value;
+        } else {
+            $__newAttributes[$__key] = $__value;
+        }
+    }
+    foreach ($attributes->all() as $__key => $__value) {
+        if (array_key_exists($__key, $__defined_vars)) unset($$__key);
+    }
+    foreach ((['c']) as $__key => $__value) {
+        $__consumeVariable = is_string($__key) ? $__key : $__value;
+    }
+    $__keyOuter = $__key ?? null;
+    $__key ??= generateKey('lw', $__key); ?>
+    <?php $__errorArgs = ['f'];
+    $__bag = $errors->getBag($__errorArgs[1] ?? 'default');
+    if ($__bag->has($__errorArgs[0])) :
+    if (isset($message)) { $__messageOriginal = $message; }
+    $message = $__bag->first($__errorArgs[0]); ?> m <?php unset($message);
+    if (isset($__messageOriginal)) { $message = $__messageOriginal; }
+    endif; ?>
+    <?php $__empty_1 = true; foreach($items as $item): $__empty_1 = false; ?> x <?php endforeach; if ($__empty_1): ?> y <?php endif; ?>
+    PHP . "\n";
+}
+
+it('leaves alone the decisions Blade writes around the template of a view, and keeps those of the template', function (): void {
+    [$code, $probes] = instrumentCode(bladeBookkeeping(), strict: true, mainScope: 'view');
+
+    $branchLines = array_values(array_unique(array_map(static fn (Probe $probe): int => $probe->lineStart, array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))));
+    sort($branchLines);
+
+    // Only the template's decisions remain: @error's "has the field an error?", its body (line 32) and
+    // synthetic else (line 35), and @forelse's loop and emptiness (line 36).
+    expect($branchLines)->toBe([32, 35, 36])
+        ->and(array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))->toHaveCount(5)
+        ->and($code)->toMatch('/=1;\\$__componentOriginalf0 = \\$component;/')
+        ->toMatch('/=1;\\$__newAttributes\\[\\$__key\\] = \\$__value;/')
+        ->and(substr_count($code, '$attributes->all() : []'))->toBe(1)
+        ->and(str_contains($code, '$$__key ?? $__value'))->toBeTrue()
+        ->and(str_contains($code, "\$__keyOuter = \$__key ?? null"))->toBeTrue();
+});
+
+it('probes the same code as decisions outside a view', function (): void {
+    [, $probes] = instrumentCode(bladeBookkeeping(), strict: true);
+
+    expect(count(array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch)))->toBeGreaterThan(20);
+});
+
+it('keeps as decisions the view conditions that only resemble what Blade writes', function (): void {
+    $source = "<?php\n"
+        . "if (in_array('x', \$__propNames)) { a(); }\n"
+        . "if (isset(\$component, \$order)) { a(); }\n"
+        . "if (\$attributes->has('x')) { a(); }\n"
+        . "if (\$component->other()) { a(); }\n"
+        . "if (\$order instanceof Order) { a(); }\n"
+        . "if (in_array()) { a(); }\n"
+        . "if (\$order->shouldRender()) { a(); }\n"
+        . "\$x = \$order ?? 1;\n"
+        . "\$y ??= 2;\n"
+        . "\$attributes ??= \$other;\n"
+        . "foreach (\$items as \$__key => \$value) { a(); }\n"
+        . "foreach (\$items as \$key => \$__value) { a(); }\n"
+        . "if (\$order) { a(); }\n"
+        . "if (isset(\$attributes) && \$order) { a(); }\n"
+        . "\$z ??= new Order();\n"
+        . "if (\$component->{\$method}()) { a(); }\n"
+        . "if (isset(\$items['component'])) { a(); }\n"
+        . "if (in_array(\$__key, \$order)) { a(); }\n";
+
+    [, $probes] = instrumentCode($source, strict: true, mainScope: 'view');
+
+    $branchLines = array_values(array_unique(array_map(static fn (Probe $probe): int => $probe->lineStart, array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))));
+    sort($branchLines);
+
+    expect($branchLines)->toBe([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+});
