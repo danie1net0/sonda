@@ -6,7 +6,7 @@ use Sonda\Hits;
 use Sonda\PhpUnit\FinishTestSubscriber;
 use PHPUnit\Event\Code\Phpt;
 use PHPUnit\Event\Test\Finished;
-use Tests\Fixtures\Sizes\{LargeSizedTest, MediumSizedTest, SmallSizedTest, UnsizedTest};
+use Tests\Fixtures\Sizes\{LargeSizedTest, MediumSizedTest, OddFilenameTest, PestLikeTest, SmallSizedTest, UnsizedTest};
 
 it('keeps the probes hit by a finished test, under its id and file', function (): void {
     Hits::$current = ['abc' => [1 => 1]];
@@ -41,4 +41,20 @@ it('gives a test that is not a method no size', function (): void {
 
     expect(Hits::$tests[$test->id()][1])->toBe('unknown')
         ->and(Hits::$tests[$test->id()][0])->toBe('/project/tests/a.phpt');
+});
+
+it('takes the real file of a Pest test, whose class PHPUnit sees as evaluated code', function (): void {
+    $test = testMethod(PestLikeTest::class, 'test_it', "/project/vendor/pestphp/pest/src/Factories/TestCaseFactory.php(178) : eval()'d code");
+
+    new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
+
+    expect(Hits::$tests[$test->id()][0])->toBe('/project/tests/Feature/OrderTest.php');
+});
+
+it('keeps the file PHPUnit gives when the property Pest uses holds no file', function (): void {
+    $test = testMethod(OddFilenameTest::class, 'test_it', '/project/tests/OddFilenameTest.php');
+
+    new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
+
+    expect(Hits::$tests[$test->id()][0])->toBe('/project/tests/OddFilenameTest.php');
 });

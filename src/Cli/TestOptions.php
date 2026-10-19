@@ -31,6 +31,7 @@ final readonly class TestOptions
         public array $views = [],
         public bool $text = false,
         public bool $coveredBy = false,
+        public bool $affected = false,
         public ?float $minLines = null,
         public ?float $minBranches = null,
         public ?string $configuration = null,
@@ -54,6 +55,7 @@ final readonly class TestOptions
         $views = [];
         $text = false;
         $coveredBy = false;
+        $affected = false;
         $minLines = null;
         $minBranches = null;
         $configuration = null;
@@ -85,6 +87,8 @@ final readonly class TestOptions
                 $text = true;
             } elseif ($argument === '--covered-by') {
                 $coveredBy = true;
+            } elseif ($argument === '--affected') {
+                $affected = true;
             } elseif (self::valueOf($argument, '--min-lines') !== null) {
                 $minLines = self::percentage(self::valueOf($argument, '--min-lines'), '--min-lines');
             } elseif (self::valueOf($argument, '--min-branches') !== null) {
@@ -116,7 +120,11 @@ final readonly class TestOptions
             }
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+        if ($affected && $changed === null && $files === []) {
+            throw new InvalidArgumentException('A opção --affected precisa de --changed ou --files: são eles que dizem o que mudou.');
+        }
+
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $affected, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
     }
 
     /** A percentage from 0 to 100, with comma or point. */

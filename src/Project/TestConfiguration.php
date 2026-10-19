@@ -16,12 +16,14 @@ final readonly class TestConfiguration
     /**
      * @param list<string> $sourceDirectories
      * @param list<string> $excludedDirectories
+     * @param list<string> $testPaths           the directories and files of the test suites
      */
     public function __construct(
         public string $path,
         public ?string $bootstrap,
         public array $sourceDirectories,
         public array $excludedDirectories,
+        public array $testPaths = [],
     ) {
     }
 
@@ -61,7 +63,13 @@ final readonly class TestConfiguration
             throw new RuntimeException("O arquivo {$path} não tem <source><include><directory>: o sonda precisa dele para saber o que medir.");
         }
 
-        return new self($path, $bootstrap, $sources, self::directories($xml, '/phpunit/source/exclude/directory', $base));
+        return new self(
+            $path,
+            $bootstrap,
+            $sources,
+            self::directories($xml, '/phpunit/source/exclude/directory', $base),
+            self::directories($xml, '/phpunit/testsuites/testsuite/directory | /phpunit/testsuites/testsuite/file', $base),
+        );
     }
 
     /** @return list<string> */

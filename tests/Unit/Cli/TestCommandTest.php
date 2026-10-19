@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run};
 use Sonda\Git\Git;
+use Sonda\Project\TestMap;
 use Sonda\Cli\{ProcessRunner, TestCommand, TestOptions};
 
 /**
@@ -25,8 +26,11 @@ final class FakeRunner implements ProcessRunner
     /** What the generated configuration held, read while it still existed. */
     public string $generatedConfiguration = '';
 
-    /** @param array<int, int> $hits probes of Order.php to report as hit */
-    public function __construct(private readonly int $status = 0, private readonly array $hits = [0 => 1, 1 => 1, 2 => 1], private readonly bool $savesRun = true)
+    /**
+     * @param array<int, int>                                                                                    $hits  probes of Order.php to report as hit
+     * @param array<string, array{0: string, 1: 'small'|'medium'|'large'|'unknown', 2: bool, 3: float, 4: array<string, string>}> $tests what each test hit
+     */
+    public function __construct(private readonly int $status = 0, private readonly array $hits = [0 => 1, 1 => 1, 2 => 1], private readonly bool $savesRun = true, private readonly array $tests = [])
     {
     }
 
@@ -47,7 +51,7 @@ final class FakeRunner implements ProcessRunner
             $order = $directory . '/app/Order.php';
             $probes = [0 => new Probe(7, true, 'Order->total', 7, 11), 1 => new Probe(8, true, 'Order->total', 8, 8), 2 => new Probe(11, false, 'Order->total', 0, 0)];
             new InstrumentationCache($environment['SONDA_CACHE'])->store('order', new InstrumentationResult('<?php', $probes));
-            new Run($environment['SONDA_CACHE'], ['o' => [$order, 'order']], ['o' => $this->hits])->saveIn($environment['SONDA_OUT']);
+            new Run($environment['SONDA_CACHE'], ['o' => [$order, 'order']], ['o' => $this->hits], $this->tests)->saveIn($environment['SONDA_OUT']);
         }
 
         return $this->status;
@@ -543,4 +547,115 @@ it('fails the floor on the whole project even when the files given are all cover
     expect($status)->toBe(1)
         ->and($output)->toContain("Cobertura abaixo do mínimo: linhas 75,00% < 80,00%\n")
         ->toContain("Os arquivos alterados estão 100% cobertos.\n");
+});
+
+/**
+ * The fake project committed, with a test suite of tests/OrderTest.php and tests/OtherTest.php,
+ * and Order.php changed since master.
+ */
+function affectedFakeProject(): string
+{
+    $root = fakeProject(<<<'XML'
+    <phpunit bootstrap="vendor/autoload.php">
+        <testsuites><testsuite name="Unit"><directory>tests</directory></testsuite></testsuites>
+        <source>
+            <include><directory>app</directory></include>
+            <exclude><directory>app/Providers</directory></exclude>
+        </source>
+    </phpunit>
+    XML);
+    mkdir($root . '/tests');
+    touch($root . '/tests/OrderTest.php');
+    touch($root . '/tests/OtherTest.php');
+    Git::run($root, ['init', '-q', '-b', 'master']);
+    Git::run($root, ['config', 'user.email', 'tests@example.com']);
+    Git::run($root, ['config', 'user.name', 'Tests']);
+    Git::run($root, ['add', '-A']);
+    Git::run($root, ['commit', '-q', '-m', 'base']);
+    file_put_contents($root . '/app/Order.php', str_replace('return $quantity;', 'return $quantity; // changed', (string) file_get_contents($root . '/app/Order.php')));
+
+    return $root;
+}
+
+/** Where the command keeps the test map of a project, under a temporary root. */
+function testMapPath(string $temporaryRoot, string $root): string
+{
+    $directory = $temporaryRoot . '/sonda/' . substr(sha1($root), 0, 12);
+    mkdir($directory, 0o700, true);
+    chmod($temporaryRoot . '/sonda', 0o700);
+
+    return $directory . '/tests.map';
+}
+
+it('runs only the test files the map says run what changed', function (): void {
+    $root = affectedFakeProject();
+    $temporaryRoot = TemporaryDirectory::create();
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php'], $root . '/tests/OtherTest.php' => []])->save(testMapPath($temporaryRoot, $root));
+    $runner = new FakeRunner();
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n")
+        ->and(array_slice($runner->command, -1))->toBe([$root . '/tests/OrderTest.php'])
+        ->and($runner->environment['SONDA_ONLY'])->toBe($root . '/app/Order.php');
+});
+
+it('runs the whole suite and measures the whole project when the map cannot tell, and saves what the run learned', function (): void {
+    $root = affectedFakeProject();
+    $temporaryRoot = TemporaryDirectory::create();
+    $mapPath = testMapPath($temporaryRoot, $root);
+    $runner = new FakeRunner(tests: ['OrderTest::test' => [$root . '/tests/OrderTest.php', 'unknown', true, 0.0, ['o' => pack('V', 0)]]]);
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: ainda não há mapa de testes deste projeto; esta execução o cria.\n")
+        ->and($runner->command)->not->toContain($root . '/tests/OrderTest.php')
+        ->and($runner->environment['SONDA_ONLY'])->toBe('')
+        ->and(TestMap::load($mapPath)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']]);
+});
+
+it('leaves --affected aside with a floor or with the tests to run given', function (): void {
+    $root = affectedFakeProject();
+    $temporaryRoot = TemporaryDirectory::create();
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])->save(testMapPath($temporaryRoot, $root));
+    $floorRunner = new FakeRunner();
+    $pathRunner = new FakeRunner();
+
+    [, $withFloor] = runTestCommand($floorRunner, $root, TestOptions::parse(['--changed=master', '--affected', '--min-lines=1']), $temporaryRoot);
+    [, $withPath] = runTestCommand($pathRunner, $root, TestOptions::parse(['--changed=master', '--affected', 'tests/OtherTest.php']), $temporaryRoot);
+
+    expect($withFloor)->toStartWith("--affected ignorado: com piso de cobertura, a suíte inteira roda.\n")
+        ->and($floorRunner->command)->not->toContain($root . '/tests/OrderTest.php')
+        ->and($withPath)->toStartWith("--affected ignorado: os testes a rodar já foram dados.\n")
+        ->and(array_slice($pathRunner->command, -1))->toBe(['tests/OtherTest.php']);
+});
+
+it('takes the files given as what changed when there is no reference', function (): void {
+    $root = affectedFakeProject();
+    $temporaryRoot = TemporaryDirectory::create();
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php'], $root . '/tests/OtherTest.php' => []])->save(testMapPath($temporaryRoot, $root));
+    $runner = new FakeRunner();
+
+    [, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Order.php', '--affected', '--no-parallel']), $temporaryRoot);
+
+    expect($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n")
+        ->and(array_slice($runner->command, -1))->toBe([$root . '/tests/OrderTest.php']);
+});
+
+it('counts the affected test files instead of naming them when they are more than ten', function (): void {
+    $root = affectedFakeProject();
+    $temporaryRoot = TemporaryDirectory::create();
+    $sources = [];
+
+    foreach (range(1, 12) as $number) {
+        $sources[$root . "/tests/Order{$number}Test.php"] = $number <= 11 ? [$root . '/app/Order.php'] : [];
+    }
+
+    new TestMap($sources)->save(testMapPath($temporaryRoot, $root));
+
+    [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
+
+    expect($output)->toStartWith("Rodando só os testes afetados: 11 de 12 arquivos de teste\n");
 });

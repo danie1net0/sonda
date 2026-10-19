@@ -105,6 +105,28 @@ app/Models/ScheduleResource.php: branches 272
 É o uso pensado para o CI: um job que mede só o que o MR tocou e exige 100%. `--files=a.php,b.php`
 cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 
+### Só os testes afetados
+
+```bash
+sonda test --changed=origin/master --affected
+```
+
+Cada execução grava, fora do projeto, um mapa de que arquivos do `<source>` os testes de cada
+arquivo de teste executaram. Com `--affected`, junto de `--changed` ou `--files`, o Sonda roda só
+os arquivos de teste que executam o que mudou, mais os arquivos de teste que mudaram. Os testes
+que cobrem o código alterado são todos esses, então o veredito continua o mesmo, em segundos em
+vez da suíte inteira.
+
+O mapa não responde por tudo, e aí a suíte inteira roda, medindo o projeto todo para o mapa
+aprender: na primeira vez, quando muda um arquivo do `<source>` que nenhum teste conhecido
+executa (arquivo novo, ou nunca executado), e quando muda qualquer arquivo que não é do `<source>`
+nem um teste (configuração, rotas, migrations, `composer.lock`, um helper dos testes), porque
+qualquer teste pode lê-lo. O comando diz o motivo antes de rodar. Com piso de cobertura, ou com
+os testes a rodar já passados ao runner, `--affected` fica de lado.
+
+O mapa é local, por projeto, e se atualiza a cada execução: no CI, sem cache entre jobs, ele não
+existe e a suíte inteira roda. É o uso pensado para a máquina de quem desenvolve.
+
 ### Opções
 
 | Opção | Efeito |
@@ -121,6 +143,7 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--no-blade` | não mede as views do Blade de um projeto Laravel |
 | `--views=a,b` | mede também as views do Blade dessas pastas |
 | `--text` | lista a cobertura de cada arquivo depois do total |
+| `--affected` | com `--changed` ou `--files`, roda só os testes que executam o que mudou (ver acima) |
 | `--covered-by` | cada linha e branch coberto leva o nome dos testes que o executaram, como com o Xdebug; no HTML, aparecem ao passar o mouse sobre a linha. Pesa numa suíte grande: em 5.615 testes, o HTML foi de 123 MB para 1,3 GB e a memória do relatório de 300 MB para 870 MB |
 | `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou). Com piso, o Sonda instrumenta e mede o `<source>` inteiro mesmo com `--changed` ou `--files`, cujo veredito continua olhando só os arquivos deles; o total impresso é o do projeto |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |

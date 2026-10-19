@@ -7,8 +7,8 @@ namespace Sonda\Cli;
 use InvalidArgumentException;
 use RuntimeException;
 use Sonda\{ComposerFiles, Filesystem, Run, Scope};
-use Sonda\Git\ChangedLines;
-use Sonda\Project\{DirectRequires, Runner, SuiteConfiguration, TestConfiguration, TestSelection, ViewFolders};
+use Sonda\Git\{ChangedLines, ChangedPaths};
+use Sonda\Project\{AffectedTests, DirectRequires, Runner, SuiteConfiguration, TestConfiguration, TestMap, TestSelection, ViewFolders};
 use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
@@ -69,19 +69,23 @@ final readonly class TestCommand
             $checkedFiles = null;
         }
 
-        // A floor is a promise about the whole project: with one, the whole project is measured, and
-        // the verdict of --changed and --files still looks only at their files.
-        $scope = $hasFloor ? new Scope($sourceDirectories, $configuration->excludedDirectories) : $narrowed;
-        $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
-
         $workDirectory = $this->temporaryRoot . '/' . substr(sha1($projectRoot), 0, 12);
         Filesystem::privateDirectory($this->temporaryRoot);
         Filesystem::privateDirectory($workDirectory);
         // php-code-coverage keeps real paths: a symlinked temporary directory would lose the views' data.
         $workDirectory = (string) realpath($workDirectory);
         $runsDirectory = $workDirectory . '/runs-' . bin2hex(random_bytes(4));
+        $mapPath = $workDirectory . '/tests.map';
+        $wholeProject = new Scope($sourceDirectories, $configuration->excludedDirectories);
+        // Null when --affected runs the whole suite: then the whole project is measured, for the map to learn all of it.
+        $affectedTests = $options->affected ? $this->affectedTests($options, $configuration, $projectRoot, $explicitFiles, $this->sourceFiles($wholeProject, $viewDirectories), $hasFloor, $mapPath, $output) : [];
+
+        // A floor is a promise about the whole project: with one, the whole project is measured, and
+        // the verdict of --changed and --files still looks only at their files.
+        $scope = $hasFloor || $affectedTests === null ? $wholeProject : $narrowed;
+        $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
         $this->warnAboutDirectRequires($sourceFiles, $scope, $projectRoot, $output);
-        [$runnerArguments, $generatedConfiguration] = $this->runnerArguments($options, $configuration, $projectRoot);
+        [$runnerArguments, $generatedConfiguration] = $this->runnerArguments($options, $configuration, $projectRoot, $affectedTests ?? []);
 
         try {
             $status = $this->processes->run(
@@ -96,7 +100,9 @@ final readonly class TestCommand
         }
 
         try {
-            $coverage = CoverageBuilder::build(Run::loadDirectory($runsDirectory), $sourceFiles, $options->coveredBy);
+            $run = Run::loadDirectory($runsDirectory);
+            $coverage = CoverageBuilder::build($run, $sourceFiles, $options->coveredBy);
+            TestMap::load($mapPath)->updatedWith($run, $sourceFiles)->save($mapPath);
         } catch (RuntimeException $runtimeException) {
             fwrite($output, "\nSem dados de cobertura: {$runtimeException->getMessage()}\n");
 
@@ -289,19 +295,65 @@ final readonly class TestCommand
      * The arguments for the runner. ParaTest takes a single test path on its command line: with
      * several, in parallel, they go into a configuration generated beside the project's one.
      *
+     * @param list<string> $affectedTests the test files `--affected` chose, after the runner's own arguments
+     *
      * @return array{0: list<string>, 1: string|null} the arguments and the generated configuration, to remove after the run
      */
-    private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot): array
+    private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $affectedTests): array
     {
-        $selection = TestSelection::of($options->runnerArguments);
+        $arguments = [...$options->runnerArguments, ...$affectedTests];
+        $selection = TestSelection::of($arguments);
 
         if (! $options->parallel || count($selection->paths) <= 1) {
-            return [$options->runnerArguments, null];
+            return [$arguments, null];
         }
 
         $generated = SuiteConfiguration::write($configuration->path, $selection->paths, $projectRoot);
 
         return [[...$selection->options, '--configuration=' . $generated], $generated];
+    }
+
+    /**
+     * The test files `--affected` runs, or null when the map sends the whole suite. With a coverage
+     * floor, or test paths given to the runner, `--affected` stands aside (none).
+     *
+     * @param list<string> $explicitFiles
+     * @param list<string> $allSources    every source file of the project
+     * @param resource     $output
+     *
+     * @return list<string>|null
+     */
+    private function affectedTests(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $explicitFiles, array $allSources, bool $hasFloor, string $mapPath, $output): ?array
+    {
+        if ($hasFloor) {
+            fwrite($output, "--affected ignorado: com piso de cobertura, a suíte inteira roda.\n");
+
+            return [];
+        }
+
+        if (TestSelection::of($options->runnerArguments)->paths !== []) {
+            fwrite($output, "--affected ignorado: os testes a rodar já foram dados.\n");
+
+            return [];
+        }
+
+        $changed = $options->changed !== null ? ChangedPaths::since($projectRoot, $options->changed) : $explicitFiles;
+        $map = TestMap::load($mapPath);
+        $affected = AffectedTests::of($changed, $map, $allSources, $configuration->testPaths);
+
+        if ($affected->tests === null) {
+            fwrite($output, "Rodando a suíte inteira e medindo o projeto todo: {$affected->reason}.\n");
+
+            return null;
+        }
+
+        // Up to ten test files are named; more only counted, against the test files the map knows.
+        $which = count($affected->tests) <= 10
+            ? implode(', ', array_map(static fn (string $test): string => TextSummary::relative($test, $projectRoot), $affected->tests))
+            : count($affected->tests) . ' de ' . count($map->sources) . ' arquivos de teste';
+        fwrite($output, "Rodando só os testes afetados: {$which}\n");
+
+        return $affected->tests;
     }
 
     private function summary(CodeCoverage $coverage): string

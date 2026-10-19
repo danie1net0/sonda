@@ -29,4 +29,17 @@ final class Git
 
         return $output;
     }
+
+    /**
+     * The merge base of the reference and HEAD or, when there is none to find (a shallow clone,
+     * as in CI, has no common history), the reference itself: there it already is the base.
+     */
+    public static function base(string $repository, string $reference): string
+    {
+        try {
+            return trim(self::run($repository, ['merge-base', $reference, 'HEAD']));
+        } catch (RuntimeException) {
+            return trim(self::run($repository, ['rev-parse', '--verify', $reference]));
+        }
+    }
 }

@@ -11,7 +11,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
         '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
-        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--covered-by', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
+        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--covered-by', '--affected', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
     ]);
 
     expect($options)->toEqual(new TestOptions(
@@ -24,6 +24,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         views: ['themes/dark', 'themes/light', '/views'],
         text: true,
         coveredBy: true,
+        affected: true,
         minLines: 90.0,
         minBranches: 85.5,
         html: 'build/html',
@@ -52,6 +53,12 @@ it('passes everything after -- to the runner untouched', function (): void {
         ->strict->toBeTrue()
         ->changed->toBeNull()
         ->runnerArguments->toBe(['--filter=x', '--no-strict', '--changed=x']);
+});
+
+it('runs the affected tests only with something that says what changed', function (): void {
+    expect(TestOptions::parse(['--affected', '--files=a.php']))->affected->toBeTrue()
+        ->and(fn (): TestOptions => TestOptions::parse(['--affected']))
+        ->toThrow(InvalidArgumentException::class, 'A opção --affected precisa de --changed ou --files: são eles que dizem o que mudou.');
 });
 
 it('ignores empty entries in the file and view lists', function (): void {

@@ -31,6 +31,9 @@ final readonly class Application
       --no-blade        não mede as views do Blade (resources/views) de um projeto Laravel
       --views=a,b       mede também as views do Blade dessas pastas
       --text            lista a cobertura de cada arquivo
+      --affected        com --changed ou --files, roda só os testes que executam o que mudou,
+                        pelo mapa que cada execução grava; sem mapa ou com mudança que ele não
+                        explica (config, rotas, arquivo novo), roda a suíte inteira
       --covered-by      diz nos relatórios que testes executaram cada linha e branch (pesa:
                         num projeto grande, o HTML passa de 1 GB)
       --min-lines=<n>   falha se a cobertura de linhas do projeto ficar abaixo de n%

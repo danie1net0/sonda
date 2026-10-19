@@ -63,7 +63,29 @@ it('reads a configuration without bootstrap or exclusions', function (): void {
     expect(TestConfiguration::load($path))
         ->bootstrap->toBeNull()
         ->sourceDirectories->toBe([$directory . '/src'])
-        ->excludedDirectories->toBe([]);
+        ->excludedDirectories->toBe([])
+        ->testPaths->toBe([]);
+});
+
+it('reads the directories and files of every test suite, relative to the file', function (): void {
+    $directory = TemporaryDirectory::create();
+    $path = writeConfiguration($directory, <<<'XML'
+    <phpunit>
+        <testsuites>
+            <testsuite name="Unit">
+                <directory suffix="Test.php">tests/Unit</directory>
+                <file>tests/Smoke.php</file>
+            </testsuite>
+            <testsuite name="Feature">
+                <directory> tests/Feature </directory>
+            </testsuite>
+        </testsuites>
+        <source><include><directory>src</directory></include></source>
+    </phpunit>
+    XML);
+
+    expect(TestConfiguration::load($path)->testPaths)
+        ->toBe([$directory . '/tests/Unit', $directory . '/tests/Smoke.php', $directory . '/tests/Feature']);
 });
 
 it('fails without source directories', function (): void {

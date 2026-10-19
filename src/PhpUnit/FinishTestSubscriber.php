@@ -9,13 +9,35 @@ use PHPUnit\Event\Code\{Test, TestMethod};
 use PHPUnit\Event\Test\{Finished, FinishedSubscriber};
 use PHPUnit\Metadata\Api\Groups;
 
+use function property_exists;
+
 final class FinishTestSubscriber implements FinishedSubscriber
 {
     public function notify(Finished $event): void
     {
         $test = $event->test();
 
-        Hits::finishTest($test->id(), $test->file(), $this->size($test));
+        Hits::finishTest($test->id(), $this->file($test), $this->size($test));
+    }
+
+    /**
+     * The file of the test. Pest builds each test class with eval, so PHPUnit names the evaluated
+     * code; the class keeps the real file in its static property `$__filename`.
+     */
+    private function file(Test $test): string
+    {
+        if (! $test instanceof TestMethod) {
+            return $test->file();
+        }
+
+        if (! property_exists($test->className(), '__filename')) {
+            return $test->file();
+        }
+
+        $filename = $test->className()::$__filename;
+
+        // A class of another origin may hold anything in a property of that name.
+        return is_string($filename) ? $filename : $test->file();
     }
 
     /** @return 'small'|'medium'|'large'|'unknown' the size PHPUnit gives the test's coverage */

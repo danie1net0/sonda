@@ -372,3 +372,58 @@ it('names the tests that ran each covered line when asked, in parallel and in se
     'in parallel' => [],
     'in series' => ['--no-parallel'],
 ]);
+
+/** The fixture project committed, with Sonda's cache, kept inside it by the tests, ignored. */
+function committedSondaProject(): string
+{
+    $root = sondaProject();
+    file_put_contents($root . '/.gitignore', ".cache/\n");
+    commitEverything($root);
+
+    return $root;
+}
+
+it('runs only the tests of the changed code once a run has mapped them', function (): void {
+    $root = committedSondaProject();
+    file_put_contents($root . '/src/Discount.php', str_replace('final class', "/** changed */\nfinal class", (string) file_get_contents($root . '/src/Discount.php')));
+
+    [$firstStatus, $first] = sonda($root, 'test', '--changed=master', '--affected');
+    [$secondStatus, $second] = sonda($root, 'test', '--changed=master', '--affected', '--no-parallel');
+    [$thirdStatus, $third] = sonda($root, 'test', '--files=src/Shipping.php', '--affected');
+
+    expect($firstStatus)->toBe(0, $first)
+        ->and($first)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: ainda não há mapa de testes deste projeto; esta execução o cria.\n")
+        ->toContain('OK (2 tests, 3 assertions)')
+        ->and($secondStatus)->toBe(0, $second)
+        ->and($second)->toStartWith("Rodando só os testes afetados: tests/DiscountTest.php\n")
+        ->toContain('OK (1 test, 2 assertions)')
+        ->and($thirdStatus)->toBe(1, $third)
+        ->and($third)->toStartWith("Rodando só os testes afetados: tests/ShippingTest.php\n")
+        ->toContain('OK (1 test, 1 assertion)');
+});
+
+it('runs the whole suite when a change reaches beyond the source and the tests', function (): void {
+    $root = committedSondaProject();
+    sonda($root, 'test');
+    file_put_contents($root . '/src/Shipping.php', str_replace('final class', "/** changed */\nfinal class", (string) file_get_contents($root . '/src/Shipping.php')));
+    file_put_contents($root . '/routes.php', "<?php\n");
+
+    [$status, $output] = sonda($root, 'test', '--changed=master', '--affected');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: {$root}/routes.php mudou e não é um arquivo do <source> nem um teste.\n")
+        ->toContain('OK (2 tests, 3 assertions)');
+});
+
+it('leaves --affected aside when a floor asks for the whole suite or the tests to run were given', function (): void {
+    $root = committedSondaProject();
+    file_put_contents($root . '/src/Shipping.php', str_replace('final class', "/** changed */\nfinal class", (string) file_get_contents($root . '/src/Shipping.php')));
+
+    [, $withFloor] = sonda($root, 'test', '--changed=master', '--affected', '--min-lines=1');
+    [, $withPath] = sonda($root, 'test', '--changed=master', '--affected', 'tests/DiscountTest.php');
+
+    expect($withFloor)->toStartWith("--affected ignorado: com piso de cobertura, a suíte inteira roda.\n")
+        ->toContain('OK (2 tests, 3 assertions)')
+        ->and($withPath)->toStartWith("--affected ignorado: os testes a rodar já foram dados.\n")
+        ->toContain('OK (1 test, 2 assertions)');
+});
