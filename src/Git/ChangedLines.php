@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Sonda\Git;
 
-use function str_ends_with, str_starts_with, substr;
+use function str_ends_with, str_starts_with, substr, trim;
 
 /**
  * The PHP files changed since a reference and, in each, the lines the change added or replaced:
@@ -16,15 +16,17 @@ final class ChangedLines
     /** @return array<string, list<int>|null> real path => changed lines, sorted by path */
     public static function since(string $repository, string $reference): array
     {
+        // The listings and the diff headers name paths from the top level, which a project in a subdirectory of the repository is not.
+        $root = trim(Git::run($repository, ['rev-parse', '--show-toplevel']));
         $base = Git::base($repository, $reference);
         $hunks = self::addedLinesByFile(Git::run($repository, ['diff', '--unified=0', $base]));
         $changes = [];
 
-        foreach (self::phpFiles($repository, Git::run($repository, ['diff', '--name-only', $base])) as $relative => $path) {
+        foreach (self::phpFiles($root, Git::run($repository, ['diff', '--name-only', $base])) as $relative => $path) {
             $changes[$path] = $hunks[$relative] ?? [];
         }
 
-        foreach (self::phpFiles($repository, Git::run($repository, ['ls-files', '--others', '--exclude-standard'])) as $path) {
+        foreach (self::phpFiles($root, Git::run($repository, ['ls-files', '--others', '--exclude-standard', '--full-name'])) as $path) {
             $changes[$path] = null;
         }
 
@@ -34,18 +36,18 @@ final class ChangedLines
     }
 
     /**
-     * The PHP files of a listing that still exist, by their path in the listing.
+     * The PHP files of a listing that still exist, by their path in the listing, which is relative to the top level.
      *
      * @return array<string, string> relative path => real path
      */
-    private static function phpFiles(string $repository, string $listing): array
+    private static function phpFiles(string $root, string $listing): array
     {
         $files = [];
 
         foreach (explode("\n", $listing) as $relative) {
-            $path = realpath($repository . '/' . $relative);
+            $path = realpath($root . '/' . $relative);
 
-            // A deleted file has no real path; the empty last line resolves to the repository itself.
+            // A deleted file has no real path; the empty last line resolves to the top level itself.
             if ($path !== false && str_ends_with($path, '.php')) {
                 $files[$relative] = $path;
             }
@@ -60,7 +62,7 @@ final class ChangedLines
      * from `c`, one when `d` is absent, none when it is zero. The diff covers the whole tree so
      * that a renamed file keeps only the lines its content changed.
      *
-     * @return array<string, list<int>> relative path => lines
+     * @return array<string, list<int>> path from the top level => lines
      */
     private static function addedLinesByFile(string $diff): array
     {
