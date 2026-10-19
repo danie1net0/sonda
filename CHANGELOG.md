@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/danie1net0/sonda/compare/v1.10.4...v1.11.0) (2026-10-19)
+
+
+### Features
+
+* **cli:** --affected roda só os testes que executam o que mudou ([b737b55](https://github.com/danie1net0/sonda/commit/b737b55ef49938af9f6e23a08d1561d8c70ec830))
+* **relatorios:** --covered-by diz que testes executaram cada linha e branch ([20a459f](https://github.com/danie1net0/sonda/commit/20a459f443f4c110b3a99d3bf92667ff2933f34f))
+
 ## [1.10.4](https://github.com/danie1net0/sonda/compare/v1.10.3...v1.10.4) (2026-10-19)
 
 
