@@ -516,3 +516,31 @@ it("refuses to run when a file of Composer's files autoload is also required dir
         ->toThrow(RuntimeException::class, 'app/helpers.php está na chave files do Composer e ainda é carregado por require direto em app/Boot.php:3: sob o Sonda seria declarado duas vezes. Tire o require.')
         ->and($runner->calls)->toBe(0);
 });
+
+it('measures the whole project when a floor is asked for, and keeps the verdict on the files given', function (): void {
+    $root = fakeProject();
+    file_put_contents($root . '/app/Extra.php', "<?php\n\nfunction extra(): int\n{\n    return 1;\n}\n");
+    $runner = new FakeRunner();
+
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Order.php', '--min-lines=50']), TemporaryDirectory::create());
+    [$narrowStatus, $narrowOutput] = runTestCommand($narrow = new FakeRunner(), $root, TestOptions::parse(['--files=app/Order.php']), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($runner->environment['SONDA_ONLY'])->toBe('')
+        ->and($output)->toContain("\nCobertura: linhas 3/4 (75,00%), branches 2/2 (100,00%)\n")
+        ->toContain("Os arquivos alterados estão 100% cobertos.\n")
+        ->and($narrowStatus)->toBe(0)
+        ->and($narrow->environment['SONDA_ONLY'])->toBe($root . '/app/Order.php')
+        ->and($narrowOutput)->toContain("\nCobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+});
+
+it('fails the floor on the whole project even when the files given are all covered', function (): void {
+    $root = fakeProject();
+    file_put_contents($root . '/app/Extra.php', "<?php\n\nfunction extra(): int\n{\n    return 1;\n}\n");
+
+    [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--files=app/Order.php', '--min-lines=80']), TemporaryDirectory::create());
+
+    expect($status)->toBe(1)
+        ->and($output)->toContain("Cobertura abaixo do mínimo: linhas 75,00% < 80,00%\n")
+        ->toContain("Os arquivos alterados estão 100% cobertos.\n");
+});

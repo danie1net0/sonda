@@ -238,3 +238,20 @@ it('checks a changed executable line outside every function', function (): void 
         ->executedLines->toBe(1)
         ->executableBranches->toBe(0);
 });
+
+it('checks only the files given, leaving the rest of the report out of the verdict and of the counts', function (): void {
+    ['order' => $order, 'paid' => $paid, 'run' => $run] = partlyCoveredProject();
+    $coverage = CoverageBuilder::build($run, [$order, $paid]);
+
+    $onlyPaid = Uncovered::ofChanges($coverage, [], [$paid]);
+    $all = Uncovered::ofChanges($coverage, []);
+
+    $paidAlone = Uncovered::ofChanges(CoverageBuilder::build($run, [$paid]), []);
+
+    expect($onlyPaid->uncovered)->toBe([])
+        ->and($onlyPaid->executableLines)->toBeGreaterThan(0)
+        ->toBe($paidAlone->executableLines)
+        ->and($onlyPaid->executedLines)->toBe($paidAlone->executedLines)
+        ->and($onlyPaid->executableLines)->toBeLessThan($all->executableLines)
+        ->and($all->uncovered)->toHaveKey($order);
+});

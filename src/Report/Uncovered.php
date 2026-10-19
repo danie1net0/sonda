@@ -33,9 +33,11 @@ final class Uncovered
      * absent from the changes is checked whole.
      *
      * @param array<string, list<int>|null> $changes changed lines by real path
+     * @param list<string>|null             $files   the only files of the report checked, or all of them when null
      */
-    public static function ofChanges(CodeCoverage $coverage, array $changes): ChangeCoverage
+    public static function ofChanges(CodeCoverage $coverage, array $changes, ?array $files = null): ChangeCoverage
     {
+        $checked = $files === null ? null : array_flip($files);
         $uncovered = [];
         $executableLines = 0;
         $executedLines = 0;
@@ -48,6 +50,11 @@ final class Uncovered
             }
 
             $file = $node->pathAsString();
+
+            if ($checked !== null && ! isset($checked[$file])) {
+                continue;
+            }
+
             $changedLines = $changes[$file] ?? null;
             $functions = self::countedFunctions($node);
             $checkedLines = null;

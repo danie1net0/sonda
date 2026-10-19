@@ -50,11 +50,14 @@ final readonly class TestCommand
         }
 
         $viewDirectories = $this->viewDirectories($options, $projectRoot);
-        $scope = new Scope([...$configuration->sourceDirectories, ...$viewDirectories], $configuration->excludedDirectories, [...$explicitFiles, ...array_keys($changes)]);
-        $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
+        $sourceDirectories = [...$configuration->sourceDirectories, ...$viewDirectories];
+        $narrowed = new Scope($sourceDirectories, $configuration->excludedDirectories, [...$explicitFiles, ...array_keys($changes)]);
+        // The files the verdict checks: those of --changed and --files, or none to check (null) without them.
+        $checkedFiles = $narrowed->narrowsToFiles() ? $this->sourceFiles($narrowed, $viewDirectories) : null;
+        $hasFloor = $options->minLines !== null || $options->minBranches !== null;
 
-        if ($scope->narrowsToFiles() && $sourceFiles === []) {
-            if ($options->minLines === null && $options->minBranches === null) {
+        if ($checkedFiles === []) {
+            if (! $hasFloor) {
                 fwrite($output, "Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
                 // The reports asked for still exist, empty, for whatever reads them after the job.
                 $this->writeReports($options, CoverageBuilder::empty(), $projectRoot, $output);
@@ -62,12 +65,14 @@ final readonly class TestCommand
                 return 0;
             }
 
-            // A floor is a promise about the whole project: it is checked even when nothing in scope changed.
             fwrite($output, "Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n");
-            $changes = [];
-            $scope = new Scope([...$configuration->sourceDirectories, ...$viewDirectories], $configuration->excludedDirectories);
-            $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
+            $checkedFiles = null;
         }
+
+        // A floor is a promise about the whole project: with one, the whole project is measured, and
+        // the verdict of --changed and --files still looks only at their files.
+        $scope = $hasFloor ? new Scope($sourceDirectories, $configuration->excludedDirectories) : $narrowed;
+        $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
 
         $workDirectory = $this->temporaryRoot . '/' . substr(sha1($projectRoot), 0, 12);
         Filesystem::privateDirectory($this->temporaryRoot);
@@ -81,7 +86,7 @@ final readonly class TestCommand
         try {
             $status = $this->processes->run(
                 [...Runner::command($projectRoot, $options->parallel), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$runnerArguments],
-                $this->environment($options, $configuration, $projectRoot, $sourceFiles, $viewDirectories, $workDirectory . '/cache', $runsDirectory),
+                $this->environment($configuration, $projectRoot, $scope->narrowsToFiles() ? $sourceFiles : [], $viewDirectories, $workDirectory . '/cache', $runsDirectory, $options),
                 $projectRoot,
             );
         } finally {
@@ -110,11 +115,11 @@ final readonly class TestCommand
         $status = $status === 0 && $belowMinimum ? 1 : $status;
         $this->writeReports($options, $coverage, $projectRoot, $output);
 
-        if (! $scope->narrowsToFiles()) {
+        if ($checkedFiles === null) {
             return $status;
         }
 
-        $change = Uncovered::ofChanges($coverage, $changes);
+        $change = Uncovered::ofChanges($coverage, $changes, $checkedFiles);
 
         if ($options->changed !== null) {
             fwrite($output, $this->changeSummary($change) . "\n");
@@ -203,12 +208,12 @@ final readonly class TestCommand
     }
 
     /**
-     * @param list<string> $sourceFiles
+     * @param list<string> $onlyFiles       the files to instrument, or all of the source when empty
      * @param list<string> $viewDirectories
      *
      * @return array<string, string>
      */
-    private function environment(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $sourceFiles, array $viewDirectories, string $cacheDirectory, string $runsDirectory): array
+    private function environment(TestConfiguration $configuration, string $projectRoot, array $onlyFiles, array $viewDirectories, string $cacheDirectory, string $runsDirectory, TestOptions $options): array
     {
         $autoload = $projectRoot . '/vendor/autoload.php';
         $chained = $configuration->bootstrap !== null && realpath($configuration->bootstrap) !== realpath($autoload) ? $configuration->bootstrap : '';
@@ -218,7 +223,7 @@ final readonly class TestCommand
         $environment['SONDA_TARGET'] = implode(PATH_SEPARATOR, [...$configuration->sourceDirectories, ...$viewDirectories]);
         $environment['SONDA_VIEWS'] = implode(PATH_SEPARATOR, $viewDirectories);
         $environment['SONDA_EXCLUDE'] = implode(PATH_SEPARATOR, $configuration->excludedDirectories);
-        $environment['SONDA_ONLY'] = $options->changed !== null || $options->files !== [] ? implode(PATH_SEPARATOR, $sourceFiles) : '';
+        $environment['SONDA_ONLY'] = implode(PATH_SEPARATOR, $onlyFiles);
         $environment['SONDA_CACHE'] = $cacheDirectory;
         $environment['SONDA_OUT'] = $runsDirectory;
         $environment['SONDA_STRICT'] = $options->strict ? '1' : '0';

@@ -121,7 +121,7 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--no-blade` | não mede as views do Blade de um projeto Laravel |
 | `--views=a,b` | mede também as views do Blade dessas pastas |
 | `--text` | lista a cobertura de cada arquivo depois do total |
-| `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou); com piso, a suíte roda mesmo quando `--changed` não acha nada no `<source>` |
+| `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou). Com piso, o Sonda instrumenta e mede o `<source>` inteiro mesmo com `--changed` ou `--files`, cujo veredito continua olhando só os arquivos deles; o total impresso é o do projeto |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
 
 Cache e execuções ficam fora do projeto, em `$XDG_CACHE_HOME/sonda` ou `~/.cache/sonda`, num
