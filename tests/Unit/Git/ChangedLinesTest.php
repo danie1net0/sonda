@@ -93,3 +93,21 @@ it('takes the reference itself as the base when there is no merge base, as in a 
     expect(ChangedLines::since($repository, 'master'))->toBe([$real . '/a.php' => [2]])
         ->and(fn (): array => ChangedLines::since($repository, 'nowhere'))->toThrow(RuntimeException::class);
 });
+
+it('finds the files and lines from the top level of the repository for a project in a subdirectory of it', function (): void {
+    $repository = TemporaryDirectory::create();
+    mkdir($repository . '/project/app', 0777, true);
+    Git::run($repository, ['init', '-q', '-b', 'master']);
+    Git::run($repository, ['config', 'user.email', 'tests@example.com']);
+    Git::run($repository, ['config', 'user.name', 'Tests']);
+    file_put_contents($repository . '/project/app/Order.php', "<?php\n// one\n// two\n");
+    Git::run($repository, ['add', '-A']);
+    Git::run($repository, ['commit', '-q', '-m', 'base']);
+    file_put_contents($repository . '/project/app/Order.php', "<?php\n// one\n// changed\n");
+    file_put_contents($repository . '/project/app/Fresh.php', "<?php\n");
+
+    expect(ChangedLines::since($repository . '/project', 'master'))->toBe([
+        $repository . '/project/app/Fresh.php' => null,
+        $repository . '/project/app/Order.php' => [3],
+    ]);
+});

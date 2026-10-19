@@ -263,6 +263,19 @@ it('fails on the uncovered parts of the methods changed since a reference', func
         ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n");
 });
 
+it('finds the changes of a project in a subdirectory of the repository', function (): void {
+    $repository = TemporaryDirectory::create();
+    $root = $repository . '/project';
+    rename(sondaProject(), $root);
+    commitEverything($repository);
+    file_put_contents($root . '/src/Shipping.php', str_replace('? 30 : 10;', '? 30 : 10; // changed', (string) file_get_contents($root . '/src/Shipping.php')));
+
+    [$status, $output] = sonda($root, 'test', '--changed=master');
+
+    expect($status)->toBe(1)
+        ->and($output)->toContain("Do que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n");
+});
+
 it('passes a change that touches no method, whatever the file leaves uncovered', function (): void {
     $root = sondaProject();
     commitEverything($root);
