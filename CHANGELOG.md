@@ -1,3 +1,10 @@
+## [1.10.4](https://github.com/danie1net0/sonda/compare/v1.10.3...v1.10.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* **cli:** com piso, o projeto inteiro é medido mesmo com --changed e --files ([fe981f6](https://github.com/danie1net0/sonda/commit/fe981f6210878f013fa9abc59f5358ba836514a5))
+
 ## [1.10.3](https://github.com/danie1net0/sonda/compare/v1.10.2...v1.10.3) (2026-10-18)
 
 
