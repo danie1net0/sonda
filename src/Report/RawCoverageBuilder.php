@@ -23,20 +23,35 @@ final class RawCoverageBuilder
     /** @param list<string> $sourceFiles only these files enter the report */
     public static function build(Run $run, array $sourceFiles): RawCodeCoverageData
     {
-        $isSource = array_flip($sourceFiles);
         $coverage = [];
 
-        foreach ($run->files as $fileId => [$path, $cacheKey]) {
-            if (! isset($isSource[$path])) {
-                continue;
-            }
-
-            // A view's probes refer to its compiled code: the data is keyed by the analysis copy of it.
-            $key = $run->lineMapOf($cacheKey) === null ? $path : $run->analysisPathOf($cacheKey);
-            $coverage[$key] = self::fileCoverage($run->probesOf($cacheKey), $run->hits[$fileId] ?? []);
+        foreach (self::keysOf($run, $sourceFiles) as $fileId => $key) {
+            $coverage[$key] = self::fileCoverage($run->probesOf($run->files[$fileId][1]), $run->hits[$fileId] ?? []);
         }
 
         return RawCodeCoverageData::fromXdebugWithPathCoverage($coverage);
+    }
+
+    /**
+     * The key each loaded source file has in the coverage data: its path, or for a view, whose
+     * probes refer to its compiled code, the analysis copy of it.
+     *
+     * @param list<string> $sourceFiles
+     *
+     * @return array<string, string> file id => key
+     */
+    public static function keysOf(Run $run, array $sourceFiles): array
+    {
+        $isSource = array_flip($sourceFiles);
+        $keys = [];
+
+        foreach ($run->files as $fileId => [$path, $cacheKey]) {
+            if (isset($isSource[$path])) {
+                $keys[$fileId] = $run->lineMapOf($cacheKey) === null ? $path : $run->analysisPathOf($cacheKey);
+            }
+        }
+
+        return $keys;
     }
 
     /**

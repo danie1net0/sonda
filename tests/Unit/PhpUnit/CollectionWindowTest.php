@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 use Sonda\Hits;
-use Sonda\PhpUnit\{CollectionWindow, FinishTestSubscriber, StartTestSubscriber};
-use PHPUnit\Event\Test\{Finished, PreparationStarted};
+use Sonda\PhpUnit\{CollectionWindow, ErroredTestSubscriber, FailedTestSubscriber, FinishTestSubscriber, StartTestSubscriber};
+use PHPUnit\Event\Test\{Errored, Failed, Finished, PreparationStarted};
 use PHPUnit\Event\Facade as EventFacade;
 
 /**
@@ -32,11 +32,15 @@ function subscribersRegisteredByOpeningTheWindow(): array
     return new ReflectionProperty($direct, 'subscribers')->getValue($direct);
 }
 
-it('collects per test and subscribes to the start and end of each test', function (): void {
+it('collects per test and subscribes to the start, the failure and the end of each test', function (): void {
     $subscribers = subscribersRegisteredByOpeningTheWindow();
 
     expect(Hits::$perTest)->toBeTrue()
-        ->and($subscribers)->toHaveKeys([PreparationStarted::class, Finished::class])
+        ->and($subscribers)->toHaveKeys([PreparationStarted::class, Failed::class, Errored::class, Finished::class])
+        ->and($subscribers[Failed::class])->toHaveCount(1)
+        ->and($subscribers[Failed::class][0])->toBeInstanceOf(FailedTestSubscriber::class)
+        ->and($subscribers[Errored::class])->toHaveCount(1)
+        ->and($subscribers[Errored::class][0])->toBeInstanceOf(ErroredTestSubscriber::class)
         ->and($subscribers[PreparationStarted::class])->toHaveCount(1)
         ->and($subscribers[PreparationStarted::class][0])->toBeInstanceOf(StartTestSubscriber::class)
         ->and($subscribers[Finished::class])->toHaveCount(1)

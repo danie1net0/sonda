@@ -72,7 +72,7 @@ final class InstrumentingAutoloader
 
     public function run(): Run
     {
-        return new Run($this->cacheDirectory, $this->loadedFiles, Hits::collected());
+        return new Run($this->cacheDirectory, $this->loadedFiles, Hits::collected(), Hits::$tests);
     }
 
     /** Includes outside any class scope, as Composer does. */

@@ -31,6 +31,8 @@ final readonly class Application
       --no-blade        não mede as views do Blade (resources/views) de um projeto Laravel
       --views=a,b       mede também as views do Blade dessas pastas
       --text            lista a cobertura de cada arquivo
+      --covered-by      diz nos relatórios que testes executaram cada linha e branch (pesa:
+                        num projeto grande, o HTML passa de 1 GB)
       --min-lines=<n>   falha se a cobertura de linhas do projeto ficar abaixo de n%
       --min-branches=<n> o mesmo para branches
       -c <arquivo>      o phpunit.xml a usar, também repassado ao runner

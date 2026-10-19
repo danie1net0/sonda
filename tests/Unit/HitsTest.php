@@ -17,7 +17,7 @@ it('adds the probes of a finished test to the accumulated ones', function (): vo
     Hits::$current['a'] = [2 => 1];
     Hits::$current['b'] = [0 => 1];
 
-    Hits::finishTest();
+    Hits::finishTest('T::t', '/tests/T.php', 'unknown');
 
     expect(Hits::$accumulated)->toBe(['a' => [1 => 1, 2 => 1], 'b' => [0 => 1]])
         ->and(Hits::$current)->toBe([]);
@@ -43,7 +43,61 @@ it('starts empty and collecting every probe', function (): void {
 
     expect($default('perTest'))->toBeFalse()
         ->and($default('current'))->toBe([])
-        ->and($default('accumulated'))->toBe([]);
+        ->and($default('accumulated'))->toBe([])
+        ->and($default('tests'))->toBe([])
+        ->and($default('failed'))->toBe([])
+        ->and($default('packed'))->toBe([])
+        ->and($default('startedAt'))->toBe(0);
+});
+
+it('keeps the probes each test hit, with its file, size, outcome and duration', function (): void {
+    Hits::startTest();
+    Hits::$current['a'] = [3 => 1, 1 => 1];
+    Hits::$current['b'] = [0 => 1];
+    usleep(1000);
+
+    Hits::finishTest('Tests\\OrderTest::test_total', '/project/tests/OrderTest.php', 'small');
+
+    [$file, $size, $passed, $seconds, $hits] = Hits::$tests['Tests\\OrderTest::test_total'];
+
+    expect($file)->toBe('/project/tests/OrderTest.php')
+        ->and($size)->toBe('small')
+        ->and($passed)->toBeTrue()
+        ->and($seconds)->toBeGreaterThanOrEqual(0.001)->toBeLessThan(60.0)
+        ->and($hits)->toBe(['a' => pack('V*', 3, 1), 'b' => pack('V', 0)]);
+});
+
+it('keeps a test that hit nothing, with no probes', function (): void {
+    Hits::startTest();
+
+    Hits::finishTest('Tests\\EmptyTest::test_it', '/project/tests/EmptyTest.php', 'unknown');
+
+    expect(Hits::$tests['Tests\\EmptyTest::test_it'][1])->toBe('unknown')
+        ->and(Hits::$tests['Tests\\EmptyTest::test_it'][4])->toBe([]);
+});
+
+it('marks a test that failed, and forgets the failure once it finishes', function (): void {
+    Hits::startTest();
+    Hits::failTest('Tests\\OrderTest::test_total');
+    Hits::finishTest('Tests\\OrderTest::test_total', '/tests/OrderTest.php', 'unknown');
+    Hits::startTest();
+    Hits::finishTest('Tests\\OrderTest::test_other', '/tests/OrderTest.php', 'unknown');
+
+    expect(Hits::$tests['Tests\\OrderTest::test_total'][2])->toBeFalse()
+        ->and(Hits::$tests['Tests\\OrderTest::test_other'][2])->toBeTrue()
+        ->and(Hits::$failed)->toBe([]);
+});
+
+it('shares one packed list among the tests that hit the same probes', function (): void {
+    Hits::$current['a'] = [1 => 1, 2 => 1];
+    Hits::finishTest('first', '/tests/A.php', 'unknown');
+    Hits::$current['a'] = [1 => 1, 2 => 1];
+    Hits::finishTest('second', '/tests/A.php', 'unknown');
+
+    $packed = new ReflectionProperty(Hits::class, 'packed')->getValue();
+
+    expect($packed)->toBe([pack('V*', 1, 2) => pack('V*', 1, 2)])
+        ->and(Hits::$tests['first'][4])->toBe(Hits::$tests['second'][4]);
 });
 
 it('records the non-null outcome of ?-> and passes the value through', function (): void {

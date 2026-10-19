@@ -11,7 +11,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
         '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml',
-        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
+        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--covered-by', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
     ]);
 
     expect($options)->toEqual(new TestOptions(
@@ -23,6 +23,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         blade: false,
         views: ['themes/dark', 'themes/light', '/views'],
         text: true,
+        coveredBy: true,
         minLines: 90.0,
         minBranches: 85.5,
         html: 'build/html',

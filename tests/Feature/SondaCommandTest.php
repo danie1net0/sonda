@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Fixture\Project\Tests\{DiscountTest, ShippingTest};
 use Sonda\Git\Git;
 
 /**
@@ -345,3 +346,29 @@ it('refuses to run outside a project', function (): void {
     expect($status)->toBe(1)
         ->and($output)->toBe("Rode o sonda na raiz de um projeto com vendor/autoload.php.\n");
 });
+
+it('names the tests that ran each covered line when asked, in parallel and in series', function (string ...$runner): void {
+    $root = sondaProject();
+
+    [$status, $output] = sonda($root, 'test', '--covered-by', '--cov=coverage.cov', ...$runner);
+    $coverage = require $root . '/coverage.cov';
+    $coveredBy = [];
+
+    foreach ($coverage->getData()->lineCoverage() as $file => $lines) {
+        $coveredBy[basename($file)] = array_filter($lines, static fn (?array $tests): bool => $tests !== null && $tests !== []);
+    }
+
+    $discount = DiscountTest::class . '::testLargeOrdersGetTheMaximumRate#0';
+    $shipping = ShippingTest::class . '::testShortDistancesCostTheMinimum';
+
+    expect($status)->toBe(0, $output)
+        ->and($coveredBy)->toBe([
+            'Discount.php' => [11 => [$discount], 12 => [$discount]],
+            'Shipping.php' => [11 => [$shipping]],
+        ])
+        ->and(array_keys($coverage->getTests()))->toEqualCanonicalizing([$discount, $shipping])
+        ->and($coverage->getTests()[$discount]['status'])->toBe('success');
+})->with([
+    'in parallel' => [],
+    'in series' => ['--no-parallel'],
+]);

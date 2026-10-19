@@ -94,3 +94,15 @@ it('keys the probes of a view by the analysis copy of its compiled code', functi
     expect(RawCoverageBuilder::build($run, ['/resources/views/a.blade.php'])->lineCoverage())
         ->toBe([$directory . '/view.view.php' => [1 => 1, 2 => -1]]);
 });
+
+it('keys each loaded source file by its path, and a view by its analysis copy', function (): void {
+    $directory = TemporaryDirectory::create();
+    $cache = new InstrumentationCache($directory);
+    $cache->store('order', new InstrumentationResult('<?php', []));
+    $cache->store('view', new InstrumentationResult('<?php', [], [1 => 1], '<?php'));
+
+    $run = new Run($directory, ['o' => ['/app/Order.php', 'order'], 'v' => ['/views/home.blade.php', 'view'], 'x' => ['/vendor/X.php', 'order']], []);
+
+    expect(RawCoverageBuilder::keysOf($run, ['/app/Order.php', '/views/home.blade.php']))
+        ->toBe(['o' => '/app/Order.php', 'v' => $directory . '/view.view.php']);
+});

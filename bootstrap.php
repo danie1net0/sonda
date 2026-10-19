@@ -41,7 +41,7 @@ register_shutdown_function(static function () use ($autoloader, $settings, $view
     $run = $autoloader->run();
 
     if ($views instanceof Views) {
-        $run = new Run($run->cacheDirectory, $run->files + $views->files(), $run->hits);
+        $run = new Run($run->cacheDirectory, $run->files + $views->files(), $run->hits, $run->tests);
     }
 
     $run->saveIn($settings->outputDirectory);

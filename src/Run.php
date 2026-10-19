@@ -9,17 +9,21 @@ use RuntimeException;
 /**
  * What one test process collected: the instrumented files it loaded and the probes they hit.
  * With --parallel, each ParaTest worker saves its own run in the same directory.
+ *
+ * @phpstan-import-type TestRecord from Hits
  */
 final readonly class Run
 {
     /**
      * @param array<string, array{0: string, 1: string}> $files file id => [source path, cache key]
      * @param array<string, array<int, int>>             $hits  file id => probe id => 1
+     * @param array<string, TestRecord>                  $tests what each test hit, see Hits::$tests
      */
     public function __construct(
         public string $cacheDirectory,
         public array $files,
         public array $hits,
+        public array $tests = [],
     ) {
     }
 
@@ -51,16 +55,18 @@ final readonly class Run
     {
         $files = [];
         $hits = [];
+        $tests = [];
 
         foreach ($runs as $run) {
             $files += $run->files;
+            $tests += $run->tests;
 
             foreach ($run->hits as $fileId => $fileHits) {
                 $hits[$fileId] = ($hits[$fileId] ?? []) + $fileHits;
             }
         }
 
-        return new self($runs[0]->cacheDirectory, $files, $hits);
+        return new self($runs[0]->cacheDirectory, $files, $hits, $tests);
     }
 
     public function save(string $path): void

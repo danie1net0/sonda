@@ -23,8 +23,12 @@ use function str_ends_with;
  */
 final class CoverageBuilder
 {
-    /** @param list<string> $sourceFiles only these files enter the report, covered or not */
-    public static function build(Run $run, array $sourceFiles): CodeCoverage
+    /**
+     * @param list<string> $sourceFiles only these files enter the report, covered or not
+     * @param bool         $coveredBy   whether each covered line and branch names the tests that ran it,
+     *                                  instead of the single test `sonda`: heavy, with a large suite
+     */
+    public static function build(Run $run, array $sourceFiles, bool $coveredBy = false): CodeCoverage
     {
         $views = self::views($run, $sourceFiles);
         $appended = self::coverage([...$sourceFiles, ...array_column($views, 0)]);
@@ -33,6 +37,16 @@ final class CoverageBuilder
         $data = $appended->getData(true);
         $lines = $data->lineCoverage();
         $functions = $data->functionCoverage();
+        $tests = $appended->getTests();
+
+        if ($coveredBy) {
+            $attribution = TestAttribution::of($run, $sourceFiles);
+            /** @var FileAnalyser $analyser the one coverage() gave it */
+            $analyser = new ReflectionProperty(CodeCoverage::class, 'analyser')->getValue($appended);
+            $lines = self::attributedLines($lines, $attribution, $analyser);
+            $functions = self::attributedFunctions($functions, $attribution);
+            $tests = $attribution->tests;
+        }
 
         foreach ($views as $viewPath => [$analysisPath, $lineMap]) {
             $lines[$viewPath] = self::mapped($lines[$analysisPath] ?? [], $lineMap);
@@ -45,7 +59,7 @@ final class CoverageBuilder
 
         $coverage = self::coverage(self::reported($sourceFiles, $views), array_map(static fn (array $view): string => $view[0], $views));
         $coverage->setData($data);
-        $coverage->setTests($appended->getTests());
+        $coverage->setTests($tests);
 
         return $coverage;
     }
@@ -54,6 +68,62 @@ final class CoverageBuilder
     public static function empty(): CodeCoverage
     {
         return self::coverage([]);
+    }
+
+    /**
+     * php-code-coverage marks every executable line of a block executed when one line of it ran:
+     * such a line was run by the tests of the lines of its block that hold probes.
+     *
+     * @param array<string, array<int, list<string>|null>> $lines
+     *
+     * @return array<string, array<int, list<string>|null>>
+     */
+    private static function attributedLines(array $lines, TestAttribution $attribution, FileAnalyser $analyser): array
+    {
+        // Every file with tests to name has data: php-code-coverage keeps each file of its filter.
+        /** @var non-empty-string $file the path of a loaded source file, or of the analysis copy of a view */
+        foreach ($attribution->lines as $file => $attributedLines) {
+            $blocks = $analyser->analyse($file)->executableLines();
+            $blockTests = [];
+
+            foreach ($attributedLines as $line => $tests) {
+                if (isset($blocks[$line])) {
+                    $blockTests[$blocks[$line]] = ($blockTests[$blocks[$line]] ?? []) + array_flip($tests);
+                }
+            }
+
+            // A line here is never null: sonda's raw data marks each line executed or not, never not executable.
+            foreach ($lines[$file] as $line => $tests) {
+                if ($tests !== []) {
+                    $lines[$file][$line] = array_keys($blockTests[$blocks[$line]]);
+                }
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param array<string, array<string, ProcessedFunctionCoverageData>> $functions
+     *
+     * @return array<string, array<string, ProcessedFunctionCoverageData>>
+     */
+    private static function attributedFunctions(array $functions, TestAttribution $attribution): array
+    {
+        foreach ($functions as $file => $fileFunctions) {
+            foreach ($fileFunctions as $name => $function) {
+                $branches = [];
+
+                foreach ($function->branches as $id => $branch) {
+                    $hit = $branch->hit === [] ? [] : $attribution->branches[$file][$branch->op_start];
+                    $branches[$id] = new ProcessedBranchCoverageData($branch->op_start, $branch->op_end, $branch->line_start, $branch->line_end, $hit, $branch->out, $branch->out_hit);
+                }
+
+                $functions[$file][$name] = new ProcessedFunctionCoverageData($branches, $function->paths);
+            }
+        }
+
+        return $functions;
     }
 
     /**

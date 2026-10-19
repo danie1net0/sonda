@@ -6,11 +6,24 @@ use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run};
 
 it('saves and loads a run', function (): void {
     $path = TemporaryDirectory::create() . '/run.ser';
-    $run = new Run('/cache', ['abc' => ['/app/Order.php', 'key']], ['abc' => [0 => 1]]);
+    $run = new Run('/cache', ['abc' => ['/app/Order.php', 'key']], ['abc' => [0 => 1]], ['T::t' => ['/tests/T.php', 'small', true, 0.5, ['abc' => pack('V', 0)]]]);
 
     $run->save($path);
 
     expect(Run::load($path))->toEqual($run);
+});
+
+it('has no tests unless given', function (): void {
+    expect(new Run('/cache', [], [])->tests)->toBe([]);
+});
+
+it('merges the tests of every process of a suite', function (): void {
+    $first = ['/tests/A.php', 'unknown', true, 0.1, []];
+    $second = ['/tests/B.php', 'unknown', false, 0.2, []];
+
+    $merged = Run::merge([new Run('/cache', [], [], ['A::a' => $first]), new Run('/cache', [], [], ['B::b' => $second])]);
+
+    expect($merged->tests)->toBe(['A::a' => $first, 'B::b' => $second]);
 });
 
 it('fails to load a file that is not a run', function (): void {

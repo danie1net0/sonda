@@ -121,6 +121,7 @@ cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 | `--no-blade` | não mede as views do Blade de um projeto Laravel |
 | `--views=a,b` | mede também as views do Blade dessas pastas |
 | `--text` | lista a cobertura de cada arquivo depois do total |
+| `--covered-by` | cada linha e branch coberto leva o nome dos testes que o executaram, como com o Xdebug; no HTML, aparecem ao passar o mouse sobre a linha. Pesa numa suíte grande: em 5.615 testes, o HTML foi de 123 MB para 1,3 GB e a memória do relatório de 300 MB para 870 MB |
 | `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou). Com piso, o Sonda instrumenta e mede o `<source>` inteiro mesmo com `--changed` ou `--files`, cujo veredito continua olhando só os arquivos deles; o total impresso é o do projeto |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
 
@@ -166,8 +167,13 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
    `__DIR__` continuam apontando para o arquivo original.
 3. Só contam as sondas executadas durante cada teste, a mesma janela que o PHPUnit dá ao Xdebug:
    código executado em data provider não conta como coberto.
-4. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
-   workers e monta o relatório com o php-code-coverage.
+4. Ao fim de cada teste, o Sonda guarda quais sondas ele executou, com o arquivo, o tamanho
+   (`#[Small]`, `#[Medium]`, `#[Large]`), a duração e se falhou. Conjuntos iguais de sondas são
+   guardados uma vez só, porque os testes de uma suíte passam quase todos pelo mesmo código.
+5. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
+   workers e monta o relatório com o php-code-coverage. Com `--covered-by`, cada linha e cada
+   branch coberto leva o nome dos testes que o executaram, como com o Xdebug: no HTML, passar o
+   mouse sobre uma linha mostra esses testes, e um teste que falhou aparece em vermelho.
 
 ## Views do Blade
 

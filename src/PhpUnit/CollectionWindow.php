@@ -22,7 +22,7 @@ final class CollectionWindow
         Hits::$perTest = true;
 
         try {
-            EventFacade::instance()->registerSubscribers(new StartTestSubscriber(), new PreparedSubscriber(), new FinishTestSubscriber());
+            EventFacade::instance()->registerSubscribers(new StartTestSubscriber(), new PreparedSubscriber(), new FailedTestSubscriber(), new ErroredTestSubscriber(), new FinishTestSubscriber());
         } catch (EventFacadeIsSealedException) {
             // The parallel orchestrator loads the bootstrap after sealing, and runs no tests:
             // with the window never opened, nothing it executes counts as covered.

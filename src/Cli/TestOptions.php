@@ -30,6 +30,7 @@ final readonly class TestOptions
         public bool $blade = true,
         public array $views = [],
         public bool $text = false,
+        public bool $coveredBy = false,
         public ?float $minLines = null,
         public ?float $minBranches = null,
         public ?string $configuration = null,
@@ -52,6 +53,7 @@ final readonly class TestOptions
         $blade = true;
         $views = [];
         $text = false;
+        $coveredBy = false;
         $minLines = null;
         $minBranches = null;
         $configuration = null;
@@ -81,6 +83,8 @@ final readonly class TestOptions
                 $blade = false;
             } elseif ($argument === '--text') {
                 $text = true;
+            } elseif ($argument === '--covered-by') {
+                $coveredBy = true;
             } elseif (self::valueOf($argument, '--min-lines') !== null) {
                 $minLines = self::percentage(self::valueOf($argument, '--min-lines'), '--min-lines');
             } elseif (self::valueOf($argument, '--min-branches') !== null) {
@@ -112,7 +116,7 @@ final readonly class TestOptions
             }
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
     }
 
     /** A percentage from 0 to 100, with comma or point. */

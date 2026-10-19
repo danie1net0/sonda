@@ -96,7 +96,7 @@ final readonly class TestCommand
         }
 
         try {
-            $coverage = CoverageBuilder::build(Run::loadDirectory($runsDirectory), $sourceFiles);
+            $coverage = CoverageBuilder::build(Run::loadDirectory($runsDirectory), $sourceFiles, $options->coveredBy);
         } catch (RuntimeException $runtimeException) {
             fwrite($output, "\nSem dados de cobertura: {$runtimeException->getMessage()}\n");
 

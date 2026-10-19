@@ -4,6 +4,13 @@ declare(strict_types=1);
 
 use Sonda\{Filesystem, Hits, InstrumentingVisitor, Probe, SourceEditor};
 use PhpParser\{NodeTraverser, ParserFactory};
+use PHPUnit\Event\Code\{Test, TestDox, TestMethod};
+use PHPUnit\Event\TestData\TestDataCollection;
+use PHPUnit\Metadata\MetadataCollection;
+
+foreach (glob(__DIR__ . '/../Fixtures/Sizes/*.php') ?: [] as $sizedTest) {
+    require_once $sizedTest;
+}
 
 final class TemporaryDirectory
 {
@@ -67,4 +74,27 @@ function expected(string $template): string
         },
         $template,
     );
+}
+
+/** A test method as PHPUnit's events describe it. */
+function testMethod(string $className, string $methodName = 'test_it', string $file = '/project/tests/ATest.php'): TestMethod
+{
+    return new TestMethod($className, $methodName, $file, 1, new TestDox($className, $methodName, $methodName), MetadataCollection::fromArray([]), TestDataCollection::fromArray([]));
+}
+
+/**
+ * A PHPUnit test event about a test, without the telemetry the subscribers never read.
+ *
+ * @template TEvent of object
+ *
+ * @param class-string<TEvent> $eventClass
+ *
+ * @return TEvent
+ */
+function testEvent(string $eventClass, Test $test): object
+{
+    $event = new ReflectionClass($eventClass)->newInstanceWithoutConstructor();
+    new ReflectionProperty($eventClass, 'test')->setValue($event, $test);
+
+    return $event;
 }

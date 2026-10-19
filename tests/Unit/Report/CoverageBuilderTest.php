@@ -168,3 +168,88 @@ it('reports a view and a source file side by side, each with its own data', func
     expect($coverage->getData()->lineCoverage())->toBe([$other => [5 => ['sonda']], $view => [1 => ['sonda']]])
         ->and($coverage->getReport()->numberOfExecutedLines())->toBe(2);
 });
+
+it('names the tests that ran each covered line and branch, and describes them', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/app');
+    $order = $root . '/app/Order.php';
+    file_put_contents($order, "<?php\n\nfinal class Order\n{\n    public function total(int \$a): int\n    {\n        if (\$a > 1) {\n            return 1;\n        }\n\n        return 2;\n    }\n}\n");
+    new InstrumentationCache($root . '/cache')->store('key', new InstrumentationResult('<?php', [
+        0 => new Probe(8, true, 'Order->total', 7, 9),
+        1 => new Probe(11, true, 'Order->total', 11, 11),
+    ]));
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1]], [
+        'OrderTest::test_large' => ['/tests/OrderTest.php', 'small', false, 0.25, ['o' => pack('V', 0)]],
+        'OrderTest::test_none' => ['/tests/OrderTest.php', 'unknown', true, 0.0, []],
+    ]);
+
+    $coverage = CoverageBuilder::build($run, [$order], coveredBy: true);
+    $branches = $coverage->getData()->functionCoverage()[$order]['Order->total']->branches;
+
+    expect($coverage->getData()->lineCoverage()[$order])->toBe([8 => ['OrderTest::test_large'], 11 => []])
+        ->and(array_map(static fn (ProcessedBranchCoverageData $branch): array => $branch->hit, $branches))->toBe([['OrderTest::test_large'], []])
+        ->and($branches[0]->line_start)->toBe(7)
+        ->and($branches[0]->line_end)->toBe(9)
+        ->and($coverage->getTests())->toBe([
+            'OrderTest::test_large' => ['size' => 'small', 'status' => 'failure', 'time' => 0.25],
+            'OrderTest::test_none' => ['size' => 'unknown', 'status' => 'success', 'time' => 0.0],
+        ]);
+});
+
+it('names the tests of a view on the lines of its template', function (): void {
+    $root = TemporaryDirectory::create();
+    mkdir($root . '/resources/views', 0777, true);
+    $view = $root . '/resources/views/home.blade.php';
+    file_put_contents($view, "<h1>Home</h1>\n@if (\$show)\n    {{ \$title }}\n@endif\n");
+    $compiled = "<?php \$a = 1; ?>\n<?php \$b = 2; ?>\n<?php \$c = 3; ?>\n";
+    $probes = [new Probe(1, false, '{main}', 0, 0), new Probe(2, false, '{main}', 0, 0), new Probe(3, false, '{main}', 0, 0)];
+    new InstrumentationCache($root . '/cache')->store('view', new InstrumentationResult($compiled, $probes, [1 => 2, 2 => 2, 3 => 4], $compiled));
+    // Compiled line 1 ran in A and B, line 2 in A and C: template line 2 names each test once.
+    $run = new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => [0 => 1, 1 => 1]], [
+        'A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['v' => pack('V*', 0, 1)]],
+        'B::b' => ['/tests/B.php', 'unknown', true, 0.0, ['v' => pack('V', 0)]],
+        'C::c' => ['/tests/C.php', 'unknown', true, 0.0, ['v' => pack('V', 1)]],
+    ]);
+
+    expect(CoverageBuilder::build($run, [$view], coveredBy: true)->getData()->lineCoverage())->toBe([$view => [2 => ['A::a', 'B::b', 'C::c'], 4 => []]]);
+});
+
+it('names the tests of a probed line on the other lines of its block, which php-code-coverage marks executed with it', function (): void {
+    $root = TemporaryDirectory::create();
+    $order = $root . '/Order.php';
+    $unused = $root . '/Unused.php';
+    // The return spans lines 5 to 8, one block; line 10 is a block of its own.
+    file_put_contents($order, "<?php\n\nfunction total(int \$a): int\n{\n    return max(\n        \$a,\n        2,\n    );\n\n    \$b = 1;\n}\n");
+    file_put_contents($unused, "<?php\n\nfunction unused(): int\n{\n    return 1;\n}\n");
+    // Probe 2, on the blank line 9, is no executable line; probe 3 sits on line 6, in the block of probe 0.
+    new InstrumentationCache($root . '/cache')->store('key', new InstrumentationResult('<?php', [
+        0 => new Probe(5, false, 'total', 0, 0),
+        1 => new Probe(10, false, 'total', 0, 0),
+        2 => new Probe(9, false, 'total', 0, 0),
+        3 => new Probe(6, false, 'total', 0, 0),
+    ]));
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1, 1 => 1, 2 => 1, 3 => 1]], [
+        'A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V*', 0, 2)]],
+        'B::b' => ['/tests/B.php', 'unknown', true, 0.0, ['o' => pack('V*', 0, 1)]],
+        'C::c' => ['/tests/C.php', 'unknown', true, 0.0, ['o' => pack('V', 3)]],
+    ]);
+
+    $lines = CoverageBuilder::build($run, [$order, $unused], coveredBy: true)->getData()->lineCoverage();
+    ksort($lines[$order]);
+
+    expect($lines[$order])->toBe([5 => ['A::a', 'B::b', 'C::c'], 6 => ['A::a', 'B::b', 'C::c'], 7 => ['A::a', 'B::b', 'C::c'], 8 => ['A::a', 'B::b', 'C::c'], 10 => ['B::b']])
+        ->and($lines[$unused])->toBe([5 => []]);
+});
+
+it('credits every covered line to the single test sonda unless asked to name the tests', function (): void {
+    $root = TemporaryDirectory::create();
+    $order = $root . '/Order.php';
+    file_put_contents($order, "<?php\n\nfunction total(): int\n{\n    return 1;\n}\n");
+    new InstrumentationCache($root . '/cache')->store('key', new InstrumentationResult('<?php', [0 => new Probe(5, false, 'total', 0, 0)]));
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1]], ['A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V', 0)]]]);
+
+    $coverage = CoverageBuilder::build($run, [$order]);
+
+    expect($coverage->getData()->lineCoverage()[$order])->toBe([5 => ['sonda']])
+        ->and(array_keys($coverage->getTests()))->toBe(['sonda']);
+});
