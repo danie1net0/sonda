@@ -51,7 +51,16 @@ atrás de um 100% do Sonda.
 
 ## Instalação
 
-Nada é instalado no projeto medido. Um clone por máquina, uma vez, e o comando no PATH:
+Como dependência de desenvolvimento do projeto, que é o jeito de fixar a versão e deixar o
+Renovate ou o Dependabot atualizá-la:
+
+```bash
+composer require --dev danie1net0/sonda
+vendor/bin/sonda test
+```
+
+Sem instalar nada no projeto medido, um clone por máquina, uma vez, e o comando no PATH. O Sonda
+usa então as dependências do próprio projeto (PHPUnit, php-code-coverage, php-parser):
 
 ```bash
 git clone https://github.com/danie1net0/sonda.git /opt/sonda
