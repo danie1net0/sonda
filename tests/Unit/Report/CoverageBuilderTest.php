@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
+use Sonda\Report\Compat\CoverageApis;
 use SebastianBergmann\CodeCoverage\Node\{AbstractNode, File};
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\View\Compilers\BladeCompiler;
 use Sonda\Blade\ViewInstrumenter;
 use Sonda\{InstrumentationCache, InstrumentationResult, Instrumenter, Probe, Run};
 use Sonda\Report\{CoverageBuilder, Uncovered};
-use SebastianBergmann\CodeCoverage\Data\ProcessedBranchCoverageData;
 
 it('builds a coverage object with the branch data of the run and the source files never loaded', function (): void {
     $root = TemporaryDirectory::create();
@@ -79,13 +79,13 @@ it('reports the branches of a view on the lines of its template, as the function
     $coverage = CoverageBuilder::build(new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => $hits]), [$view]);
     $report = $coverage->getReport();
     $file = array_values(array_filter(iterator_to_array($report, false), static fn (AbstractNode $node): bool => $node instanceof File))[0];
-    $branches = $coverage->getData()->functionCoverage()[$view][ViewInstrumenter::FUNCTION]->branches;
+    $branches = branchesOf($coverage->getData()->functionCoverage()[$view][ViewInstrumenter::FUNCTION]);
 
     expect(array_keys($coverage->getData()->functionCoverage()[$view]))->toBe([ViewInstrumenter::FUNCTION])
-        ->and(array_map(static fn (ProcessedBranchCoverageData $branch): array => [$branch->line_start, $branch->line_end, $branch->hit !== []], $branches))->toBe([[3, 3, false], [4, 4, true]])
+        ->and(array_map(static fn (array $branch): array => [$branch['line_start'], $branch['line_end'], $branch['hit'] !== []], $branches))->toBe([[3, 3, false], [4, 4, true]])
         ->and($file)->toBeInstanceOf(File::class)
         ->and(array_keys($file->functions()))->toBe([ViewInstrumenter::FUNCTION])
-        ->and($file->functions()[ViewInstrumenter::FUNCTION]->startLine)->toBe(1)
+        ->and(CoverageApis::current()->functionSpans($file)[ViewInstrumenter::FUNCTION][0])->toBe(1)
         ->and($report->numberOfExecutableBranches())->toBe(2)
         ->and($report->numberOfExecutedBranches())->toBe(1)
         ->and($report->numberOfExecutableLines())->toBe(3)
@@ -184,12 +184,12 @@ it('names the tests that ran each covered line and branch, and describes them', 
     ]);
 
     $coverage = CoverageBuilder::build($run, [$order], coveredBy: true);
-    $branches = $coverage->getData()->functionCoverage()[$order]['Order->total']->branches;
+    $branches = branchesOf($coverage->getData()->functionCoverage()[$order]['Order->total']);
 
     expect($coverage->getData()->lineCoverage()[$order])->toBe([8 => ['OrderTest::test_large'], 11 => []])
-        ->and(array_map(static fn (ProcessedBranchCoverageData $branch): array => $branch->hit, $branches))->toBe([['OrderTest::test_large'], []])
-        ->and($branches[0]->line_start)->toBe(7)
-        ->and($branches[0]->line_end)->toBe(9)
+        ->and(array_column($branches, 'hit'))->toBe([['OrderTest::test_large'], []])
+        ->and($branches[0]['line_start'])->toBe(7)
+        ->and($branches[0]['line_end'])->toBe(9)
         ->and($coverage->getTests())->toBe([
             'OrderTest::test_large' => ['size' => 'small', 'status' => 'failure', 'time' => 0.25],
             'OrderTest::test_none' => ['size' => 'unknown', 'status' => 'success', 'time' => 0.0],

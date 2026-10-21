@@ -6,9 +6,8 @@ namespace Sonda\Report;
 
 use ReflectionProperty;
 use Sonda\Run;
+use Sonda\Report\Compat\{CoverageApi, CoverageApis};
 use SebastianBergmann\CodeCoverage\{CodeCoverage, Filter};
-use SebastianBergmann\CodeCoverage\Data\{ProcessedBranchCoverageData, ProcessedFunctionCoverageData};
-use SebastianBergmann\CodeCoverage\StaticAnalysis\{FileAnalyser, ParsingSourceAnalyser};
 
 use function str_ends_with;
 
@@ -30,8 +29,9 @@ final class CoverageBuilder
      */
     public static function build(Run $run, array $sourceFiles, bool $coveredBy = false): CodeCoverage
     {
+        $api = CoverageApis::current();
         $views = self::views($run, $sourceFiles);
-        $appended = self::coverage([...$sourceFiles, ...array_column($views, 0)]);
+        $appended = self::coverage($api, [...$sourceFiles, ...array_column($views, 0)]);
         $appended->append(RawCoverageBuilder::build($run, $sourceFiles), 'sonda');
 
         $data = $appended->getData(true);
@@ -41,23 +41,23 @@ final class CoverageBuilder
 
         if ($coveredBy) {
             $attribution = TestAttribution::of($run, $sourceFiles);
-            /** @var FileAnalyser $analyser the one coverage() gave it */
+            /** @var object $analyser the one coverage() gave it */
             $analyser = new ReflectionProperty(CodeCoverage::class, 'analyser')->getValue($appended);
-            $lines = self::attributedLines($lines, $attribution, $analyser);
-            $functions = self::attributedFunctions($functions, $attribution);
+            $lines = self::attributedLines($lines, $attribution, $api, $analyser);
+            $functions = self::attributedFunctions($functions, $attribution, $api);
             $tests = $attribution->tests;
         }
 
         foreach ($views as $viewPath => [$analysisPath, $lineMap]) {
             $lines[$viewPath] = self::mapped($lines[$analysisPath] ?? [], $lineMap);
-            $functions[$viewPath] = self::mappedFunctions($functions[$analysisPath] ?? [], $lineMap);
+            $functions[$viewPath] = self::mappedFunctions($functions[$analysisPath] ?? [], $lineMap, $api);
             unset($lines[$analysisPath], $functions[$analysisPath]);
         }
 
         $data->setLineCoverage($lines);
-        $data->setFunctionCoverage($functions);
+        $api->setFunctionCoverage($data, $functions);
 
-        $coverage = self::coverage(self::reported($sourceFiles, $views), array_map(static fn (array $view): string => $view[0], $views));
+        $coverage = self::coverage($api, self::reported($sourceFiles, $views), array_map(static fn (array $view): string => $view[0], $views));
         $coverage->setData($data);
         $coverage->setTests($tests);
 
@@ -67,7 +67,7 @@ final class CoverageBuilder
     /** A report of nothing: what the reports are written from when there was nothing to measure. */
     public static function empty(): CodeCoverage
     {
-        return self::coverage([]);
+        return self::coverage(CoverageApis::current(), []);
     }
 
     /**
@@ -78,12 +78,12 @@ final class CoverageBuilder
      *
      * @return array<string, array<int, list<string>|null>>
      */
-    private static function attributedLines(array $lines, TestAttribution $attribution, FileAnalyser $analyser): array
+    private static function attributedLines(array $lines, TestAttribution $attribution, CoverageApi $api, object $analyser): array
     {
         // Every file with tests to name has data: php-code-coverage keeps each file of its filter.
         /** @var non-empty-string $file the path of a loaded source file, or of the analysis copy of a view */
         foreach ($attribution->lines as $file => $attributedLines) {
-            $blocks = $analyser->analyse($file)->executableLines();
+            $blocks = $api->executableLines($analyser, $file);
             $blockTests = [];
 
             foreach ($attributedLines as $line => $tests) {
@@ -104,22 +104,21 @@ final class CoverageBuilder
     }
 
     /**
-     * @param array<string, array<string, ProcessedFunctionCoverageData>> $functions
+     * @param array<string, array<string, mixed>> $functions the processed data of each function, by file
      *
-     * @return array<string, array<string, ProcessedFunctionCoverageData>>
+     * @return array<string, array<string, mixed>>
      */
-    private static function attributedFunctions(array $functions, TestAttribution $attribution): array
+    private static function attributedFunctions(array $functions, TestAttribution $attribution, CoverageApi $api): array
     {
         foreach ($functions as $file => $fileFunctions) {
             foreach ($fileFunctions as $name => $function) {
-                $branches = [];
+                $branches = $api->branches($function);
 
-                foreach ($function->branches as $id => $branch) {
-                    $hit = $branch->hit === [] ? [] : $attribution->branches[$file][$branch->op_start];
-                    $branches[$id] = new ProcessedBranchCoverageData($branch->op_start, $branch->op_end, $branch->line_start, $branch->line_end, $hit, $branch->out, $branch->out_hit);
+                foreach ($branches as $id => $branch) {
+                    $branches[$id]['hit'] = $branch['hit'] === [] ? [] : $attribution->branches[$file][$branch['op_start']];
                 }
 
-                $functions[$file][$name] = new ProcessedFunctionCoverageData($branches, $function->paths);
+                $functions[$file][$name] = $api->withBranches($function, $branches);
             }
         }
 
@@ -175,7 +174,7 @@ final class CoverageBuilder
      * @param list<string>          $files
      * @param array<string, string> $copies view path => analysis copy, read in place of the template
      */
-    private static function coverage(array $files, array $copies = []): CodeCoverage
+    private static function coverage(CoverageApi $api, array $files, array $copies = []): CodeCoverage
     {
         $filter = new Filter();
         $filter->includeFiles($files);
@@ -183,7 +182,7 @@ final class CoverageBuilder
         $coverage = new CodeCoverage(new CoverageDriver(), $filter);
         $coverage->enableBranchAndPathCoverage();
         // php-code-coverage builds its analyser itself, with these same two settings: the views need their own.
-        new ReflectionProperty(CodeCoverage::class, 'analyser')->setValue($coverage, new FileAnalyser(new ViewSourceAnalyser($copies, new ParsingSourceAnalyser()), true, false));
+        new ReflectionProperty(CodeCoverage::class, 'analyser')->setValue($coverage, $api->analyser($copies));
 
         return $coverage;
     }
@@ -216,23 +215,24 @@ final class CoverageBuilder
      * The branches of a compiled view on the lines of its template. The line map never shrinks
      * the order of lines, so a branch keeps its ends.
      *
-     * @param array<string, ProcessedFunctionCoverageData> $functions
+     * @param array<string, mixed> $functions the processed data of each function
      * @param array<int, int>                              $lineMap
      *
-     * @return array<string, ProcessedFunctionCoverageData>
+     * @return array<string, mixed>
      */
-    private static function mappedFunctions(array $functions, array $lineMap): array
+    private static function mappedFunctions(array $functions, array $lineMap, CoverageApi $api): array
     {
         $mapped = [];
 
         foreach ($functions as $name => $function) {
-            $branches = [];
+            $branches = $api->branches($function);
 
-            foreach ($function->branches as $id => $branch) {
-                $branches[$id] = new ProcessedBranchCoverageData($branch->op_start, $branch->op_end, $lineMap[$branch->line_start], $lineMap[$branch->line_end], $branch->hit, $branch->out, $branch->out_hit);
+            foreach ($branches as $id => $branch) {
+                $branches[$id]['line_start'] = $lineMap[$branch['line_start']];
+                $branches[$id]['line_end'] = $lineMap[$branch['line_end']];
             }
 
-            $mapped[$name] = new ProcessedFunctionCoverageData($branches, $function->paths);
+            $mapped[$name] = $api->withBranches($function, $branches);
         }
 
         return $mapped;

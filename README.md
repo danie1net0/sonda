@@ -45,9 +45,10 @@ atrás de um 100% do Sonda.
 ## Requisitos
 
 - PHP 8.4 ou mais recente, com `git` no PATH para `--changed`.
-- No projeto medido: PHPUnit 12 (Pest 4) e php-code-coverage 12, que trazem o `nikic/php-parser`
-  usado pela instrumentação. O Sonda usa a fachada de eventos do PHPUnit, que é interna, e por
-  isso aceita só essa versão.
+- No projeto medido: PHPUnit 11.5 (Pest 3) ou 12 (Pest 4), com o php-code-coverage da mesma
+  versão, que trazem o `nikic/php-parser` usado pela instrumentação. O Sonda usa a fachada de
+  eventos do PHPUnit, que é interna, e o CI roda a suíte nas duas versões, na mais baixa e na
+  mais recente de cada.
 
 ## Instalação
 
@@ -329,6 +330,7 @@ composer check          # pint, phpstan, rector (dry-run) e a suíte
 composer format         # rector e pint
 XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --path-coverage --coverage-text
 XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --mutate --class='Sonda\Probe'
+php tools/phpunit-for-installed-coverage.php   # phpunit.xml sem as classes de compatibilidade da outra versão do php-code-coverage, para a cobertura de 100%
 php tools/lint-corpus.php vendor 1   # instrumenta um diretório inteiro e confere que o PHP continua válido
 php tools/compare.php xdebug.cov sonda.cov -v   # compara dois .cov linha a linha e método a método
 sonda compare <pasta de saída>   # na raiz de um projeto: Sonda, Xdebug com paths e a comparação, com summary.txt

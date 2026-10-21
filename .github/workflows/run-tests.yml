@@ -21,8 +21,9 @@ jobs:
       matrix:
         php: [ 8.4, 8.5 ]
         stability: [ prefer-lowest, prefer-stable ]
+        phpunit: [ '^11.5', '^12.0' ]
 
-    name: PHP ${{ matrix.php }} - ${{ matrix.stability }}
+    name: PHP ${{ matrix.php }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }}
 
     steps:
       - name: Checkout code
@@ -40,10 +41,17 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      # prefer-lowest pins PHPUnit 12.0 and php-parser 5.3: the event facade used by the
-      # collection window is internal to PHPUnit, so every supported version runs the suite.
+      # PHPUnit 11 (Pest 3) and 12 (Pest 4), each at its lowest and its latest: the event facade
+      # used by the collection window is internal to PHPUnit, and php-code-coverage 11 keeps its
+      # data in arrays where 12 has objects, so every supported version runs the suite.
       - name: Install dependencies
-        run: composer update --${{ matrix.stability }} --prefer-dist --no-interaction
+        run: |
+          composer require --no-update --no-interaction "phpunit/phpunit:${{ matrix.phpunit }}"
+          composer update --${{ matrix.stability }} --prefer-dist --no-interaction --with-all-dependencies
+
+      # The compatibility classes of the php-code-coverage not installed cannot run here.
+      - name: Measure the source this php-code-coverage runs
+        run: php tools/phpunit-for-installed-coverage.php
 
       - name: List installed dependencies
         run: composer show -D

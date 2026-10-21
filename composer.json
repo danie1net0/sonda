@@ -21,20 +21,20 @@
   "require": {
     "php": "^8.4",
     "nikic/php-parser": "^5.3",
-    "phpunit/php-code-coverage": "^12.0",
-    "phpunit/phpunit": "^12.0"
+    "phpunit/php-code-coverage": "^11.0 || ^12.0",
+    "phpunit/phpunit": "^11.5 || ^12.0"
   },
   "require-dev": {
     "illuminate/view": "^13",
     "laravel/pint": "^1.14",
-    "pestphp/pest": "^4.0",
-    "pestphp/pest-plugin-arch": "^4.0",
+    "pestphp/pest": "^3.8 || ^4.0",
+    "pestphp/pest-plugin-arch": "^3.1 || ^4.0",
     "phpstan/extension-installer": "^1.4",
     "phpstan/phpstan": "^2.0",
     "phpstan/phpstan-deprecation-rules": "^2.0",
     "phpstan/phpstan-phpunit": "^2.0",
     "rector/rector": "^2.0",
-    "sebastian/recursion-context": "^7.0.1"
+    "sebastian/recursion-context": "^6.0.3 || ^7.0.1"
   },
   "autoload": {
     "psr-4": {

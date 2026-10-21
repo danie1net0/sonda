@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Sonda\Report;
 
+use Sonda\Report\Compat\CoverageApis;
 use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Data\ProcessedFunctionCoverageData;
 use SebastianBergmann\CodeCoverage\Node\File;
 
 use function implode, str_starts_with, substr;
@@ -43,6 +43,7 @@ final class Uncovered
         $executedLines = 0;
         $executableBranches = 0;
         $executedBranches = 0;
+        $api = CoverageApis::current();
 
         foreach ($coverage->getReport() as $node) {
             if (! $node instanceof File) {
@@ -56,7 +57,7 @@ final class Uncovered
             }
 
             $changedLines = $changes[$file] ?? null;
-            $functions = self::countedFunctions($node);
+            $functions = $api->functionSpans($node);
             $checkedLines = null;
 
             if ($changedLines !== null) {
@@ -86,18 +87,16 @@ final class Uncovered
             $branchData = $node->functionCoverageData();
 
             foreach (array_keys($functions) as $function) {
-                $data = $branchData[$function] ?? null;
-
                 // A function never loaded in the run has no branch data: its lines already say so.
-                if (! $data instanceof ProcessedFunctionCoverageData) {
+                if (! isset($branchData[$function])) {
                     continue;
                 }
 
-                foreach ($data->branches as $branch) {
+                foreach ($api->branches($branchData[$function]) as $branch) {
                     $executableBranches++;
 
-                    if ($branch->hit === []) {
-                        $branches[] = [$branch->line_start, $branch->line_end];
+                    if ($branch['hit'] === []) {
+                        $branches[] = [$branch['line_start'], $branch['line_end']];
 
                         continue;
                     }
@@ -175,29 +174,6 @@ final class Uncovered
         }
 
         return $runs;
-    }
-
-    /**
-     * The functions the report counts, with their line spans: `Class->method` for the methods of
-     * classes and traits, and the functions by name.
-     *
-     * @return array<string, array{0: int, 1: int}> name => [first line, last line]
-     */
-    private static function countedFunctions(File $node): array
-    {
-        $functions = [];
-
-        foreach ($node->functions() as $name => $function) {
-            $functions[$name] = [$function->startLine, $function->endLine];
-        }
-
-        foreach ([...$node->classes(), ...$node->traits()] as $className => $class) {
-            foreach ($class->methods as $methodName => $method) {
-                $functions[$className . '->' . $methodName] = [$method->startLine, $method->endLine];
-            }
-        }
-
-        return $functions;
     }
 
     /**

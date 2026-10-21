@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Data\ProcessedBranchCoverageData;
 
 /**
  * @param list<string>          $command
@@ -75,8 +74,8 @@ function measureFixtureProject(array $runner): array
     foreach ($coverage->getData()->functionCoverage() as $functions) {
         foreach ($functions as $name => $function) {
             $branches[$name] = array_map(
-                static fn (ProcessedBranchCoverageData $branch): bool => $branch->hit !== [],
-                array_values($function->branches),
+                static fn (array $branch): bool => $branch['hit'] !== [],
+                branchesOf($function),
             );
         }
     }

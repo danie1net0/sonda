@@ -42,13 +42,13 @@ it('writes a php-code-coverage file with the lines and branches of the run', fun
     $coverage = require $output;
     $data = $coverage->getData();
     $lines = array_map(static fn (?array $tests): ?bool => $tests === null ? null : $tests !== [], $data->lineCoverage()[$order]);
-    $branches = $data->functionCoverage()[$order]['Order->total']->branches;
+    $branches = branchesOf($data->functionCoverage()[$order]['Order->total']);
 
     expect($coverage)->toBeInstanceOf(CodeCoverage::class)
         ->and(array_keys($data->lineCoverage()))->toEqualCanonicalizing([$order, $unused])
         ->and($data->lineCoverage()[$unused])->toBe([5 => []])
         ->and($lines)->toBe([7 => true, 8 => false, 11 => true])
-        ->and(array_map(static fn (object $branch): bool => $branch->hit !== [], $branches))->toBe([true, false]);
+        ->and(array_map(static fn (array $branch): bool => $branch['hit'] !== [], $branches))->toBe([true, false]);
 });
 
 it('refuses an empty output path', function (): void {

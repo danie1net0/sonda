@@ -13,7 +13,7 @@ use PHPUnit\Event\{EventFacadeIsSealedException, Facade as EventFacade};
  *
  * Opened from the bootstrap, which PHPUnit and every ParaTest worker run before sealing their
  * event facade. An extension would not do: ParaTest does not pass `--extension` to its workers.
- * The event facade is internal to PHPUnit, which is why sonda supports PHPUnit 12 only.
+ * The event facade is internal to PHPUnit: sonda supports the PHPUnit 11 and 12 it is tested on.
  */
 final class CollectionWindow
 {

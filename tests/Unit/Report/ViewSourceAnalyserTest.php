@@ -16,7 +16,7 @@ it('analyses a view by its analysis copy, and any other file by its own code', f
 
     expect(array_keys($view->functions()))->toBe(['view'])
         ->and(array_keys($other->functions()))->toBe(['other']);
-});
+})->skip(! onCoverage12(), 'php-code-coverage 12 only');
 
 it('hands the settings on to the analyser it wraps', function (): void {
     $inner = new class() implements SourceAnalyser {
@@ -33,4 +33,4 @@ it('hands the settings on to the analyser it wraps', function (): void {
     new ViewSourceAnalyser([], $inner)->analyse('/project/a.php', '<?php echo 1;', false, true);
 
     expect($inner->calls)->toBe([['/project/a.php', '<?php echo 1;', false, true]]);
-});
+})->skip(! onCoverage12(), 'php-code-coverage 12 only');

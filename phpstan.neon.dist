@@ -6,4 +6,9 @@ parameters:
         - autoload.php
         - bootstrap.php
         - report.php
+    excludePaths:
+        # Written against php-code-coverage 11, whose types differ from the installed 12; the
+        # suite exercises them under the lowest dependencies, in CI and locally.
+        - src/Report/Compat/V11CoverageApi.php
+        - src/Report/Compat/V11ViewFileAnalyser.php
     tmpDir: build/phpstan

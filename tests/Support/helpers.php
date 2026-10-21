@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use SebastianBergmann\CodeCoverage\StaticAnalysis\SourceAnalyser;
+use Sonda\Report\Compat\CoverageApis;
 use Sonda\{Filesystem, Hits, InstrumentingVisitor, Probe, SourceEditor};
 use PhpParser\{NodeTraverser, ParserFactory};
 use PHPUnit\Event\Code\{Test, TestDox, TestMethod};
@@ -13,6 +15,7 @@ foreach (glob(__DIR__ . '/../Fixtures/Sizes/*.php') ?: [] as $sizedTest) {
 }
 
 require_once __DIR__ . '/../Fixtures/RevivalWitness.php';
+require_once __DIR__ . '/compat.php';
 
 final class TemporaryDirectory
 {
@@ -99,4 +102,20 @@ function testEvent(string $eventClass, Test $test): object
     new ReflectionProperty($eventClass, 'test')->setValue($event, $test);
 
     return $event;
+}
+
+/** Whether the installed php-code-coverage is 12 (PHPUnit 12, Pest 4), not 11 (PHPUnit 11, Pest 3). */
+function onCoverage12(): bool
+{
+    return interface_exists(SourceAnalyser::class);
+}
+
+/**
+ * The branches of the processed data of a function, whatever php-code-coverage keeps it in.
+ *
+ * @return list<array{op_start: int, op_end: int, line_start: int, line_end: int, hit: list<string>, out: array<int, int>, out_hit: array<int, int>}>
+ */
+function branchesOf(mixed $function): array
+{
+    return array_values(CoverageApis::current()->branches($function));
 }

@@ -2,22 +2,33 @@
 
 declare(strict_types=1);
 
+use Sonda\Report\Compat\CoverageApis;
 use Sonda\Blade\AnalysisCopy;
-use SebastianBergmann\CodeCoverage\StaticAnalysis\{FileAnalyser, ParsingSourceAnalyser};
 
 /** @return array{functions: array<string, array{0: int, 1: int}>, executable: list<int>} what php-code-coverage makes of the copy */
 function analysed(string $copy): array
 {
     $path = TemporaryDirectory::create() . '/copy.php';
     file_put_contents($path, $copy);
-    $result = new FileAnalyser(new ParsingSourceAnalyser(), true, false)->analyse($path);
+    $analyser = CoverageApis::current()->analyser([]);
     $functions = [];
 
-    foreach ($result->functions() as $name => $function) {
-        $functions[$name] = [$function->startLine(), $function->endLine()];
+    if (onCoverage12()) {
+        $result = $analyser->analyse($path);
+
+        foreach ($result->functions() as $name => $function) {
+            $functions[$name] = [$function->startLine(), $function->endLine()];
+        }
+
+        $executable = array_keys($result->executableLines());
+    } else {
+        foreach ($analyser->functionsIn($path) as $name => $function) {
+            $functions[$name] = [$function['startLine'], $function['endLine']];
+        }
+
+        $executable = array_keys($analyser->executableLinesIn($path));
     }
 
-    $executable = array_keys($result->executableLines());
     sort($executable);
 
     return ['functions' => $functions, 'executable' => $executable];
