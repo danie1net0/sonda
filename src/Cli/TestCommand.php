@@ -78,7 +78,7 @@ final readonly class TestCommand
         // php-code-coverage keeps real paths: a symlinked temporary directory would lose the views' data.
         $workDirectory = (string) realpath($workDirectory);
         $runsDirectory = $workDirectory . '/runs-' . bin2hex(random_bytes(4));
-        $mapPath = $workDirectory . '/tests.map';
+        $mapPath = $options->map !== null ? $this->reportPath($options->map, $projectRoot) : $workDirectory . '/tests.map';
         $wholeProject = new Scope($sourceDirectories, $configuration->excludedDirectories);
         // Null when --affected runs the whole suite: then the whole project is measured, for the map to learn all of it.
         $affectedTests = $options->affected ? $this->affectedTests($options, $configuration, $projectRoot, $explicitFiles, $this->sourceFiles($wholeProject, $viewDirectories), $hasFloor, $mapPath, $output) : [];
@@ -105,7 +105,7 @@ final readonly class TestCommand
         try {
             $run = Run::loadDirectory($runsDirectory);
             $coverage = CoverageBuilder::build($run, $sourceFiles, $options->coveredBy);
-            TestMap::load($mapPath)->updatedWith($run, $sourceFiles)->save($mapPath);
+            TestMap::load($mapPath, $projectRoot)->updatedWith($run, $sourceFiles)->save($mapPath, $projectRoot);
         } catch (RuntimeException $runtimeException) {
             fwrite($output, "\nSem dados de cobertura: {$runtimeException->getMessage()}\n");
 
@@ -369,8 +369,11 @@ final readonly class TestCommand
         }
 
         $changed = $options->changed !== null ? ChangedPaths::since($projectRoot, $options->changed) : $explicitFiles;
-        $map = TestMap::load($mapPath);
-        $affected = AffectedTests::of($changed, $map, $allSources, $configuration->testPaths);
+        // The map itself, kept in the project for CI to cache, is no change of the project.
+        $map = realpath($mapPath) ?: $mapPath;
+        $changed = array_values(array_filter($changed, static fn (string $path): bool => $path !== $map));
+        $testMap = TestMap::load($mapPath, $projectRoot);
+        $affected = AffectedTests::of($changed, $testMap, $allSources, $configuration->testPaths);
 
         if ($affected->tests === null) {
             fwrite($output, "Rodando a suíte inteira e medindo o projeto todo: {$affected->reason}.\n");
@@ -381,7 +384,7 @@ final readonly class TestCommand
         // Up to ten test files are named; more only counted, against the test files the map knows.
         $which = count($affected->tests) <= 10
             ? implode(', ', array_map(static fn (string $test): string => TextSummary::relative($test, $projectRoot), $affected->tests))
-            : count($affected->tests) . ' de ' . count($map->sources) . ' arquivos de teste';
+            : count($affected->tests) . ' de ' . count($testMap->sources) . ' arquivos de teste';
         fwrite($output, "Rodando só os testes afetados: {$which}\n");
 
         return $affected->tests;

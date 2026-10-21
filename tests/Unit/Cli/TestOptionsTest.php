@@ -10,7 +10,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
-        '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml', '--code-quality=gl-code-quality.json',
+        '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml', '--code-quality=gl-code-quality.json', '--map=.sonda/tests.map',
         '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--covered-by', '--affected', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
     ]);
 
@@ -32,6 +32,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         cov: 'coverage.cov',
         cobertura: 'cobertura.xml',
         codeQuality: 'gl-code-quality.json',
+        map: '.sonda/tests.map',
         runnerArguments: ['--filter=Order', 'tests/Feature'],
     ));
 });

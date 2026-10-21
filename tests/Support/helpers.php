@@ -12,6 +12,8 @@ foreach (glob(__DIR__ . '/../Fixtures/Sizes/*.php') ?: [] as $sizedTest) {
     require_once $sizedTest;
 }
 
+require_once __DIR__ . '/../Fixtures/RevivalWitness.php';
+
 final class TemporaryDirectory
 {
     /** @var list<string> */

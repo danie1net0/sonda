@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Sonda\Run;
 use Sonda\Project\TestMap;
+use Tests\Fixtures\RevivalWitness;
 
 /**
  * A run whose tests in each test file hit the files given.
@@ -46,28 +47,42 @@ function existingTestFiles(): array
 it('starts empty when nothing was saved, and when the file holds something else', function (): void {
     $path = TemporaryDirectory::create() . '/tests.map';
 
-    expect(TestMap::load($path)->sources)->toBe([]);
+    expect(TestMap::load($path, '/project')->sources)->toBe([]);
 
     file_put_contents($path, serialize(['not' => 'a map']));
 
-    expect(TestMap::load($path)->sources)->toBe([]);
+    expect(TestMap::load($path, '/project')->sources)->toBe([]);
 });
 
 it('saves and loads a map, leaving no temporary file behind', function (): void {
     $directory = TemporaryDirectory::create();
+    $map = new TestMap(['/project/tests/ATest.php' => ['/project/app/A.php', '/vendor/lib/B.php']]);
+
+    $map->save($directory . '/maps/tests.map', '/project/');
+
+    expect(TestMap::load($directory . '/maps/tests.map', '/project'))->toEqual($map)
+        ->and(TestMap::load($directory . '/maps/tests.map', '/checkout/'))->toEqual(new TestMap(['/checkout/tests/ATest.php' => ['/checkout/app/A.php', '/vendor/lib/B.php']]))
+        ->and((string) file_get_contents($directory . '/maps/tests.map'))->toContain('"tests/ATest.php"')->toContain('"app/A.php"')->not->toContain('/project')
+        ->and(glob($directory . '/maps/*'))->toBe([$directory . '/maps/tests.map']);
+});
+
+it('saves a map in a directory it creates, leaving no temporary file behind', function (): void {
+    $directory = TemporaryDirectory::create();
     $map = new TestMap(['/tests/ATest.php' => ['/app/A.php']]);
 
-    $map->save($directory . '/tests.map');
+    $map->save($directory . '/tests.map', '/project');
 
-    expect(TestMap::load($directory . '/tests.map'))->toEqual($map)
+    expect(TestMap::load($directory . '/tests.map', '/project'))->toEqual($map)
         ->and(glob($directory . '/*'))->toBe([$directory . '/tests.map']);
 });
 
-it('does not revive objects other than maps', function (): void {
+it('reads a map holding objects as an empty one, without reviving them', function (): void {
     $path = TemporaryDirectory::create() . '/tests.map';
-    new TestMap(['/tests/ATest.php' => [new ArrayObject()]])->save($path);
+    file_put_contents($path, serialize(new TestMap(['tests/ATest.php' => [new RevivalWitness()]])));
+    RevivalWitness::$revived = false;
 
-    expect(TestMap::load($path)->sources['/tests/ATest.php'][0])->toBeInstanceOf(__PHP_Incomplete_Class::class);
+    expect(TestMap::load($path, '/project')->sources)->toBe([])
+        ->and(RevivalWitness::$revived)->toBeFalse();
 });
 
 it('maps each test file of a run to the source files its tests ran, sorted', function (): void {

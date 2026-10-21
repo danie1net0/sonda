@@ -140,8 +140,24 @@ nem um teste (configuração, rotas, migrations, `composer.lock`, um helper dos 
 qualquer teste pode lê-lo. O comando diz o motivo antes de rodar. Com piso de cobertura, ou com
 os testes a rodar já passados ao runner, `--affected` fica de lado.
 
-O mapa é local, por projeto, e se atualiza a cada execução: no CI, sem cache entre jobs, ele não
-existe e a suíte inteira roda. É o uso pensado para a máquina de quem desenvolve.
+O mapa fica fora do projeto, no diretório de trabalho do Sonda, e se atualiza a cada execução.
+`--map=<arq>` o guarda noutro lugar, por exemplo dentro do projeto, para o cache do CI levá-lo de
+um job para o outro. O arquivo guarda os caminhos relativos ao projeto, então serve a um checkout
+noutro diretório, e ele mesmo não conta como mudança:
+
+```yaml
+coverage:
+  cache:
+    key: sonda-mapa-de-testes
+    paths: [.sonda/tests.map]
+  script:
+    - php .sonda/bin/sonda test --changed="$CI_MERGE_REQUEST_DIFF_BASE_SHA" --affected --map=.sonda/tests.map
+```
+
+Um mapa velho não deixa teste afetado de fora: cada execução reescreve o que os arquivos de teste
+que rodaram executam, e um arquivo do `<source>` que o mapa não conhece manda rodar a suíte
+inteira. O que ele pode fazer é rodar testes a mais. Com piso de cobertura (`--min-lines`,
+`--min-branches`), a suíte inteira roda de qualquer jeito.
 
 ### Opções
 
@@ -161,6 +177,7 @@ existe e a suíte inteira roda. É o uso pensado para a máquina de quem desenvo
 | `--views=a,b` | mede também as views do Blade dessas pastas |
 | `--text` | lista a cobertura de cada arquivo depois do total |
 | `--affected` | com `--changed` ou `--files`, roda só os testes que executam o que mudou (ver acima) |
+| `--map=<arq>` | onde guardar o mapa de testes do `--affected`, para o cache do CI (ver acima) |
 | `--covered-by` | cada linha e branch coberto leva o nome dos testes que o executaram, como com o Xdebug; no HTML, aparecem ao passar o mouse sobre a linha. Pesa numa suíte grande: em 5.615 testes, o HTML foi de 123 MB para 1,3 GB e a memória do relatório de 300 MB para 870 MB |
 | `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou). Com piso, o Sonda instrumenta e mede o `<source>` inteiro mesmo com `--changed` ou `--files`, cujo veredito continua olhando só os arquivos deles; o total impresso é o do projeto |
 | `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |

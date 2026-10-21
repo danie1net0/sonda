@@ -591,7 +591,7 @@ function testMapPath(string $temporaryRoot, string $root): string
 it('runs only the test files the map says run what changed', function (): void {
     $root = affectedFakeProject();
     $temporaryRoot = TemporaryDirectory::create();
-    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php'], $root . '/tests/OtherTest.php' => []])->save(testMapPath($temporaryRoot, $root));
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php'], $root . '/tests/OtherTest.php' => []])->save(testMapPath($temporaryRoot, $root), $root);
     $runner = new FakeRunner();
 
     [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
@@ -614,13 +614,13 @@ it('runs the whole suite and measures the whole project when the map cannot tell
         ->and($output)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: ainda não há mapa de testes deste projeto; esta execução o cria.\n")
         ->and($runner->command)->not->toContain($root . '/tests/OrderTest.php')
         ->and($runner->environment['SONDA_ONLY'])->toBe('')
-        ->and(TestMap::load($mapPath)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']]);
+        ->and(TestMap::load($mapPath, $root)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']]);
 });
 
 it('leaves --affected aside with a floor or with the tests to run given', function (): void {
     $root = affectedFakeProject();
     $temporaryRoot = TemporaryDirectory::create();
-    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])->save(testMapPath($temporaryRoot, $root));
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])->save(testMapPath($temporaryRoot, $root), $root);
     $floorRunner = new FakeRunner();
     $pathRunner = new FakeRunner();
 
@@ -636,7 +636,7 @@ it('leaves --affected aside with a floor or with the tests to run given', functi
 it('takes the files given as what changed when there is no reference', function (): void {
     $root = affectedFakeProject();
     $temporaryRoot = TemporaryDirectory::create();
-    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php'], $root . '/tests/OtherTest.php' => []])->save(testMapPath($temporaryRoot, $root));
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php'], $root . '/tests/OtherTest.php' => []])->save(testMapPath($temporaryRoot, $root), $root);
     $runner = new FakeRunner();
 
     [, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Order.php', '--affected', '--no-parallel']), $temporaryRoot);
@@ -654,7 +654,7 @@ it('counts the affected test files instead of naming them when they are more tha
         $sources[$root . "/tests/Order{$number}Test.php"] = $number <= 11 ? [$root . '/app/Order.php'] : [];
     }
 
-    new TestMap($sources)->save(testMapPath($temporaryRoot, $root));
+    new TestMap($sources)->save(testMapPath($temporaryRoot, $root), $root);
 
     [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
 
@@ -689,4 +689,15 @@ it('reports only the gaps of what changed, with paths from the root of the repos
 
     expect($status)->toBe(1)
         ->and(array_column(array_column($issues, 'location'), 'path'))->toBe(['project/app/Order.php', 'project/app/Order.php']);
+});
+
+it('keeps the test map where --map says, relative to the project', function (): void {
+    $root = affectedFakeProject();
+    $runner = new FakeRunner(tests: ['OrderTest::test' => [$root . '/tests/OrderTest.php', 'unknown', true, 0.0, ['o' => pack('V', 0)]]]);
+
+    runTestCommand($runner, $root, TestOptions::parse(['--map=.cache/sonda/tests.map']), TemporaryDirectory::create());
+    [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master', '--affected', '--map=.cache/sonda/tests.map', '--no-parallel']), TemporaryDirectory::create());
+
+    expect(TestMap::load($root . '/.cache/sonda/tests.map', $root)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])
+        ->and($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n");
 });
