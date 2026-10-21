@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/danie1net0/sonda/compare/v1.12.0...v1.13.0) (2026-10-21)
+
+
+### Features
+
+* suporte a PHPUnit 11 e Pest 3 ([1611f1e](https://github.com/danie1net0/sonda/commit/1611f1e9b22d4cd7abbe763fa0a1a50fab0a23cc))
+
 # [1.12.0](https://github.com/danie1net0/sonda/compare/v1.11.1...v1.12.0) (2026-10-21)
 
 
