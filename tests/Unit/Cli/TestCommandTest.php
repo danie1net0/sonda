@@ -187,11 +187,12 @@ it('still writes the reports asked for, empty, when there is nothing to measure'
     $root = fakeProject();
     $runner = new FakeRunner();
 
-    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--html=build/html', '--cobertura=build/cobertura.xml', '--clover=build/clover.xml']), TemporaryDirectory::create());
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--html=build/html', '--cobertura=build/cobertura.xml', '--clover=build/clover.xml', '--code-quality=build/quality/gl.json']), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
         ->and($runner->calls)->toBe(0)
-        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\nRelatório HTML em {$root}/build/html\nRelatório Clover em {$root}/build/clover.xml\nRelatório Cobertura em {$root}/build/cobertura.xml\n")
+        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\nRelatório HTML em {$root}/build/html\nRelatório Clover em {$root}/build/clover.xml\nRelatório Cobertura em {$root}/build/cobertura.xml\nRelatório Code Quality em {$root}/build/quality/gl.json\n")
+        ->and((string) file_get_contents($root . '/build/quality/gl.json'))->toBe("[]\n")
         ->and($root . '/build/html/index.html')->toBeFile()
         ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('lines-valid="0"');
 });
@@ -658,4 +659,34 @@ it('counts the affected test files instead of naming them when they are more tha
     [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
 
     expect($output)->toStartWith("Rodando só os testes afetados: 11 de 12 arquivos de teste\n");
+});
+
+it('reports the gaps of the whole project for GitLab Code Quality when nothing narrows the check', function (): void {
+    $root = fakeProject();
+
+    [, $output] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--code-quality=gl.json']), TemporaryDirectory::create());
+    $issues = json_decode((string) file_get_contents($root . '/gl.json'), true);
+
+    expect($output)->toEndWith("Relatório Code Quality em {$root}/gl.json\n")
+        ->and(array_column($issues, 'description'))->toBe(['Linha 8 sem cobertura: nenhum teste a executa.', 'Branch da linha 8 sem cobertura: algum desfecho dessa decisão nunca foi testado.'])
+        ->and($issues[0]['location']['path'])->toBe('app/Order.php');
+});
+
+it('reports only the gaps of what changed, with paths from the root of the repository the project sits in', function (): void {
+    $repository = TemporaryDirectory::create();
+    $root = fakeProject();
+    rename($root, $repository . '/project');
+    $root = $repository . '/project';
+    Git::run($repository, ['init', '-q', '-b', 'master']);
+    Git::run($repository, ['config', 'user.email', 'tests@example.com']);
+    Git::run($repository, ['config', 'user.name', 'Tests']);
+    Git::run($repository, ['add', '-A']);
+    Git::run($repository, ['commit', '-q', '-m', 'base']);
+    file_put_contents($root . '/app/Order.php', str_replace('return $quantity;', 'return $quantity; // changed', (string) file_get_contents($root . '/app/Order.php')));
+
+    [$status] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--changed=master', '--code-quality=gl.json']), TemporaryDirectory::create());
+    $issues = json_decode((string) file_get_contents($root . '/gl.json'), true);
+
+    expect($status)->toBe(1)
+        ->and(array_column(array_column($issues, 'location'), 'path'))->toBe(['project/app/Order.php', 'project/app/Order.php']);
 });

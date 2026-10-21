@@ -255,3 +255,9 @@ it('checks only the files given, leaving the rest of the report out of the verdi
         ->and($onlyPaid->executableLines)->toBeLessThan($all->executableLines)
         ->and($all->uncovered)->toHaveKey($order);
 });
+
+it('groups sorted numbers into runs of consecutive ones', function (): void {
+    expect(Uncovered::runs([3, 4, 5, 9, 11, 12]))->toBe([[3, 5], [9, 9], [11, 12]])
+        ->and(Uncovered::runs([7]))->toBe([[7, 7]])
+        ->and(Uncovered::runs([]))->toBe([]);
+});

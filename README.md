@@ -105,6 +105,22 @@ app/Models/ScheduleResource.php: branches 272
 É o uso pensado para o CI: um job que mede só o que o MR tocou e exige 100%. `--files=a.php,b.php`
 cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
 
+No GitLab, os relatórios Cobertura e Code Quality juntos marcam no diff do MR o que está coberto e
+apontam, na própria linha, o que falta testar:
+
+```yaml
+coverage:
+  script:
+    - php .sonda/bin/sonda test --changed="$CI_MERGE_REQUEST_DIFF_BASE_SHA" --cobertura=coverage/cobertura.xml --code-quality=coverage/code-quality.json
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura.xml
+      codequality: coverage/code-quality.json
+```
+
 ### Só os testes afetados
 
 ```bash
@@ -137,6 +153,7 @@ existe e a suíte inteira roda. É o uso pensado para a máquina de quem desenvo
 | `--clover=<arq>` | grava o relatório Clover |
 | `--cov=<arq>` | grava o `.cov` do php-code-coverage, que serve para qualquer outro formato |
 | `--cobertura=<arq>` | grava o relatório Cobertura, o formato que o GitLab lê para marcar a cobertura no diff do MR |
+| `--code-quality=<arq>` | grava o que ficou descoberto como relatório de Code Quality do GitLab: cada trecho de linhas e cada branch sem teste vira um apontamento no diff do MR. Com `--changed` ou `--files`, só o que o veredito cobra; sem eles, o projeto inteiro. Os caminhos partem da raiz do repositório |
 | `--no-strict` | não exige o `else` de todo `if` nem o lado nulo de `?->` |
 | `--no-fast` | sondas sem a referência local por função |
 | `--no-parallel` | não usa o ParaTest mesmo quando instalado |

@@ -130,7 +130,7 @@ final class Uncovered
             $parts = [];
 
             if ($gaps['lines'] !== []) {
-                $parts[] = 'linhas ' . self::ranges($gaps['lines']);
+                $parts[] = 'linhas ' . self::list(self::runs($gaps['lines']));
             }
 
             if ($gaps['branches'] !== []) {
@@ -142,6 +142,39 @@ final class Uncovered
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * The runs of consecutive numbers: `[3, 4, 5, 9]` gives `[[3, 5], [9, 9]]`.
+     *
+     * @param list<int> $numbers sorted
+     *
+     * @return list<array{0: int, 1: int}>
+     */
+    public static function runs(array $numbers): array
+    {
+        $runs = [];
+        $current = null;
+
+        foreach ($numbers as $number) {
+            if ($current !== null && $current[1] === $number - 1) {
+                $current = [$current[0], $number];
+
+                continue;
+            }
+
+            if ($current !== null) {
+                $runs[] = $current;
+            }
+
+            $current = [$number, $number];
+        }
+
+        if ($current !== null) {
+            $runs[] = $current;
+        }
+
+        return $runs;
     }
 
     /**
@@ -207,37 +240,6 @@ final class Uncovered
         }
 
         return $lines;
-    }
-
-    /**
-     * `[3, 4, 5, 9]` reads `3-5, 9`.
-     *
-     * @param list<int> $numbers sorted
-     */
-    private static function ranges(array $numbers): string
-    {
-        $ranges = [];
-        $current = null;
-
-        foreach ($numbers as $number) {
-            if ($current !== null && $current[1] === $number - 1) {
-                $current = [$current[0], $number];
-
-                continue;
-            }
-
-            if ($current !== null) {
-                $ranges[] = $current;
-            }
-
-            $current = [$number, $number];
-        }
-
-        if ($current !== null) {
-            $ranges[] = $current;
-        }
-
-        return self::list($ranges);
     }
 
     /** @param list<array{0: int, 1: int}> $ranges */

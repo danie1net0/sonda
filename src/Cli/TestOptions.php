@@ -19,6 +19,7 @@ final readonly class TestOptions
      * @param non-empty-string|null $clover
      * @param non-empty-string|null $cov
      * @param non-empty-string|null $cobertura
+     * @param non-empty-string|null $codeQuality
      * @param list<string>          $runnerArguments
      */
     public function __construct(
@@ -39,6 +40,7 @@ final readonly class TestOptions
         public ?string $clover = null,
         public ?string $cov = null,
         public ?string $cobertura = null,
+        public ?string $codeQuality = null,
         public array $runnerArguments = [],
     ) {
     }
@@ -63,6 +65,7 @@ final readonly class TestOptions
         $clover = null;
         $cov = null;
         $cobertura = null;
+        $codeQuality = null;
         $runnerArguments = [];
         $count = count($arguments);
 
@@ -107,6 +110,8 @@ final readonly class TestOptions
                 $cov = self::valueOf($argument, '--cov');
             } elseif (self::valueOf($argument, '--cobertura') !== null) {
                 $cobertura = self::valueOf($argument, '--cobertura');
+            } elseif (self::valueOf($argument, '--code-quality') !== null) {
+                $codeQuality = self::valueOf($argument, '--code-quality');
             } elseif ($argument === '-c' || $argument === '--configuration') {
                 $configuration = $arguments[$index + 1] ?? throw new InvalidArgumentException("A opção {$argument} precisa de um arquivo.");
                 $runnerArguments[] = $argument;
@@ -124,7 +129,7 @@ final readonly class TestOptions
             throw new InvalidArgumentException('A opção --affected precisa de --changed ou --files: são eles que dizem o que mudou.');
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $affected, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $affected, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $codeQuality, $runnerArguments);
     }
 
     /** A percentage from 0 to 100, with comma or point. */

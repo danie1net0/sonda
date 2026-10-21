@@ -7,20 +7,22 @@ namespace Sonda\Cli;
 use InvalidArgumentException;
 use RuntimeException;
 use Sonda\{ComposerFiles, Filesystem, Run, Scope};
-use Sonda\Git\{ChangedLines, ChangedPaths};
+use Sonda\Git\{ChangedLines, ChangedPaths, Git};
 use Sonda\Project\{AffectedTests, DirectRequires, Runner, SuiteConfiguration, TestConfiguration, TestMap, TestSelection, ViewFolders};
-use Sonda\Report\{ChangeCoverage, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
+use Sonda\Report\{ChangeCoverage, CodeQuality, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
 
-use function implode, str_ends_with, str_starts_with, substr;
+use function dirname, implode, str_ends_with, str_starts_with, substr, trim;
 
 /**
  * `sonda test`: runs the project's tests instrumented, then reports the coverage of the
  * `<source>` of its phpunit.xml. With `--changed=<ref>` or `--files=`, only those files are
  * measured and anything left uncovered fails the command: in a changed file, the changed lines
  * and the methods they touch; in a new file or one named in `--files=`, the whole file.
+ *
+ * @phpstan-import-type Gaps from Uncovered
  */
 final readonly class TestCommand
 {
@@ -61,6 +63,7 @@ final readonly class TestCommand
                 fwrite($output, "Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
                 // The reports asked for still exist, empty, for whatever reads them after the job.
                 $this->writeReports($options, CoverageBuilder::empty(), $projectRoot, $output);
+                $this->writeCodeQuality($options, [], $projectRoot, $output);
 
                 return 0;
             }
@@ -122,10 +125,13 @@ final readonly class TestCommand
         $this->writeReports($options, $coverage, $projectRoot, $output);
 
         if ($checkedFiles === null) {
+            $this->writeCodeQuality($options, $options->codeQuality !== null ? Uncovered::of($coverage) : [], $projectRoot, $output);
+
             return $status;
         }
 
         $change = Uncovered::ofChanges($coverage, $changes, $checkedFiles);
+        $this->writeCodeQuality($options, $change->uncovered, $projectRoot, $output);
 
         if ($options->changed !== null) {
             fwrite($output, $this->changeSummary($change) . "\n");
@@ -265,6 +271,31 @@ final readonly class TestCommand
             new Cobertura()->process($coverage, $file);
             fwrite($output, "Relatório Cobertura em {$file}\n");
         }
+    }
+
+    /**
+     * The gaps as a GitLab Code Quality report, with paths from the root of the repository, which
+     * is where GitLab reads them from: a project in a subdirectory of it is not.
+     *
+     * @param array<string, Gaps> $uncovered
+     * @param resource            $output
+     */
+    private function writeCodeQuality(TestOptions $options, array $uncovered, string $projectRoot, $output): void
+    {
+        if ($options->codeQuality === null) {
+            return;
+        }
+
+        try {
+            $root = trim(Git::run($projectRoot, ['rev-parse', '--show-toplevel']));
+        } catch (RuntimeException) {
+            $root = $projectRoot;
+        }
+
+        $file = $this->reportPath($options->codeQuality, $projectRoot);
+        Filesystem::ensureDirectory(dirname($file));
+        file_put_contents($file, CodeQuality::of($uncovered, $root));
+        fwrite($output, "Relatório Code Quality em {$file}\n");
     }
 
     /**
