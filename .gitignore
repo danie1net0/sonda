@@ -21,3 +21,9 @@ phpstan.neon
 /.idea
 /.fleet
 /.vscode
+
+# Left at the root by mutants of the paths the tests write (pest --mutate)
+/*.ser
+/*.map
+/.php
+/key.*
