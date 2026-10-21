@@ -10,6 +10,10 @@
     "testing"
   ],
   "homepage": "https://github.com/danie1net0/sonda",
+  "support": {
+    "issues": "https://github.com/danie1net0/sonda/issues",
+    "source": "https://github.com/danie1net0/sonda"
+  },
   "license": "MIT",
   "authors": [
     {
