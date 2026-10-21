@@ -1,3 +1,10 @@
+## [1.13.2](https://github.com/danie1net0/sonda/compare/v1.13.1...v1.13.2) (2026-10-21)
+
+
+### Bug Fixes
+
+* **phpunit:** lê o arquivo dos testes do Pest anterior ao 4.7, que o guarda privado ([fa5c734](https://github.com/danie1net0/sonda/commit/fa5c734cd9ffdb2ec4636f4ced62f2ccc154b58e))
+
 ## [1.13.1](https://github.com/danie1net0/sonda/compare/v1.13.0...v1.13.1) (2026-10-21)
 
 
