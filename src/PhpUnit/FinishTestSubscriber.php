@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Sonda\PhpUnit;
 
+use ReflectionProperty;
 use Sonda\Hits;
 use PHPUnit\Event\Code\{Test, TestMethod};
 use PHPUnit\Event\Test\{Finished, FinishedSubscriber};
@@ -34,7 +35,8 @@ final class FinishTestSubscriber implements FinishedSubscriber
             return $test->file();
         }
 
-        $filename = $test->className()::$__filename;
+        // Public since Pest 4.7, private before: reflection reads both.
+        $filename = new ReflectionProperty($test->className(), '__filename')->getValue();
 
         // A class of another origin may hold anything in a property of that name.
         return is_string($filename) ? $filename : $test->file();

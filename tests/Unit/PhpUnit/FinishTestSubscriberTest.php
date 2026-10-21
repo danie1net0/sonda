@@ -6,7 +6,7 @@ use Sonda\Hits;
 use Sonda\PhpUnit\FinishTestSubscriber;
 use PHPUnit\Event\Code\Phpt;
 use PHPUnit\Event\Test\Finished;
-use Tests\Fixtures\Sizes\{LargeSizedTest, MediumSizedTest, OddFilenameTest, PestLikeTest, SmallSizedTest, UnsizedTest};
+use Tests\Fixtures\Sizes\{LargeSizedTest, MediumSizedTest, OddFilenameTest, OlderPestLikeTest, PestLikeTest, SmallSizedTest, UnsizedTest};
 
 it('keeps the probes hit by a finished test, under its id and file', function (): void {
     Hits::$current = ['abc' => [1 => 1]];
@@ -57,4 +57,12 @@ it('keeps the file PHPUnit gives when the property Pest uses holds no file', fun
     new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
 
     expect(Hits::$tests[$test->id()][0])->toBe('/project/tests/OddFilenameTest.php');
+});
+
+it('takes the real file of a test of Pest before 4.7, which keeps it private', function (): void {
+    $test = testMethod(OlderPestLikeTest::class, 'test_it', "/project/vendor/pestphp/pest/src/Factories/TestCaseFactory.php(178) : eval()'d code");
+
+    new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
+
+    expect(Hits::$tests[$test->id()][0])->toBe('/project/tests/Feature/OlderTest.php');
 });
