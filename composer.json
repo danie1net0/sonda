@@ -1,5 +1,5 @@
 {
-  "name": "danie1net0/sonda",
+  "name": "ddr/sonda",
   "description": "Line and branch coverage for PHP by instrumenting the source: much faster and lighter than Xdebug path coverage",
   "keywords": [
     "coverage",

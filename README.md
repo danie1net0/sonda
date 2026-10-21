@@ -56,7 +56,7 @@ Como dependência de desenvolvimento do projeto, que é o jeito de fixar a vers�
 Renovate ou o Dependabot atualizá-la:
 
 ```bash
-composer require --dev danie1net0/sonda
+composer require --dev ddr/sonda
 vendor/bin/sonda test
 ```
 
