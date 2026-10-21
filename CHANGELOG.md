@@ -1,3 +1,11 @@
+# [1.12.0](https://github.com/danie1net0/sonda/compare/v1.11.1...v1.12.0) (2026-10-21)
+
+
+### Features
+
+* **cli:** --map guarda o mapa do --affected onde o cache do CI alcança ([214a5a2](https://github.com/danie1net0/sonda/commit/214a5a2b5f1964812d732c75a78268fb8e276c10))
+* **relatorios:** --code-quality aponta no diff do MR o que ficou sem teste ([ef5960e](https://github.com/danie1net0/sonda/commit/ef5960ee6ed1dcfda431d2a5ba8a0006f929a4dd))
+
 ## [1.11.1](https://github.com/danie1net0/sonda/compare/v1.11.0...v1.11.1) (2026-10-21)
 
 
