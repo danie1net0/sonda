@@ -1,3 +1,10 @@
+## [1.13.1](https://github.com/danie1net0/sonda/compare/v1.13.0...v1.13.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **composer:** o pacote sai no Packagist como ddr/sonda ([22465f0](https://github.com/danie1net0/sonda/commit/22465f0d8a0279a34e96463df937dde65fe24db9))
+
 # [1.13.0](https://github.com/danie1net0/sonda/compare/v1.12.0...v1.13.0) (2026-10-21)
 
 
