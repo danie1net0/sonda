@@ -1,3 +1,10 @@
+## [1.11.1](https://github.com/danie1net0/sonda/compare/v1.11.0...v1.11.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **git:** --changed acha as mudanças de projeto em subdiretório do repositório ([c394fb7](https://github.com/danie1net0/sonda/commit/c394fb72e213faefb26e62f7596036d8981a1c17))
+
 # [1.11.0](https://github.com/danie1net0/sonda/compare/v1.10.4...v1.11.0) (2026-10-19)
 
 
