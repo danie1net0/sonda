@@ -13,8 +13,15 @@ it('saves and loads a run', function (): void {
     expect(Run::load($path))->toEqual($run);
 });
 
-it('has no tests unless given', function (): void {
-    expect(new Run('/cache', [], [])->tests)->toBe([]);
+it('has no tests nor problems unless given', function (): void {
+    expect(new Run('/cache', [], [])->tests)->toBe([])
+        ->and(new Run('/cache', [], [])->problems)->toBe([]);
+});
+
+it('merges the problems of every process of a suite, each once', function (): void {
+    $merged = Run::merge([new Run('/cache', [], [], [], ['a', 'b']), new Run('/cache', [], [], [], ['b', 'c'])]);
+
+    expect($merged->problems)->toBe(['a', 'b', 'c']);
 });
 
 it('merges the tests of every process of a suite', function (): void {

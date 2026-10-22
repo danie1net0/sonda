@@ -116,6 +116,10 @@ final readonly class TestCommand
 
         fwrite($output, "\n" . $this->summary($coverage) . "\n");
 
+        foreach ($run->problems as $problem) {
+            fwrite($output, "Aviso: o Sonda não leu o arquivo ou o tamanho de algum teste; a cobertura não muda, mas o --affected e o --covered-by podem sair incompletos: {$problem}\n");
+        }
+
         if ($options->text) {
             fwrite($output, TextSummary::of($coverage, $projectRoot) . "\n");
         }

@@ -26,7 +26,8 @@ it('carries the size PHPUnit gives the test', function (string $className, strin
 
     new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
 
-    expect(Hits::$tests[$test->id()][1])->toBe($size);
+    expect(Hits::$tests[$test->id()][1])->toBe($size)
+        ->and(Hits::$problems)->toBe([]);
 })->with([
     'small' => [SmallSizedTest::class, 'small'],
     'medium' => [MediumSizedTest::class, 'medium'],
@@ -40,7 +41,8 @@ it('gives a test that is not a method no size', function (): void {
     new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
 
     expect(Hits::$tests[$test->id()][1])->toBe('unknown')
-        ->and(Hits::$tests[$test->id()][0])->toBe('/project/tests/a.phpt');
+        ->and(Hits::$tests[$test->id()][0])->toBe('/project/tests/a.phpt')
+        ->and(Hits::$problems)->toBe([]);
 });
 
 it('takes the real file of a Pest test, whose class PHPUnit sees as evaluated code', function (): void {
@@ -65,4 +67,18 @@ it('takes the real file of a test of Pest before 4.7, which keeps it private', f
     new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
 
     expect(Hits::$tests[$test->id()][0])->toBe('/project/tests/Feature/OlderTest.php');
+});
+
+it('keeps the probes of a test whose details cannot be read, and says what went wrong', function (): void {
+    Hits::$current = ['abc' => [2 => 1]];
+    $test = testMethod('Tests\\Missing\\GoneTest', 'test_it', '/project/tests/GoneTest.php');
+
+    new FinishTestSubscriber()->notify(testEvent(Finished::class, $test));
+
+    expect(Hits::$accumulated)->toBe(['abc' => [2 => 1]])
+        ->and(Hits::$tests[$test->id()][0])->toBe('/project/tests/GoneTest.php')
+        ->and(Hits::$tests[$test->id()][1])->toBe('unknown')
+        // What PHPUnit says of a class it cannot load depends on whether assertions run.
+        ->and(array_values(Hits::$problems))->toBe([true])
+        ->and((string) array_key_first(Hits::$problems))->not->toBe('');
 });

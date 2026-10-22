@@ -17,13 +17,15 @@ final readonly class Run
     /**
      * @param array<string, array{0: string, 1: string}> $files file id => [source path, cache key]
      * @param array<string, array<int, int>>             $hits  file id => probe id => 1
-     * @param array<string, TestRecord>                  $tests what each test hit, see Hits::$tests
+     * @param array<string, TestRecord>                  $tests    what each test hit, see Hits::$tests
+     * @param list<string>                               $problems what kept the details of some test from being read
      */
     public function __construct(
         public string $cacheDirectory,
         public array $files,
         public array $hits,
         public array $tests = [],
+        public array $problems = [],
     ) {
     }
 
@@ -56,17 +58,19 @@ final readonly class Run
         $files = [];
         $hits = [];
         $tests = [];
+        $problems = [];
 
         foreach ($runs as $run) {
             $files += $run->files;
             $tests += $run->tests;
+            $problems = [...$problems, ...$run->problems];
 
             foreach ($run->hits as $fileId => $fileHits) {
                 $hits[$fileId] = ($hits[$fileId] ?? []) + $fileHits;
             }
         }
 
-        return new self($runs[0]->cacheDirectory, $files, $hits, $tests);
+        return new self($runs[0]->cacheDirectory, $files, $hits, $tests, array_values(array_unique($problems)));
     }
 
     public function save(string $path): void

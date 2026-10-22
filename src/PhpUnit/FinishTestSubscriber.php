@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Sonda\PhpUnit;
 
 use ReflectionProperty;
+use Throwable;
 use Sonda\Hits;
 use PHPUnit\Event\Code\{Test, TestMethod};
 use PHPUnit\Event\Test\{Finished, FinishedSubscriber};
@@ -18,7 +19,18 @@ final class FinishTestSubscriber implements FinishedSubscriber
     {
         $test = $event->test();
 
-        Hits::finishTest($test->id(), $this->file($test), $this->size($test));
+        // An exception here would reach PHPUnit as a mere warning and lose the probes of the test:
+        // the details of the test give way, the probes are kept, and the command says what went wrong.
+        try {
+            $file = $this->file($test);
+            $size = $this->size($test);
+        } catch (Throwable $throwable) {
+            Hits::$problems[$throwable->getMessage()] = true;
+            $file = $test->file();
+            $size = 'unknown';
+        }
+
+        Hits::finishTest($test->id(), $file, $size);
     }
 
     /**

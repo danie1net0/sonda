@@ -13,6 +13,7 @@ pest()
         Hits::$perTest = false;
         Hits::$tests = [];
         Hits::$failed = [];
+        Hits::$problems = [];
         new ReflectionProperty(Hits::class, 'packed')->setValue(null, []);
     })
     ->afterEach(function (): void {

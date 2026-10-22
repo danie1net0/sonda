@@ -30,6 +30,9 @@ final class Hits
      */
     public static array $tests = [];
 
+    /** @var array<string, true> what kept the details of some test from being read, by message */
+    public static array $problems = [];
+
     /** @var array<string, true> tests that failed or errored, until they finish */
     public static array $failed = [];
 

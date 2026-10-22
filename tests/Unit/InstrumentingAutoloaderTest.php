@@ -76,6 +76,10 @@ it('hands the tests recorded so far to the run', function (): void {
     $run = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter())->run();
 
     expect($run->tests)->toBe(Hits::$tests)->toHaveKey('Tests\\OrderTest::test_total');
+
+    Hits::$problems['broken'] = true;
+
+    expect(new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter())->run()->problems)->toBe(['broken']);
 });
 
 it('reuses the instrumented copy already in the cache', function (): void {

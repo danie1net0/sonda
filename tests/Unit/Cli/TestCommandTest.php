@@ -30,7 +30,7 @@ final class FakeRunner implements ProcessRunner
      * @param array<int, int>                                                                                    $hits  probes of Order.php to report as hit
      * @param array<string, array{0: string, 1: 'small'|'medium'|'large'|'unknown', 2: bool, 3: float, 4: array<string, string>}> $tests what each test hit
      */
-    public function __construct(private readonly int $status = 0, private readonly array $hits = [0 => 1, 1 => 1, 2 => 1], private readonly bool $savesRun = true, private readonly array $tests = [])
+    public function __construct(private readonly int $status = 0, private readonly array $hits = [0 => 1, 1 => 1, 2 => 1], private readonly bool $savesRun = true, private readonly array $tests = [], private readonly array $problems = [])
     {
     }
 
@@ -51,7 +51,7 @@ final class FakeRunner implements ProcessRunner
             $order = $directory . '/app/Order.php';
             $probes = [0 => new Probe(7, true, 'Order->total', 7, 11), 1 => new Probe(8, true, 'Order->total', 8, 8), 2 => new Probe(11, false, 'Order->total', 0, 0)];
             new InstrumentationCache($environment['SONDA_CACHE'])->store('order', new InstrumentationResult('<?php', $probes));
-            new Run($environment['SONDA_CACHE'], ['o' => [$order, 'order']], ['o' => $this->hits], $this->tests)->saveIn($environment['SONDA_OUT']);
+            new Run($environment['SONDA_CACHE'], ['o' => [$order, 'order']], ['o' => $this->hits], $this->tests, $this->problems)->saveIn($environment['SONDA_OUT']);
         }
 
         return $this->status;
@@ -700,4 +700,11 @@ it('keeps the test map where --map says, relative to the project', function (): 
 
     expect(TestMap::load($root . '/.cache/sonda/tests.map', $root)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])
         ->and($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n");
+});
+
+it('warns when the details of some test could not be read, keeping the coverage', function (): void {
+    [$status, $output] = runTestCommand(new FakeRunner(problems: ['Cannot access private property']), fakeProject(), new TestOptions(), TemporaryDirectory::create());
+
+    expect($status)->toBe(0)
+        ->and($output)->toContain("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nAviso: o Sonda não leu o arquivo ou o tamanho de algum teste; a cobertura não muda, mas o --affected e o --covered-by podem sair incompletos: Cannot access private property\n");
 });

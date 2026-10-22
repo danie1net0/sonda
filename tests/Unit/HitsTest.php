@@ -46,6 +46,7 @@ it('starts empty and collecting every probe', function (): void {
         ->and($default('accumulated'))->toBe([])
         ->and($default('tests'))->toBe([])
         ->and($default('failed'))->toBe([])
+        ->and($default('problems'))->toBe([])
         ->and($default('packed'))->toBe([])
         ->and($default('startedAt'))->toBe(0);
 });
