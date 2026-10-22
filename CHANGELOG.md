@@ -1,3 +1,10 @@
+## [1.13.3](https://github.com/danie1net0/sonda/compare/v1.13.2...v1.13.3) (2026-10-22)
+
+
+### Bug Fixes
+
+* **phpunit:** um teste cujo arquivo ou tamanho não se lê não perde as sondas ([e748575](https://github.com/danie1net0/sonda/commit/e74857517db603208c937ec740a2cf993233ac35))
+
 ## [1.13.2](https://github.com/danie1net0/sonda/compare/v1.13.1...v1.13.2) (2026-10-21)
 
 
