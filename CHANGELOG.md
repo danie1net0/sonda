@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/danie1net0/sonda/compare/v1.13.3...v1.14.0) (2026-10-27)
+
+
+### Features
+
+* mede os arquivos do source carregados por include ou require direto ([f807365](https://github.com/danie1net0/sonda/commit/f807365b1489d75174f26ed536c6da26089a74d5))
+
 ## [1.13.3](https://github.com/danie1net0/sonda/compare/v1.13.2...v1.13.3) (2026-10-22)
 
 
