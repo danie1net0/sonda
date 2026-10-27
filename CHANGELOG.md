@@ -1,3 +1,10 @@
+## [1.14.2](https://github.com/danie1net0/sonda/compare/v1.14.1...v1.14.2) (2026-10-27)
+
+
+### Bug Fixes
+
+* o wrapper de include só entra quando o source tem arquivos fora do autoloader ([5a73413](https://github.com/danie1net0/sonda/commit/5a734134da3f952eca5a98bd415dce5110a12eb5))
+
 ## [1.14.1](https://github.com/danie1net0/sonda/compare/v1.14.0...v1.14.1) (2026-10-27)
 
 
