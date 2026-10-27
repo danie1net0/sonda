@@ -129,7 +129,11 @@ final readonly class TestCommand
         $this->writeReports($options, $coverage, $projectRoot, $output);
 
         if ($checkedFiles === null) {
-            $this->writeCodeQuality($options, $options->codeQuality !== null ? Uncovered::of($coverage) : [], $projectRoot, $output);
+            // The gaps of the whole project only when the whole project is what was asked about: with
+            // --changed or --files and nothing of them in scope, the floor measured it all, but nothing
+            // changed for the merge request to point at.
+            $asksAboutTheWholeProject = $options->changed === null && $options->files === [];
+            $this->writeCodeQuality($options, $options->codeQuality !== null && $asksAboutTheWholeProject ? Uncovered::of($coverage) : [], $projectRoot, $output);
 
             return $status;
         }

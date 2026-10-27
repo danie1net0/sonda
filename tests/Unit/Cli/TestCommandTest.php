@@ -212,13 +212,15 @@ it('measures the whole project when nothing in scope changed but a floor was ask
     $root = fakeProject();
     $runner = new FakeRunner(hits: [0 => 1, 2 => 1]);
 
-    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--min-lines=70']), TemporaryDirectory::create());
+    [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Providers/AppProvider.php', '--min-lines=70', '--code-quality=gl.json']), TemporaryDirectory::create());
 
     expect($status)->toBe(1)
         ->and($runner->calls)->toBe(1)
         ->and($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
         ->toContain("\nCobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\n")
-        ->toContain("Cobertura abaixo do mínimo: linhas 66,67% < 70,00%\n");
+        ->toContain("Cobertura abaixo do mínimo: linhas 66,67% < 70,00%\n")
+        // The floor measured it all, but nothing changed for the merge request to point at.
+        ->and((string) file_get_contents($root . '/gl.json'))->toBe("[]\n");
 });
 
 it('keeps the exit code of a failing test run', function (): void {
@@ -707,4 +709,14 @@ it('warns when the details of some test could not be read, keeping the coverage'
 
     expect($status)->toBe(0)
         ->and($output)->toContain("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nAviso: o Sonda não leu o arquivo ou o tamanho de algum teste; a cobertura não muda, mas o --affected e o --covered-by podem sair incompletos: Cannot access private property\n");
+});
+
+it('points at nothing in Code Quality when what changed since the reference is outside the source', function (): void {
+    $root = committedFakeProject();
+    file_put_contents($root . '/app/Providers/AppProvider.php', "<?php\n\nfinal class AppProvider // changed\n{\n}\n");
+
+    [, $output] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--changed=master', '--min-lines=1', '--code-quality=gl.json']), TemporaryDirectory::create());
+
+    expect($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
+        ->and((string) file_get_contents($root . '/gl.json'))->toBe("[]\n");
 });
