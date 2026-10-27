@@ -496,7 +496,7 @@ it('fails below the floors of --min-lines and --min-branches, saying which, and 
         ->and($failedRun)->toBe(2);
 });
 
-it('warns before the run about a file of the source that another one requires directly, which is not measured', function (): void {
+it('runs quietly when a file of the source requires another by its path, which is measured too', function (): void {
     $root = fakeProject();
     file_put_contents($root . '/app/helpers.php', "<?php\n\nfunction fake_helper(): int\n{\n    return 1;\n}\n");
     file_put_contents($root . '/app/Boot.php', "<?php\n\nrequire __DIR__ . '/helpers.php';\n");
@@ -505,7 +505,7 @@ it('warns before the run about a file of the source that another one requires di
     [$status, $output] = runTestCommand($runner, $root, TestOptions::parse([]), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
-        ->and($output)->toStartWith("Aviso: app/helpers.php é carregado por require direto em app/Boot.php:3 e não é medido; só o autoloader instrumenta.\n")
+        ->and($output)->not->toContain('Aviso')
         ->and($runner->calls)->toBe(1);
 });
 

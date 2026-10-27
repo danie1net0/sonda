@@ -192,3 +192,33 @@ it("loads a file of the scope by its path from its instrumented copy, as one of 
         ->and($run->files)->toBe([$fileId => [$directory . '/app/helpers.php', $run->files[$fileId][1]]])
         ->and($run->hits[$fileId])->not->toBe([]);
 });
+
+it('hands the instrumented copy of a PHP file of the scope that code includes by its path, and counts it as loaded', function (): void {
+    ['directory' => $directory, 'loader' => $loader] = fixtureProject();
+    file_put_contents($directory . '/app/routes.php', "<?php\n\nreturn 'routes';\n");
+    mkdir($directory . '/app/views');
+    file_put_contents($directory . '/app/views/home.blade.php', '<h1>Home</h1>');
+    file_put_contents($directory . '/app/notes.txt', 'notes');
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app'], [$directory . '/app/views']), $directory . '/cache', new Instrumenter());
+    $autoloader->register();
+
+    $copy = $autoloader->copyFor($directory . '/app/../app/routes.php');
+    $fileId = substr(sha1($directory . '/app/routes.php'), 0, 12);
+
+    expect($copy)->toStartWith($directory . '/cache/')
+        ->and(include $copy)->toBe('routes')
+        ->and($autoloader->run()->files)->toBe([$fileId => [$directory . '/app/routes.php', basename((string) $copy, '.php')]])
+        ->and($autoloader->copyFor($directory . '/lib/Helper.php'))->toBeNull()
+        ->and($autoloader->copyFor($directory . '/app/notes.txt'))->toBeNull()
+        ->and($autoloader->copyFor($directory . '/app/views/home.blade.php'))->toBeNull()
+        ->and($autoloader->copyFor($directory . '/app/missing.php'))->toBeNull();
+});
+
+it('leaves a Blade template of the scope to the views, which instrument its compiled code', function (): void {
+    ['directory' => $directory, 'loader' => $loader] = fixtureProject();
+    file_put_contents($directory . '/app/home.blade.php', '<?php echo 1;');
+    $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
+    $autoloader->register();
+
+    expect($autoloader->copyFor($directory . '/app/home.blade.php'))->toBeNull();
+});

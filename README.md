@@ -234,10 +234,15 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
    `__DIR__` continuam apontando para o arquivo original.
 3. Só contam as sondas executadas durante cada teste, a mesma janela que o PHPUnit dá ao Xdebug:
    código executado em data provider não conta como coberto.
-4. Ao fim de cada teste, o Sonda guarda quais sondas ele executou, com o arquivo, o tamanho
+4. O que o autoloader não vê também vem instrumentado: um arquivo PHP do diretório alvo que o
+   código carrega pelo caminho, com `include` ou `require` (uma migration do Laravel, um arquivo
+   de rotas, um teste que faz `require` do arquivo), abre a cópia instrumentada. Um stream wrapper
+   de `file://`, registrado só nos processos que rodam testes, faz essa troca; qualquer outra
+   operação de arquivo segue para o wrapper do próprio PHP.
+5. Ao fim de cada teste, o Sonda guarda quais sondas ele executou, com o arquivo, o tamanho
    (`#[Small]`, `#[Medium]`, `#[Large]`), a duração e se falhou. Conjuntos iguais de sondas são
    guardados uma vez só, porque os testes de uma suíte passam quase todos pelo mesmo código.
-5. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
+6. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
    workers e monta o relatório com o php-code-coverage. Com `--covered-by`, cada linha e cada
    branch coberto leva o nome dos testes que o executaram, como com o Xdebug: no HTML, passar o
    mouse sobre uma linha mostra esses testes, e um teste que falhou aparece em vermelho.
@@ -315,10 +320,10 @@ credita o método. O `tools/compare.php` junta as duas entradas antes de compara
 
 - Views do Blade: só as pastas `resources/views` do projeto são achadas sozinhas; outra pasta
   entra com `--views`.
-- Um arquivo do diretório alvo carregado por `require` direto (fora da chave `files` do
-  Composer, que é medida) não é instrumentado e aparece inteiro como não coberto. O comando
-  avisa antes de rodar, resolvendo `__DIR__`, `__FILE__` e `dirname()` no argumento do `require`,
-  e recusa rodar quando o arquivo também está na chave `files`: seria declarado duas vezes.
+- Um arquivo da chave `files` do Composer que outro arquivo do diretório alvo também carrega por
+  `require` direto seria declarado duas vezes, da cópia instrumentada e do próprio caminho. O
+  comando recusa rodar nesse caso, resolvendo `__DIR__`, `__FILE__` e `dirname()` no argumento
+  do `require`.
 - A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
   (o Xdebug a conta como executada).
 - Testes que leem o arquivo da classe por reflection veem a cópia instrumentada.

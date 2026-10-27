@@ -6,7 +6,7 @@ declare(strict_types=1);
 // Settings come from the environment (see Sonda\Settings::fromEnvironment).
 
 use Composer\Autoload\ClassLoader;
-use Sonda\{ComposerFiles, Instrumenter, InstrumentingAutoloader, Run, Settings};
+use Sonda\{ComposerFiles, IncludeWrapper, Instrumenter, InstrumentingAutoloader, Run, Settings};
 use Sonda\Blade\Views;
 use Sonda\PhpUnit\CollectionWindow;
 
@@ -30,7 +30,13 @@ foreach ($claimedFiles as $claimedFile) {
 }
 
 $views = Views::configure($settings, $instrumenter);
-CollectionWindow::open();
+
+// What the autoloader never sees, a file of the scope included by its path, comes instrumented
+// too, in the processes that run tests. The parallel orchestrator follows the output files of
+// its workers as they grow, which a stream wrapper would see end at the first end of file.
+if (CollectionWindow::open()) {
+    IncludeWrapper::register($autoloader->copyFor(...));
+}
 
 if ($settings->chainedBootstrap !== null) {
     require $settings->chainedBootstrap;

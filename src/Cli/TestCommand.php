@@ -87,7 +87,7 @@ final readonly class TestCommand
         // the verdict of --changed and --files still looks only at their files.
         $scope = $hasFloor || $affectedTests === null ? $wholeProject : $narrowed;
         $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
-        $this->warnAboutDirectRequires($sourceFiles, $scope, $projectRoot, $output);
+        $this->refuseDoubleDeclarations($sourceFiles, $scope, $projectRoot);
         [$runnerArguments, $generatedConfiguration] = $this->runnerArguments($options, $configuration, $projectRoot, $affectedTests ?? []);
 
         try {
@@ -303,14 +303,13 @@ final readonly class TestCommand
     }
 
     /**
-     * A file of the scope that another file requires directly runs from its original, not from
-     * the instrumented copy, and shows no coverage: said before the run. One that Composer's
-     * `files` autoload also lists would be declared twice under the Sonda, so that one stops the run.
+     * A file of the scope that Composer loads from its `files` and that another file of the scope
+     * also requires by its path would be declared twice under the Sonda, from the instrumented copy
+     * and from its own path: that stops the run before anything runs.
      *
      * @param list<string> $sourceFiles
-     * @param resource     $output
      */
-    private function warnAboutDirectRequires(array $sourceFiles, Scope $scope, string $projectRoot, $output): void
+    private function refuseDoubleDeclarations(array $sourceFiles, Scope $scope, string $projectRoot): void
     {
         $listed = array_flip(ComposerFiles::listed($projectRoot . '/vendor/autoload.php'));
 
@@ -318,11 +317,11 @@ final readonly class TestCommand
             $where = TextSummary::relative($require->file, $projectRoot) . ':' . $require->line;
             $target = TextSummary::relative($require->target, $projectRoot);
 
+            // A file required by its path is measured too; one Composer also loads from its `files`
+            // comes from the instrumented copy there and from its own path here: declared twice.
             if (isset($listed[$require->target])) {
                 throw new RuntimeException("{$target} está na chave files do Composer e ainda é carregado por require direto em {$where}: sob o Sonda seria declarado duas vezes. Tire o require.");
             }
-
-            fwrite($output, "Aviso: {$target} é carregado por require direto em {$where} e não é medido; só o autoloader instrumenta.\n");
         }
     }
 

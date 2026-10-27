@@ -186,7 +186,7 @@ function commitEverything(string $root): void
 it('measures a project in parallel with nothing installed in it', function (): void {
     [$status, $output] = sonda(sondaProject(), 'test');
 
-    expect($status)->toBe(0)
+    expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (2 tests, 3 assertions)')
         ->toContain("\nCobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)\n");
 });
@@ -440,3 +440,19 @@ it('leaves --affected aside when a floor asks for the whole suite or the tests t
         ->and($withPath)->toStartWith("--affected ignorado: os testes a rodar já foram dados.\n")
         ->toContain('OK (1 test, 2 assertions)');
 });
+
+it('measures a file of the source that a test requires by its path, outside the autoloader', function (string ...$runner): void {
+    $root = sondaProject();
+    file_put_contents($root . '/src/migration.php', "<?php\n\nreturn new class () {\n    public function up(): int\n    {\n        return 7;\n    }\n};\n");
+    file_put_contents($root . '/tests/MigrationTest.php', "<?php\n\nnamespace Fixture\\Project\\Tests;\n\nuse PHPUnit\\Framework\\TestCase;\n\nfinal class MigrationTest extends TestCase\n{\n    public function testItRuns(): void\n    {\n        \$this->assertSame(7, (require __DIR__ . '/../src/migration.php')->up());\n    }\n}\n");
+
+    [$status, $output] = sonda($root, 'test', '--files=src/migration.php', ...$runner);
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain("Cobertura: linhas 3/3 (100,00%), branches 0/0 (100,00%)")
+        ->toContain('Os arquivos alterados estão 100% cobertos.');
+})->with([
+    'in parallel' => [],
+    'in series' => ['--no-parallel'],
+]);

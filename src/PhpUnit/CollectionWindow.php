@@ -17,7 +17,8 @@ use PHPUnit\Event\{EventFacadeIsSealedException, Facade as EventFacade};
  */
 final class CollectionWindow
 {
-    public static function open(): void
+    /** @return bool whether this process runs tests: the parallel orchestrator does not */
+    public static function open(): bool
     {
         Hits::$perTest = true;
 
@@ -26,6 +27,9 @@ final class CollectionWindow
         } catch (EventFacadeIsSealedException) {
             // The parallel orchestrator loads the bootstrap after sealing, and runs no tests:
             // with the window never opened, nothing it executes counts as covered.
+            return false;
         }
+
+        return true;
     }
 }

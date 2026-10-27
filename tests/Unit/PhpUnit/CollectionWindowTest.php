@@ -21,7 +21,7 @@ function subscribersRegisteredByOpeningTheWindow(): array
     $instance->setValue(null, $fresh);
 
     try {
-        CollectionWindow::open();
+        expect(CollectionWindow::open())->toBeTrue();
     } finally {
         $instance->setValue(null, $running);
     }
@@ -47,9 +47,8 @@ it('collects per test and subscribes to the start, the failure and the end of ea
         ->and($subscribers[Finished::class][0])->toBeInstanceOf(FinishTestSubscriber::class);
 });
 
-it('counts nothing in a process whose events are already sealed', function (): void {
-    CollectionWindow::open();
-
-    expect(Hits::$perTest)->toBeTrue()
+it('counts nothing in a process whose events are already sealed, which runs no tests', function (): void {
+    expect(CollectionWindow::open())->toBeFalse()
+        ->and(Hits::$perTest)->toBeTrue()
         ->and(Hits::collected())->toBe([]);
 });
