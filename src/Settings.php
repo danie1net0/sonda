@@ -26,6 +26,7 @@ final readonly class Settings
         public bool $fast,
         public ?string $chainedBootstrap,
         public array $viewDirectories = [],
+        public bool $includes = false,
     ) {
     }
 
@@ -33,8 +34,9 @@ final readonly class Settings
      * Required: SONDA_AUTOLOAD (autoload.php of the measured project), SONDA_TARGET (directories
      * to instrument), SONDA_CACHE (instrumented files) and SONDA_OUT (directory of the run files,
      * one per process). Optional: SONDA_EXCLUDE (directories left out), SONDA_ONLY (the only files
-     * measured), SONDA_STRICT=1, SONDA_FAST=1, SONDA_CHAIN (the project's own bootstrap) and
-     * SONDA_VIEWS (directories of Blade views to measure). Lists are separated by PATH_SEPARATOR.
+     * measured), SONDA_STRICT=1, SONDA_FAST=1, SONDA_CHAIN (the project's own bootstrap),
+     * SONDA_VIEWS (directories of Blade views to measure) and SONDA_INCLUDES=1 (instrument the
+     * files of the scope included by their path too). Lists are separated by PATH_SEPARATOR.
      *
      * @param array<string, string> $environment
      */
@@ -53,6 +55,7 @@ final readonly class Settings
             ($environment['SONDA_FAST'] ?? null) === '1',
             $chainedBootstrap !== '' ? $chainedBootstrap : null,
             self::list($environment['SONDA_VIEWS'] ?? ''),
+            ($environment['SONDA_INCLUDES'] ?? null) === '1',
         );
     }
 

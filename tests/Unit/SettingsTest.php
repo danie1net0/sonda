@@ -43,6 +43,7 @@ it('reads the optional settings', function (): void {
         'SONDA_FAST' => '1',
         'SONDA_CHAIN' => 'tests/bootstrap.php',
         'SONDA_VIEWS' => 'resources/views' . PATH_SEPARATOR . 'other/views',
+        'SONDA_INCLUDES' => '1',
     ]));
 
     expect($settings)
@@ -52,7 +53,8 @@ it('reads the optional settings', function (): void {
         ->strict->toBeTrue()
         ->fast->toBeTrue()
         ->chainedBootstrap->toBe('tests/bootstrap.php')
-        ->viewDirectories->toBe(['resources/views', 'other/views']);
+        ->viewDirectories->toBe(['resources/views', 'other/views'])
+        ->includes->toBeTrue();
 });
 
 it('turns on flags only with the value 1', function (): void {
@@ -89,4 +91,9 @@ it('builds the scope of the instrumentation', function (): void {
     ]));
 
     expect($settings->scope())->toEqual(new Scope([$directory . '/app'], [$directory . '/app/Providers'], [$directory . '/app/Order.php']));
+});
+
+it('leaves the files included by their path alone unless told with the value 1', function (): void {
+    expect(Settings::fromEnvironment(environment([]))->includes)->toBeFalse()
+        ->and(Settings::fromEnvironment(environment(['SONDA_INCLUDES' => 'true']))->includes)->toBeFalse();
 });

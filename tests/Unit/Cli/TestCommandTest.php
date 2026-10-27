@@ -118,6 +118,7 @@ it('runs the project tests instrumented and reports the coverage of its source',
             'SONDA_STRICT' => '1',
             'SONDA_FAST' => '1',
             'SONDA_CHAIN' => '',
+            'SONDA_INCLUDES' => '0',
         ])
         ->and($runner->environment['SONDA_OUT'])->toMatch('#^' . preg_quote($work . '/runs-', '#') . '[0-9a-f]{8}$#')
         ->and(is_dir($runner->environment['SONDA_OUT']))->toBeFalse()
@@ -719,4 +720,35 @@ it('points at nothing in Code Quality when what changed since the reference is o
 
     expect($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
         ->and((string) file_get_contents($root . '/gl.json'))->toBe("[]\n");
+});
+
+it('instruments the files included by their path when the source has files the autoloader cannot load, or when asked', function (): void {
+    $root = fakeProject();
+    $automatic = new FakeRunner();
+    runTestCommand($automatic, $root, new TestOptions(), TemporaryDirectory::create());
+    file_put_contents($root . '/app/migration.php', "<?php\n\nreturn new class () {\n};\n");
+    $detected = new FakeRunner();
+    runTestCommand($detected, $root, new TestOptions(), TemporaryDirectory::create());
+    $refused = new FakeRunner();
+    runTestCommand($refused, $root, TestOptions::parse(['--no-includes']), TemporaryDirectory::create());
+    unlink($root . '/app/migration.php');
+    $asked = new FakeRunner();
+    runTestCommand($asked, $root, TestOptions::parse(['--includes']), TemporaryDirectory::create());
+
+    expect($automatic->environment['SONDA_INCLUDES'])->toBe('0')
+        ->and($detected->environment['SONDA_INCLUDES'])->toBe('1')
+        ->and($refused->environment['SONDA_INCLUDES'])->toBe('0')
+        ->and($asked->environment['SONDA_INCLUDES'])->toBe('1');
+});
+
+it("leaves Composer's files out of what decides the includes, since the autoloader loads them", function (): void {
+    $root = fakeProject();
+    mkdir($root . '/vendor/composer');
+    file_put_contents($root . '/app/helpers.php', "<?php\n\nfunction fake_helper(): int\n{\n    return 1;\n}\n");
+    file_put_contents($root . '/vendor/composer/autoload_files.php', "<?php\n\nreturn ['h' => dirname(__DIR__, 2) . '/app/helpers.php'];\n");
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, new TestOptions(), TemporaryDirectory::create());
+
+    expect($runner->environment['SONDA_INCLUDES'])->toBe('0');
 });

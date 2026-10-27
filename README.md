@@ -187,6 +187,7 @@ inteira. O que ele pode fazer é rodar testes a mais. Com piso de cobertura (`--
 | `--views=a,b` | mede também as views do Blade dessas pastas |
 | `--text` | lista a cobertura de cada arquivo depois do total |
 | `--affected` | com `--changed` ou `--files`, roda só os testes que executam o que mudou (ver acima) |
+| `--includes`, `--no-includes` | instrumenta, ou não, os arquivos do diretório alvo carregados por `include` ou `require` direto; sem elas, o Sonda decide sozinho, ligando quando há arquivos que o autoloader não carrega |
 | `--map=<arq>` | onde guardar o mapa de testes do `--affected`, para o cache do CI (ver acima) |
 | `--covered-by` | cada linha e branch coberto leva o nome dos testes que o executaram, como com o Xdebug; no HTML, aparecem ao passar o mouse sobre a linha. Pesa numa suíte grande: em 5.615 testes, o HTML foi de 123 MB para 1,3 GB e a memória do relatório de 300 MB para 870 MB |
 | `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou). Com piso, o Sonda instrumenta e mede o `<source>` inteiro mesmo com `--changed` ou `--files`, cujo veredito continua olhando só os arquivos deles; o total impresso é o do projeto |
@@ -238,7 +239,11 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
    código carrega pelo caminho, com `include` ou `require` (uma migration do Laravel, um arquivo
    de rotas, um teste que faz `require` do arquivo), abre a cópia instrumentada. Um stream wrapper
    de `file://`, registrado só nos processos que rodam testes, faz essa troca; qualquer outra
-   operação de arquivo segue para o wrapper do próprio PHP.
+   operação de arquivo segue para o wrapper do próprio PHP. Ele só entra quando o diretório alvo
+   tem arquivos que o autoloader não carrega (que não declaram classe, interface, trait nem enum
+   com nome, fora a chave `files` do Composer): cada arquivo que um wrapper abre guarda memória
+   que o PHP só devolve no fim do processo, e numa suíte grande isso pesa. `--includes` e
+   `--no-includes` forçam a escolha.
 5. Ao fim de cada teste, o Sonda guarda quais sondas ele executou, com o arquivo, o tamanho
    (`#[Small]`, `#[Medium]`, `#[Large]`), a duração e se falhou. Conjuntos iguais de sondas são
    guardados uma vez só, porque os testes de uma suíte passam quase todos pelo mesmo código.

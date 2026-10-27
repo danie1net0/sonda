@@ -35,6 +35,9 @@ final readonly class Application
       --affected        com --changed ou --files, roda só os testes que executam o que mudou,
                         pelo mapa que cada execução grava; sem mapa ou com mudança que ele não
                         explica (config, rotas, arquivo novo), roda a suíte inteira
+      --includes        mede também os arquivos carregados por include/require direto (padrão:
+                        só quando o source tem arquivos sem classe, como migrations)
+      --no-includes     não mede esses arquivos
       --map=<arq>       guarda o mapa de testes do --affected nesse arquivo (para o cache do CI)
       --covered-by      diz nos relatórios que testes executaram cada linha e branch (pesa:
                         num projeto grande, o HTML passa de 1 GB)

@@ -11,7 +11,7 @@ it('measures everything, strict, fast and in parallel by default', function (): 
 it('reads its own options and passes the rest to the runner', function (): void {
     $options = TestOptions::parse([
         '--changed=origin/master', '--files=app/A.php,app/B.php', '--files=app/C.php', '--views=themes/dark,themes/light', '--views=/views', '--html=build/html', '--clover=clover.xml', '--cov=coverage.cov', '--cobertura=cobertura.xml', '--code-quality=gl-code-quality.json', '--map=.sonda/tests.map',
-        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--covered-by', '--affected', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
+        '--no-strict', '--no-fast', '--no-parallel', '--no-blade', '--text', '--covered-by', '--affected', '--includes', '--min-lines=90', '--min-branches=85,5', '--filter=Order', 'tests/Feature',
     ]);
 
     expect($options)->toEqual(new TestOptions(
@@ -25,6 +25,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         text: true,
         coveredBy: true,
         affected: true,
+        includes: true,
         minLines: 90.0,
         minBranches: 85.5,
         html: 'build/html',
@@ -96,3 +97,9 @@ it('requires a percentage from 0 to 100 for the floors', function (string $argum
     ['--min-lines=101', '--min-lines'],
     ['--min-branches=-1', '--min-branches'],
 ]);
+
+it('decides the includes by itself unless told to, either way', function (): void {
+    expect(TestOptions::parse([])->includes)->toBeNull()
+        ->and(TestOptions::parse(['--includes'])->includes)->toBeTrue()
+        ->and(TestOptions::parse(['--no-includes'])->includes)->toBeFalse();
+});

@@ -32,9 +32,12 @@ foreach ($claimedFiles as $claimedFile) {
 $views = Views::configure($settings, $instrumenter);
 
 // What the autoloader never sees, a file of the scope included by its path, comes instrumented
-// too, in the processes that run tests. The parallel orchestrator follows the output files of
-// its workers as they grow, which a stream wrapper would see end at the first end of file.
-if (CollectionWindow::open()) {
+// too, when the scope has such files, in the processes that run tests. The parallel orchestrator
+// follows the output files of its workers as they grow, which a stream wrapper would see end at
+// the first end of file. Every file a wrapper opens costs memory PHP frees only at the end.
+$runsTests = CollectionWindow::open();
+
+if ($runsTests && $settings->includes) {
     IncludeWrapper::register($autoloader->copyFor(...));
 }
 

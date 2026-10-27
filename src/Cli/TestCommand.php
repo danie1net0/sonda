@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use RuntimeException;
 use Sonda\{ComposerFiles, Filesystem, Run, Scope};
 use Sonda\Git\{ChangedLines, ChangedPaths, Git};
-use Sonda\Project\{AffectedTests, DirectRequires, Runner, SuiteConfiguration, TestConfiguration, TestMap, TestSelection, ViewFolders};
+use Sonda\Project\{AffectedTests, DirectRequires, IncludedFiles, Runner, SuiteConfiguration, TestConfiguration, TestMap, TestSelection, ViewFolders};
 use Sonda\Report\{ChangeCoverage, CodeQuality, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
@@ -93,7 +93,7 @@ final readonly class TestCommand
         try {
             $status = $this->processes->run(
                 [...Runner::command($projectRoot, $options->parallel), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$runnerArguments],
-                $this->environment($configuration, $projectRoot, $scope->narrowsToFiles() ? $sourceFiles : [], $viewDirectories, $workDirectory . '/cache', $runsDirectory, $options),
+                $this->environment($configuration, $projectRoot, $scope->narrowsToFiles() ? $sourceFiles : [], $viewDirectories, $workDirectory . '/cache', $runsDirectory, $options, $this->includes($options, $sourceFiles, $projectRoot)),
                 $projectRoot,
             );
         } finally {
@@ -233,7 +233,7 @@ final readonly class TestCommand
      *
      * @return array<string, string>
      */
-    private function environment(TestConfiguration $configuration, string $projectRoot, array $onlyFiles, array $viewDirectories, string $cacheDirectory, string $runsDirectory, TestOptions $options): array
+    private function environment(TestConfiguration $configuration, string $projectRoot, array $onlyFiles, array $viewDirectories, string $cacheDirectory, string $runsDirectory, TestOptions $options, bool $includes): array
     {
         $autoload = $projectRoot . '/vendor/autoload.php';
         $chained = $configuration->bootstrap !== null && realpath($configuration->bootstrap) !== realpath($autoload) ? $configuration->bootstrap : '';
@@ -249,6 +249,7 @@ final readonly class TestCommand
         $environment['SONDA_STRICT'] = $options->strict ? '1' : '0';
         $environment['SONDA_FAST'] = $options->fast ? '1' : '0';
         $environment['SONDA_CHAIN'] = $chained;
+        $environment['SONDA_INCLUDES'] = $includes ? '1' : '0';
 
         return $environment;
     }
@@ -349,6 +350,24 @@ final readonly class TestCommand
         $generated = SuiteConfiguration::write($configuration->path, $selection->paths, $projectRoot);
 
         return [[...$selection->options, '--configuration=' . $generated], $generated];
+    }
+
+    /**
+     * Whether the files of the scope included by their path are instrumented too: as asked, or
+     * when the scope has files the autoloader can never load, apart from Composer's `files`,
+     * which it loads. The stream wrapper that does it costs memory for every file it opens.
+     *
+     * @param list<string> $sourceFiles
+     */
+    private function includes(TestOptions $options, array $sourceFiles, string $projectRoot): bool
+    {
+        if ($options->includes !== null) {
+            return $options->includes;
+        }
+
+        $composerFiles = ComposerFiles::listed($projectRoot . '/vendor/autoload.php');
+
+        return IncludedFiles::in(array_values(array_diff($sourceFiles, $composerFiles))) !== [];
     }
 
     /**
