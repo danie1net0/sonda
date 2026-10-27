@@ -1,3 +1,10 @@
+## [1.14.1](https://github.com/danie1net0/sonda/compare/v1.14.0...v1.14.1) (2026-10-27)
+
+
+### Bug Fixes
+
+* **relatorios:** o Code Quality de um MR que não mexe no source fica vazio ([136afcb](https://github.com/danie1net0/sonda/commit/136afcb3a58d42078499689f25fb529b0abe241a))
+
 # [1.14.0](https://github.com/danie1net0/sonda/compare/v1.13.3...v1.14.0) (2026-10-27)
 
 
