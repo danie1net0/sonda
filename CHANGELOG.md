@@ -1,3 +1,10 @@
+## [1.14.3](https://github.com/danie1net0/sonda/compare/v1.14.2...v1.14.3) (2026-10-28)
+
+
+### Performance Improvements
+
+* o wrapper de include guarda o stat de vendor e do diretório alvo ([3950c7f](https://github.com/danie1net0/sonda/commit/3950c7ff52d1f64d851e8450d67e4f73ddf80e53))
+
 ## [1.14.2](https://github.com/danie1net0/sonda/compare/v1.14.1...v1.14.2) (2026-10-27)
 
 
