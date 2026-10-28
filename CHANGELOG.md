@@ -1,3 +1,10 @@
+## [1.14.4](https://github.com/danie1net0/sonda/compare/v1.14.3...v1.14.4) (2026-10-28)
+
+
+### Bug Fixes
+
+* o wrapper de include não prende mais memória a cada operação ([e02249a](https://github.com/danie1net0/sonda/commit/e02249ae8dc76023978a3512030721223507c4f1))
+
 ## [1.14.3](https://github.com/danie1net0/sonda/compare/v1.14.2...v1.14.3) (2026-10-28)
 
 
