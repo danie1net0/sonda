@@ -5,23 +5,9 @@ declare(strict_types=1);
 use Sonda\IncludeWrapper;
 
 /** Registers the wrapper for the test, giving each path asked for to $copyFor, and puts PHP's back after it. */
-function wrapping(Closure $copyFor, array $stableDirectories = []): void
+function wrapping(Closure $copyFor): void
 {
-    IncludeWrapper::register($copyFor, $stableDirectories);
-}
-
-/** Changes the filesystem as another process would, unseen by the wrapper, which stays registered with what it kept. */
-function behindTheWrapper(Closure $change): void
-{
-    stream_wrapper_restore('file');
-
-    try {
-        $change();
-    } finally {
-        stream_wrapper_unregister('file');
-        stream_wrapper_register('file', IncludeWrapper::class);
-        clearstatcache();
-    }
+    IncludeWrapper::register($copyFor);
 }
 
 afterEach(function (): void {
@@ -359,126 +345,24 @@ it("opens files with its own stream while registered and with PHP's after it is 
         ->and($plainType)->toBe('plainfile');
 });
 
-it('keeps the stats of a stable directory, through links and "..", and asks again for everything else', function (): void {
-    $stable = TemporaryDirectory::create();
-    // A sibling whose name starts with the stable one's is outside it.
-    $other = $stable . '-other';
-    mkdir($other);
-    TemporaryDirectory::$created[] = $other;
-    mkdir($stable . '/sub');
-    file_put_contents($stable . '/file.txt', 'x');
-    file_put_contents($other . '/file.txt', 'x');
-    symlink($stable . '/file.txt', $stable . '/link.txt');
-    symlink($stable . '/gone.txt', $stable . '/dangling.txt');
-    wrapping(static fn (): ?string => null, [$stable, '/nowhere']);
+it('keeps no memory from the operations it hands PHP, nor from being registered again', function (): void {
+    $path = TemporaryDirectory::create() . '/file.txt';
+    file_put_contents($path, 'x');
+    wrapping(static fn (): ?string => null);
 
-    $before = [
-        file_exists($stable . '/file.txt'),
-        file_exists($stable . '/sub/../file.txt'),
-        is_link($stable . '/link.txt'),
-        file_exists($stable . '/link.txt'),
-        is_link($stable . '/dangling.txt'),
-        file_exists($stable . '/dangling.txt'),
-        file_exists($stable . '/missing.txt'),
-        file_exists($stable . '/gone/file.txt'),
-        file_exists($other . '/file.txt'),
-    ];
-    behindTheWrapper(static function () use ($stable, $other): void {
-        unlink($stable . '/file.txt');
-        unlink($stable . '/link.txt');
-        file_put_contents($stable . '/missing.txt', 'x');
-        mkdir($stable . '/gone');
-        file_put_contents($stable . '/gone/file.txt', 'x');
-        unlink($other . '/file.txt');
-    });
-    $after = [
-        file_exists($stable . '/file.txt'),
-        file_exists($stable . '/sub/../file.txt'),
-        is_link($stable . '/link.txt'),
-        file_exists($stable . '/link.txt'),
-        is_link($stable . '/dangling.txt'),
-        file_exists($stable . '/dangling.txt'),
-        file_exists($stable . '/missing.txt'),
-        file_exists($stable . '/gone/file.txt'),
-        file_exists($other . '/file.txt'),
-    ];
+    // The first operations settle whatever PHP allocates once.
+    for ($i = 0; $i < 100; $i++) {
+        file_exists($path);
+    }
 
-    // Kept: the file, by either path, the links and what they point to, apart, the missing file.
-    // Asked again: the file in a directory that was missing, the file outside.
-    expect($before)->toBe([true, true, true, true, true, false, false, false, true])
-        ->and($after)->toBe([true, true, true, true, true, false, false, true, false]);
-});
+    $before = memory_get_usage();
 
-it('forgets the stats it kept when a stable path changes through it', function (Closure $change): void {
-    $stable = TemporaryDirectory::create();
-    file_put_contents($stable . '/kept.txt', 'x');
-    file_put_contents($stable . '/file.txt', 'x');
-    mkdir($stable . '/directory');
-    wrapping(static fn (): ?string => null, [$stable]);
-    file_exists($stable . '/kept.txt');
-    behindTheWrapper(static fn (): bool => unlink($stable . '/kept.txt'));
+    for ($i = 0; $i < 10000; $i++) {
+        file_exists($path);
+        fclose(fopen($path, 'r'));
+        IncludeWrapper::unregister();
+        wrapping(static fn (): ?string => null);
+    }
 
-    $change($stable);
-
-    expect(file_exists($stable . '/kept.txt'))->toBeFalse();
-})->with([
-    'a file written' => [static fn (string $stable): int|false => file_put_contents($stable . '/new.txt', 'x')],
-    'a file opened to read and write' => [static fn (string $stable): bool => fclose(fopen($stable . '/file.txt', 'r+'))],
-    'a file removed' => [static fn (string $stable): bool => unlink($stable . '/file.txt')],
-    'a file renamed into it, by a path through ".."' => [static function (string $stable): bool {
-        $outside = TemporaryDirectory::create();
-        file_put_contents($outside . '/file.txt', 'x');
-
-        return rename($outside . '/../' . basename($outside) . '/file.txt', $stable . '/../' . basename($stable) . '/moved.txt');
-    }],
-    'a file renamed out of it' => [static fn (string $stable): bool => rename($stable . '/file.txt', TemporaryDirectory::create() . '/moved.txt')],
-    'a file touched' => [static fn (string $stable): bool => touch($stable . '/file.txt')],
-    'a directory made' => [static fn (string $stable): bool => mkdir($stable . '/made')],
-    'a directory removed' => [static fn (string $stable): bool => rmdir($stable . '/directory')],
-    'a path that cannot be resolved' => [static fn (): bool => mkdir(TemporaryDirectory::create() . '/a/b', 0o700, true)],
-]);
-
-it('keeps its stats when files outside the stable directories change, or one inside is only read', function (): void {
-    $stable = TemporaryDirectory::create();
-    $other = TemporaryDirectory::create();
-    file_put_contents($stable . '/kept.txt', 'x');
-    file_put_contents($stable . '/read.txt', 'x');
-    wrapping(static fn (): ?string => null, [$stable]);
-    file_exists($stable . '/kept.txt');
-    behindTheWrapper(static fn (): bool => unlink($stable . '/kept.txt'));
-
-    file_put_contents($other . '/new.txt', 'x');
-    $read = file_get_contents($stable . '/read.txt');
-
-    expect(file_exists($stable . '/kept.txt'))->toBeTrue()
-        ->and($read)->toBe('x');
-});
-
-it('forgets when a file is opened to write, and again when it closes, since writing changed it', function (): void {
-    $stable = TemporaryDirectory::create();
-    wrapping(static fn (): ?string => null, [$stable]);
-
-    $before = file_exists($stable . '/file.txt');
-    $handle = fopen($stable . '/file.txt', 'w');
-    $sizeWhileOpen = filesize($stable . '/file.txt');
-    fwrite($handle, 'hello');
-    fclose($handle);
-    clearstatcache();
-
-    expect($before)->toBeFalse()
-        ->and($sizeWhileOpen)->toBe(0)
-        ->and(filesize($stable . '/file.txt'))->toBe(5);
-});
-
-it('starts with no stats kept each time it is registered', function (): void {
-    $stable = TemporaryDirectory::create();
-    file_put_contents($stable . '/kept.txt', 'x');
-    wrapping(static fn (): ?string => null, [$stable]);
-    file_exists($stable . '/kept.txt');
-    behindTheWrapper(static fn (): bool => unlink($stable . '/kept.txt'));
-
-    IncludeWrapper::unregister();
-    wrapping(static fn (): ?string => null, [$stable]);
-
-    expect(file_exists($stable . '/kept.txt'))->toBeFalse();
+    expect(memory_get_usage() - $before)->toBeLessThan(1024);
 });

@@ -34,12 +34,11 @@ $views = Views::configure($settings, $instrumenter);
 // What the autoloader never sees, a file of the scope included by its path, comes instrumented
 // too, when the scope has such files, in the processes that run tests. The parallel orchestrator
 // follows the output files of its workers as they grow, which a stream wrapper would see end at
-// the first end of file. Every operation the wrapper hands PHP costs memory PHP frees only at the
-// end: the stats of the dependencies and of the code under test, asked for again and again, are kept.
+// the first end of file.
 $runsTests = CollectionWindow::open();
 
 if ($runsTests && $settings->includes) {
-    IncludeWrapper::register($autoloader->copyFor(...), [dirname($settings->autoloadPath), ...$settings->targetDirectories]);
+    IncludeWrapper::register($autoloader->copyFor(...));
 }
 
 if ($settings->chainedBootstrap !== null) {

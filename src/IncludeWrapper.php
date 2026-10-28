@@ -6,20 +6,15 @@ namespace Sonda;
 
 use Closure;
 
-use function dirname;
-use function str_contains;
-use function str_starts_with;
-
 /**
  * The `file://` stream wrapper while sonda runs: a file of the scope that code includes or
  * requires by its path, outside the autoloader (a Laravel migration, a routes file, a test that
  * requires a file), opens its instrumented copy instead. Every other operation, and every other
  * file, goes to PHP's own wrapper untouched.
  *
- * PHP has one wrapper per protocol: each operation puts PHP's back for its duration. Putting this
- * one back registers it anew, and PHP keeps each registration until the process ends: the stats of
- * the stable directories, the dependencies and the code under test, are answered from memory after
- * the first time, until something writes there through the wrapper.
+ * PHP has one wrapper per protocol: each operation puts PHP's back for its duration. Restoring
+ * PHP's over this one would drop this one without freeing it, and PHP would hold the memory until
+ * the process ends; unregistering it first frees it, and nothing is kept.
  */
 final class IncludeWrapper
 {
@@ -36,40 +31,17 @@ final class IncludeWrapper
 
     private static bool $registered = false;
 
-    /** @var list<string> the directories whose stats are kept, with a trailing slash */
-    private static array $stableDirectories = [];
-
-    /** @var array<string, array<int|string, int>|false> the stats asked for, by kind ("l" a link, "s" what it points to) and path */
-    private static array $stats = [];
-
-    /** The path opened for writing, which changes it when closed, or null for one opened only to read. */
-    private ?string $written = null;
-
     /** @var resource the open file, from a successful stream_open on */
     private mixed $handle;
 
     /** @var resource the open directory, from a successful dir_opendir on */
     private mixed $directory;
 
-    /**
-     * @param Closure(string): ?string $copyFor           the instrumented copy to include in place of a path, or null for none
-     * @param list<string>             $stableDirectories directories nothing outside this process changes while the tests run
-     */
-    public static function register(Closure $copyFor, array $stableDirectories = []): void
+    /** @param Closure(string): ?string $copyFor the instrumented copy to include in place of a path, or null for none */
+    public static function register(Closure $copyFor): void
     {
         self::$copyFor = $copyFor;
         self::$registered = true;
-        self::$stats = [];
-        self::$stableDirectories = [];
-
-        foreach ($stableDirectories as $directory) {
-            $realDirectory = realpath($directory);
-
-            if ($realDirectory !== false) {
-                self::$stableDirectories[] = $realDirectory . '/';
-            }
-        }
-
         stream_wrapper_unregister(self::PROTOCOL);
         stream_wrapper_register(self::PROTOCOL, self::class);
     }
@@ -82,6 +54,7 @@ final class IncludeWrapper
         }
 
         self::$registered = false;
+        stream_wrapper_unregister(self::PROTOCOL);
         stream_wrapper_restore(self::PROTOCOL);
     }
 
@@ -96,12 +69,6 @@ final class IncludeWrapper
 
         if ($handle === false) {
             return false;
-        }
-
-        // Only "r" without "+" leaves the file as it is: "w", "a", "x" and "c" write.
-        if (! str_starts_with($mode, 'r') || str_contains($mode, '+')) {
-            $this->changed($path);
-            $this->written = $path;
         }
 
         $this->handle = $handle;
@@ -181,16 +148,10 @@ final class IncludeWrapper
     public function stream_close(): void
     {
         fclose($this->handle);
-
-        if ($this->written !== null) {
-            $this->changed($this->written);
-        }
     }
 
     public function stream_metadata(string $path, int $option, mixed $value): bool
     {
-        $this->changed($path);
-
         return $this->native(static fn (): bool => self::metadata($path, $option, $value));
     }
 
@@ -198,17 +159,11 @@ final class IncludeWrapper
     public function url_stat(string $path, int $flags): array|false
     {
         $link = ($flags & STREAM_URL_STAT_LINK) !== 0;
-        $resolved = $this->resolved($path);
-        $key = $resolved !== null && $this->stable($resolved) ? ($link ? 'l' : 's') . $resolved : null;
-
-        if ($key !== null && isset(self::$stats[$key])) {
-            return self::$stats[$key];
-        }
 
         // PHP's own wrapper never warns here: a missing file is a false the calling function
         // (filesize(), is_file()) turns into its own warning, or into an answer. Checking first
         // keeps the warning from being raised at all, which an error handler would see even under @.
-        $stat = $this->native(static function () use ($path, $link): array|false {
+        return $this->native(static function () use ($path, $link): array|false {
             // A link asks after the link itself, which exists even when what it points to does not.
             if ($link) {
                 return is_link($path) || file_exists($path) ? lstat($path) : false;
@@ -216,41 +171,27 @@ final class IncludeWrapper
 
             return file_exists($path) ? stat($path) : false;
         });
-
-        if ($key !== null) {
-            self::$stats[$key] = $stat;
-        }
-
-        return $stat;
     }
 
     public function unlink(string $path): bool
     {
-        $this->changed($path);
-
         return $this->native(fn (): bool => unlink($path, $this->context));
     }
 
     public function rename(string $from, string $to): bool
     {
-        $this->changed($from);
-        $this->changed($to);
-
         return $this->native(fn (): bool => rename($from, $to, $this->context));
     }
 
     public function mkdir(string $path, int $mode, int $options): bool
     {
         $recursive = ($options & STREAM_MKDIR_RECURSIVE) !== 0;
-        $this->changed($path);
 
         return $this->native(fn (): bool => mkdir($path, $mode, $recursive, $this->context));
     }
 
     public function rmdir(string $path): bool
     {
-        $this->changed($path);
-
         return $this->native(fn (): bool => rmdir($path, $this->context));
     }
 
@@ -284,36 +225,6 @@ final class IncludeWrapper
         closedir($this->directory);
 
         return true;
-    }
-
-    /**
-     * The path as the filesystem finds it, its directory resolved: from the working directory when
-     * relative, through ".." and links. Null when the directory does not exist.
-     */
-    private function resolved(string $path): ?string
-    {
-        $directory = realpath(dirname($path));
-
-        return $directory === false ? null : $directory . '/' . basename($path);
-    }
-
-    /** Whether a resolved path lies inside a stable directory. */
-    private function stable(string $resolved): bool
-    {
-        return array_any(self::$stableDirectories, fn (string $directory): bool => str_starts_with($resolved, $directory));
-    }
-
-    /**
-     * Forgets the stats kept once a path inside a stable directory changes, or one that cannot be
-     * resolved: a change there can reach any of them (a renamed directory moves every file in it).
-     */
-    private function changed(string $path): void
-    {
-        $resolved = $this->resolved($path);
-
-        if ($resolved === null || $this->stable($resolved)) {
-            self::$stats = [];
-        }
     }
 
     /**
@@ -359,6 +270,7 @@ final class IncludeWrapper
      */
     private function native(Closure $operation): mixed
     {
+        stream_wrapper_unregister(self::PROTOCOL);
         stream_wrapper_restore(self::PROTOCOL);
 
         try {
