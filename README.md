@@ -241,9 +241,14 @@ php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
    de `file://`, registrado só nos processos que rodam testes, faz essa troca; qualquer outra
    operação de arquivo segue para o wrapper do próprio PHP. Ele só entra quando o diretório alvo
    tem arquivos que o autoloader não carrega (que não declaram classe, interface, trait nem enum
-   com nome, fora a chave `files` do Composer): cada arquivo que um wrapper abre guarda memória
-   que o PHP só devolve no fim do processo, e numa suíte grande isso pesa. `--includes` e
-   `--no-includes` forçam a escolha.
+   com nome, fora a chave `files` do Composer): cada operação que o wrapper devolve ao PHP prende
+   pouco mais de 100 bytes até o fim do processo, e numa suíte grande isso pesa. Para pesar menos,
+   o `stat` de arquivos do `vendor/` e do diretório alvo (`file_exists()`, `is_file()`, que o
+   Laravel e o Filament chamam milhões de vezes sobre os mesmos caminhos) é guardado da primeira
+   vez e esquecido quando algo escreve ali pelo próprio processo; o que outro processo muda ali
+   durante os testes (um `exec`, um `Process`) não aparece. Numa suíte Filament de 1.400
+   testes, as operações caíram de 2,7 milhões para 425 mil e o pico de memória por processo de
+   107 MB para 66 MB. `--includes` e `--no-includes` forçam a escolha.
 5. Ao fim de cada teste, o Sonda guarda quais sondas ele executou, com o arquivo, o tamanho
    (`#[Small]`, `#[Medium]`, `#[Large]`), a duração e se falhou. Conjuntos iguais de sondas são
    guardados uma vez só, porque os testes de uma suíte passam quase todos pelo mesmo código.
