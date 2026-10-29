@@ -15,6 +15,9 @@ final readonly class Instrumenter
 {
     private Parser $parser;
 
+    /** The hash of the sources and the mode, read once: a cache key needs it for every file loaded. */
+    private string $fingerprint;
+
     /**
      * @param bool $strict every `if` needs both outcomes tested: an `else` is synthesized when missing
      * @param bool $fast   bind a local reference once per call, so each probe is a single assignment
@@ -25,6 +28,7 @@ final readonly class Instrumenter
         ?Parser $parser = null,
     ) {
         $this->parser = $parser ?? new ParserFactory()->createForHostVersion();
+        $this->fingerprint = $this->hashSources();
     }
 
     public function instrument(string $path, string $fileId): InstrumentationResult
@@ -52,13 +56,7 @@ final readonly class Instrumenter
     /** Changes whenever the instrumented output could change: part of the cache key of instrumented files. */
     public function fingerprint(): string
     {
-        $contents = '';
-
-        foreach (self::sources() as $source) {
-            $contents .= Filesystem::read($source);
-        }
-
-        return sha1($contents . (int) $this->strict . (int) $this->fast);
+        return $this->fingerprint;
     }
 
     /**
@@ -79,5 +77,16 @@ final readonly class Instrumenter
         $sources[] = __DIR__ . '/Blade/ViewInstrumenter.php';
 
         return $sources;
+    }
+
+    private function hashSources(): string
+    {
+        $contents = '';
+
+        foreach (self::sources() as $source) {
+            $contents .= Filesystem::read($source);
+        }
+
+        return sha1($contents . (int) $this->strict . (int) $this->fast);
     }
 }
