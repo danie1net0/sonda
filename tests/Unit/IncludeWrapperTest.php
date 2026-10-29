@@ -36,6 +36,19 @@ it('includes the instrumented copy of a file the closure maps, and the file itse
         ->and($askedByTheIncludes)->toBe([$directory . '/original.php', $directory . '/other.php']);
 });
 
+it('lets the closure read the file being included, to instrument it', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/original.php', '<?php return "original";');
+    wrapping(static function (string $path) use ($directory): string {
+        // What the instrumenter does: the copy comes from the contents of the file asked for.
+        file_put_contents($directory . '/copy.php', str_replace('original', 'copy of ' . strlen(file_get_contents($path)), file_get_contents($path)));
+
+        return $directory . '/copy.php';
+    });
+
+    expect(include $directory . '/original.php')->toBe('copy of 24');
+});
+
 it('opens a file that is read, not included, as it is, without asking for a copy', function (): void {
     $directory = TemporaryDirectory::create();
     file_put_contents($directory . '/original.php', 'original');

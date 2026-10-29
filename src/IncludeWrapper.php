@@ -60,12 +60,16 @@ final class IncludeWrapper
 
     public function stream_open(string $path, string $mode, int $options): bool
     {
-        if (($options & self::OPEN_FOR_INCLUDE) !== 0) {
-            $path = (self::$copyFor)($path) ?? $path;
-        }
+        // The copy is resolved with PHP's own wrapper: instrumenting reads the file being opened,
+        // which PHP refuses to open again through the wrapper that is opening it.
+        $handle = $this->native(function () use ($path, $mode, $options): mixed {
+            if (($options & self::OPEN_FOR_INCLUDE) !== 0) {
+                $path = (self::$copyFor)($path) ?? $path;
+            }
 
-        // PHP resolves the include path before it reaches the wrapper: the path here is the file.
-        $handle = $this->native(fn (): mixed => fopen($path, $mode, false, $this->context));
+            // PHP resolves the include path before it reaches the wrapper: the path here is the file.
+            return fopen($path, $mode, false, $this->context);
+        });
 
         if ($handle === false) {
             return false;
