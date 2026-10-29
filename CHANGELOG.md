@@ -1,3 +1,15 @@
+## [1.14.5](https://github.com/danie1net0/sonda/compare/v1.14.4...v1.14.5) (2026-10-29)
+
+
+### Bug Fixes
+
+* o wrapper de include resolve a cópia instrumentada com o wrapper do próprio PHP ([bf677e2](https://github.com/danie1net0/sonda/commit/bf677e2ed90aa3ad314fbbbb0855331e91bfacd7))
+
+
+### Performance Improvements
+
+* o fingerprint do instrumentador é calculado uma vez por processo ([736eb12](https://github.com/danie1net0/sonda/commit/736eb12859b506e71e89b66f07876927ba451da2))
+
 ## [1.14.4](https://github.com/danie1net0/sonda/compare/v1.14.3...v1.14.4) (2026-10-28)
 
 
