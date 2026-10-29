@@ -345,24 +345,20 @@ it("opens files with its own stream while registered and with PHP's after it is 
         ->and($plainType)->toBe('plainfile');
 });
 
-it('keeps no memory from the operations it hands PHP, nor from being registered again', function (): void {
+it('frees each wrapper PHP drops when it hands an operation to PHP, and when it is registered again', function (): void {
     $path = TemporaryDirectory::create() . '/file.txt';
     file_put_contents($path, 'x');
     wrapping(static fn (): ?string => null);
+    // PHP keeps a "stream factory" resource per registered user wrapper, until the process ends
+    // if dropped without being freed: a wrapper that leaks shows up here, operation by operation.
+    $before = count(get_resources('stream factory'));
 
-    // The first operations settle whatever PHP allocates once.
     for ($i = 0; $i < 100; $i++) {
-        file_exists($path);
-    }
-
-    $before = memory_get_usage();
-
-    for ($i = 0; $i < 10000; $i++) {
         file_exists($path);
         fclose(fopen($path, 'r'));
         IncludeWrapper::unregister();
         wrapping(static fn (): ?string => null);
     }
 
-    expect(memory_get_usage() - $before)->toBeLessThan(1024);
+    expect(count(get_resources('stream factory')))->toBe($before);
 });
