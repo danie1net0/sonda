@@ -25,6 +25,9 @@ testes por minuto com 6 workers). Em lotes, 48 processos em 6 filas, 2h24; diret
 noite.
 
 Com `--parallel` (10 workers): 42s sem cobertura, 40s com o Sonda.
+Pico de memória por worker, nos 10 workers de `tests/Feature/Filament` dessa suíte, com o wrapper
+de include ligado: 52 MB. Até a 1.14.2, esse wrapper prendia memória a cada operação de arquivo, e o
+pico chegava a 107 MB por worker.
 
 O custo do Xdebug com paths é do próprio Xdebug, em C, e é por teste: num arquivo de 71 testes dessa
 suíte, 8s com o Xdebug carregado e a cobertura desligada, 257s com `XDEBUG_CC_BRANCH_CHECK` ligado
