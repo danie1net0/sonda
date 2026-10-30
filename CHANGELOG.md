@@ -1,3 +1,10 @@
+# [1.15.0](https://github.com/danie1net0/sonda/compare/v1.14.5...v1.15.0) (2026-10-30)
+
+
+### Features
+
+* sonda --version mostra a versão do executável ([8e8a744](https://github.com/danie1net0/sonda/commit/8e8a7440c51e3c6f999f8e5bdd954a4d350fab04))
+
 ## [1.14.5](https://github.com/danie1net0/sonda/compare/v1.14.4...v1.14.5) (2026-10-29)
 
 
