@@ -32,7 +32,7 @@ function application(): array
         throw new RuntimeException('Sem memória para a saída.');
     }
 
-    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda'), new CompareCommand($processes, '/sonda')), $output, $error, $processes];
+    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda'), new CompareCommand($processes, '/sonda'), '1.2.3'), $output, $error, $processes];
 }
 
 /** @param resource $stream */
@@ -50,6 +50,14 @@ it('prints the usage for help', function (string $argument): void {
         ->and(contents($output))->toBe(Application::USAGE . "\n")
         ->and(contents($error))->toBe('');
 })->with(['help', '--help', '-h']);
+
+it('prints its version', function (string $argument): void {
+    [$application, $output, $error] = application();
+
+    expect($application->run([$argument], '/project', $output, $error))->toBe(0)
+        ->and(contents($output))->toBe("sonda 1.2.3\n")
+        ->and(contents($error))->toBe('');
+})->with(['--version', '-V']);
 
 it('prints the usage without a command', function (): void {
     [$application, $output, $error] = application();

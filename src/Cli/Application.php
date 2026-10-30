@@ -45,6 +45,8 @@ final readonly class Application
       --min-branches=<n> o mesmo para branches
       -c <arquivo>      o phpunit.xml a usar, também repassado ao runner
 
+    sonda --version mostra a versão deste sonda.
+
     Qualquer outro argumento vai para o runner (php artisan test, pest ou phpunit).
 
     uso: sonda compare <saída> [opções] [argumentos do runner]
@@ -59,7 +61,7 @@ final readonly class Application
       --xdebug=<so>     o xdebug.so a carregar
     TEXT;
 
-    public function __construct(private TestCommand $testCommand, private CompareCommand $compareCommand)
+    public function __construct(private TestCommand $testCommand, private CompareCommand $compareCommand, private string $version)
     {
     }
 
@@ -74,6 +76,12 @@ final readonly class Application
 
         if (in_array($command, ['help', '--help', '-h'], true)) {
             fwrite($output, self::USAGE . "\n");
+
+            return 0;
+        }
+
+        if (in_array($command, ['--version', '-V'], true)) {
+            fwrite($output, "sonda {$this->version}\n");
 
             return 0;
         }

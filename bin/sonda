@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 // Runs from the root of the measured project: its vendor/ brings php-code-coverage for the report.
 
-use Sonda\Cli\{Application, CompareCommand, SystemProcessRunner, TestCommand, WorkDirectory};
+use Sonda\Cli\{Application, CompareCommand, SystemProcessRunner, TestCommand, Version, WorkDirectory};
 
 require dirname(__DIR__) . '/autoload.php';
 
@@ -14,6 +14,7 @@ $projectAutoload = $projectRoot . '/vendor/autoload.php';
 
 if ($projectRoot === false || ! is_file($projectAutoload)) {
     fwrite(STDERR, "Rode o sonda na raiz de um projeto com vendor/autoload.php.\n");
+
     exit(1);
 }
 
@@ -22,6 +23,6 @@ require $projectAutoload;
 $arguments = $_SERVER['argv'] ?? null;
 $strings = is_array($arguments) ? array_values(array_filter($arguments, is_string(...))) : [];
 $processes = new SystemProcessRunner(STDIN, STDOUT, STDERR);
-$application = new Application(new TestCommand($processes, dirname(__DIR__), WorkDirectory::default(getenv())), new CompareCommand($processes, dirname(__DIR__)));
+$application = new Application(new TestCommand($processes, dirname(__DIR__), WorkDirectory::default(getenv())), new CompareCommand($processes, dirname(__DIR__)), Version::of(dirname(__DIR__)));
 
 exit($application->run(array_slice($strings, 1), $projectRoot, STDOUT, STDERR));
