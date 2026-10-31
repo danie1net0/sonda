@@ -70,7 +70,7 @@ final readonly class Settings
         $value = $environment[$name] ?? '';
 
         if ($value === '') {
-            throw new InvalidArgumentException("A variável de ambiente {$name} é obrigatória.");
+            throw new InvalidArgumentException("The environment variable {$name} is required.");
         }
 
         return $value;

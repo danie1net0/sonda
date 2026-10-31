@@ -37,7 +37,7 @@ it('fails when a probe map is missing', function (): void {
     $directory = TemporaryDirectory::create();
 
     expect(fn (): array => new InstrumentationCache($directory)->probes('missing'))
-        ->toThrow(RuntimeException::class, "O arquivo {$directory}/missing.map não pôde ser lido.");
+        ->toThrow(RuntimeException::class, "The file {$directory}/missing.map could not be read.");
 });
 
 it('rejects a map holding something other than probes', function (): void {
@@ -45,7 +45,7 @@ it('rejects a map holding something other than probes', function (): void {
     file_put_contents($directory . '/key.map', serialize([new ArrayObject([1])]));
 
     expect(fn (): array => new InstrumentationCache($directory)->probes('key'))
-        ->toThrow(RuntimeException::class, "O mapa de sondas key está corrompido no cache {$directory}.");
+        ->toThrow(RuntimeException::class, "The probe map key is corrupt in the cache {$directory}.");
 });
 
 it('rejects a map that is not a list of probes', function (): void {
@@ -53,7 +53,7 @@ it('rejects a map that is not a list of probes', function (): void {
     file_put_contents($directory . '/key.map', serialize('probes'));
 
     expect(fn (): array => new InstrumentationCache($directory)->probes('key'))
-        ->toThrow(RuntimeException::class, "O mapa de sondas key está corrompido no cache {$directory}.");
+        ->toThrow(RuntimeException::class, "The probe map key is corrupt in the cache {$directory}.");
 });
 
 it('revives nothing but probes from a map, so a foreign object cannot run code', function (): void {
@@ -110,7 +110,7 @@ it('rejects a line map that is not made of line numbers', function (string $cont
     file_put_contents($directory . '/bad.lines', $contents);
 
     expect(fn (): ?array => new InstrumentationCache($directory)->lineMap('bad'))
-        ->toThrow(RuntimeException::class, "O mapa de linhas bad está corrompido no cache {$directory}.");
+        ->toThrow(RuntimeException::class, "The line map bad is corrupt in the cache {$directory}.");
 })->with([
     'not an array' => [serialize('x')],
     'a string key' => [serialize(['a' => 1])],
@@ -132,6 +132,6 @@ it('revives nothing from a line map, so a foreign object cannot run code', funct
     RevivalWitness::$revived = false;
 
     expect(fn (): ?array => new InstrumentationCache($directory)->lineMap('bad'))
-        ->toThrow(RuntimeException::class, "O mapa de linhas bad está corrompido no cache {$directory}.")
+        ->toThrow(RuntimeException::class, "The line map bad is corrupt in the cache {$directory}.")
         ->and(RevivalWitness::$revived)->toBeFalse();
 });

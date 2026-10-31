@@ -37,7 +37,7 @@ final class SuiteConfiguration
             $absolute = realpath(self::absolute($path, $projectRoot));
 
             if ($absolute === false) {
-                throw new InvalidArgumentException("O caminho de teste {$path} não existe.");
+                throw new InvalidArgumentException("The test path {$path} does not exist.");
             }
 
             $element = $document->createElement(is_dir($absolute) ? 'directory' : 'file');
@@ -78,7 +78,7 @@ final class SuiteConfiguration
         }
 
         if (! $loaded) {
-            throw new RuntimeException("O arquivo {$path} não é um XML válido.");
+            throw new RuntimeException("The file {$path} is not valid XML.");
         }
 
         return $document;

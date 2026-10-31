@@ -86,7 +86,7 @@ function runTestCommand(FakeRunner $runner, string $root, TestOptions $options, 
     $output = fopen('php://memory', 'w+');
 
     if ($output === false) {
-        throw new RuntimeException('Sem memória para a saída.');
+        throw new RuntimeException('No memory for the output.');
     }
 
     $status = new TestCommand($runner, '/opt/sonda', $temporaryRoot . '/sonda')->run($options, $root, $output);
@@ -124,7 +124,7 @@ it('runs the project tests instrumented and reports the coverage of its source',
         ->and(is_dir($runner->environment['SONDA_OUT']))->toBeFalse()
         ->and(fileperms($temporary . '/sonda') & 0o777)->toBe(0o700)
         ->and(fileperms($work) & 0o777)->toBe(0o700)
-        ->and($output)->toBe("\nCobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+        ->and($output)->toBe("\nCoverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\n");
 });
 
 it('chains the project bootstrap when it is not the autoload, and honours the flags', function (): void {
@@ -161,7 +161,7 @@ it('measures only the given files and fails on what they leave uncovered', funct
 
     expect($status)->toBe(1)
         ->and($runner->environment)->toHaveKey('SONDA_ONLY', $root . '/app/Order.php')
-        ->and($output)->toBe("\nCobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nSem cobertura:\napp/Order.php: linhas 8; branches 8\n");
+        ->and($output)->toBe("\nCoverage: lines 2/3 (66.67%), branches 1/2 (50.00%)\nUncovered:\napp/Order.php: lines 8; branches 8\n");
 });
 
 it('passes when the given files are fully covered', function (): void {
@@ -170,7 +170,7 @@ it('passes when the given files are fully covered', function (): void {
     [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--files=' . $root . '/app/Order.php']), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
-        ->and($output)->toEndWith("Os arquivos alterados estão 100% cobertos.\n");
+        ->and($output)->toEndWith("The changed files are 100% covered.\n");
 });
 
 it('runs nothing when none of the given files is in the source', function (): void {
@@ -181,7 +181,7 @@ it('runs nothing when none of the given files is in the source', function (): vo
 
     expect($status)->toBe(0)
         ->and($runner->calls)->toBe(0)
-        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
+        ->and($output)->toBe("No changed file inside <source>: nothing to measure.\n");
 });
 
 it('still writes the reports asked for, empty, when there is nothing to measure', function (): void {
@@ -192,7 +192,7 @@ it('still writes the reports asked for, empty, when there is nothing to measure'
 
     expect($status)->toBe(0)
         ->and($runner->calls)->toBe(0)
-        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\nRelatório HTML em {$root}/build/html\nRelatório Clover em {$root}/build/clover.xml\nRelatório Cobertura em {$root}/build/cobertura.xml\nRelatório Code Quality em {$root}/build/quality/gl.json\n")
+        ->and($output)->toBe("No changed file inside <source>: nothing to measure.\nHTML report in {$root}/build/html\nClover report in {$root}/build/clover.xml\nCobertura report in {$root}/build/cobertura.xml\nCode Quality report in {$root}/build/quality/gl.json\n")
         ->and((string) file_get_contents($root . '/build/quality/gl.json'))->toBe("[]\n")
         ->and($root . '/build/html/index.html')->toBeFile()
         ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('lines-valid="0"');
@@ -217,9 +217,9 @@ it('measures the whole project when nothing in scope changed but a floor was ask
 
     expect($status)->toBe(1)
         ->and($runner->calls)->toBe(1)
-        ->and($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
-        ->toContain("\nCobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\n")
-        ->toContain("Cobertura abaixo do mínimo: linhas 66,67% < 70,00%\n")
+        ->and($output)->toStartWith("No changed file inside <source>: with a coverage floor, the whole project is measured.\n")
+        ->toContain("\nCoverage: lines 2/3 (66.67%), branches 1/2 (50.00%)\n")
+        ->toContain("Coverage below the minimum: lines 66.67% < 70.00%\n")
         // The floor measured it all, but nothing changed for the merge request to point at.
         ->and((string) file_get_contents($root . '/gl.json'))->toBe("[]\n");
 });
@@ -238,7 +238,7 @@ it('keeps the exit code of a failing test run over uncovered files', function ()
     [$status, $output] = runTestCommand(new FakeRunner(status: 2, hits: []), $root, TestOptions::parse(['--files=app/Order.php']), TemporaryDirectory::create());
 
     expect($status)->toBe(2)
-        ->and($output)->toContain('Sem cobertura:');
+        ->and($output)->toContain('Uncovered:');
 });
 
 it('fails when the run left no coverage data', function (): void {
@@ -247,7 +247,7 @@ it('fails when the run left no coverage data', function (): void {
     [$status, $output] = runTestCommand(new FakeRunner(savesRun: false), $root, TestOptions::parse([]), TemporaryDirectory::create());
 
     expect($status)->toBe(1)
-        ->and($output)->toStartWith("\nSem dados de cobertura: O diretório ");
+        ->and($output)->toStartWith("\nNo coverage data: The directory ");
 
     [$status] = runTestCommand(new FakeRunner(status: 3, savesRun: false), $root, TestOptions::parse([]), TemporaryDirectory::create());
 
@@ -263,10 +263,10 @@ it('writes the reports asked for', function (): void {
         ->and(is_file($root . '/build/clover.xml'))->toBeTrue()
         ->and(is_file($root . '/build/coverage.cov'))->toBeTrue()
         ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('<coverage ')
-        ->and($output)->toContain("Relatório HTML em {$root}/build/html\n")
-        ->toContain("Relatório Clover em {$root}/build/clover.xml\n")
-        ->toContain("Relatório .cov em {$root}/build/coverage.cov\n")
-        ->toContain("Relatório Cobertura em {$root}/build/cobertura.xml\n");
+        ->and($output)->toContain("HTML report in {$root}/build/html\n")
+        ->toContain("Clover report in {$root}/build/clover.xml\n")
+        ->toContain(".cov report in {$root}/build/coverage.cov\n")
+        ->toContain("Cobertura report in {$root}/build/cobertura.xml\n");
 });
 
 it('measures the files changed since a reference together with the ones given', function (): void {
@@ -309,7 +309,7 @@ it('passes when what changed is fully covered, whatever else the file leaves unc
     [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master']), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
-        ->and($output)->toEndWith("Do que mudou: linhas 0/0 (100,00%), branches 0/0 (100,00%)\nO que mudou está 100% coberto.\n");
+        ->and($output)->toEndWith("Of what changed: lines 0/0 (100.00%), branches 0/0 (100.00%)\nWhat changed is 100% covered.\n");
 });
 
 it('checks the whole method a change falls in and says how much of what changed is covered', function (): void {
@@ -319,7 +319,7 @@ it('checks the whole method a change falls in and says how much of what changed 
     [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master']), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
-        ->and($output)->toEndWith("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nDo que mudou: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nO que mudou está 100% coberto.\n");
+        ->and($output)->toEndWith("Coverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\nOf what changed: lines 3/3 (100.00%), branches 2/2 (100.00%)\nWhat changed is 100% covered.\n");
 });
 
 it('checks a file named explicitly whole even when its change touches no method', function (): void {
@@ -331,7 +331,7 @@ it('checks a file named explicitly whole even when its change touches no method'
 
     expect($status)->toBe(1)
         ->and($runner->environment)->toHaveKey('SONDA_ONLY', $root . '/app/Order.php')
-        ->and($output)->toEndWith("Cobertura: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nDo que mudou: linhas 2/3 (66,67%), branches 1/2 (50,00%)\nSem cobertura:\napp/Order.php: linhas 8; branches 8\n");
+        ->and($output)->toEndWith("Coverage: lines 2/3 (66.67%), branches 1/2 (50.00%)\nOf what changed: lines 2/3 (66.67%), branches 1/2 (50.00%)\nUncovered:\napp/Order.php: lines 8; branches 8\n");
 });
 
 it('runs several test paths in parallel through a configuration generated beside the project one, and removes it', function (): void {
@@ -386,7 +386,7 @@ it('measures the Blade views of a Laravel project along with its source', functi
     expect($status)->toBe(0)
         ->and($runner->environment)->toHaveKey('SONDA_VIEWS', $root . '/resources/views')
         ->toHaveKey('SONDA_TARGET', $root . '/app' . PATH_SEPARATOR . $root . '/resources/views')
-        ->and($output)->toContain("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+        ->and($output)->toContain("Coverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\n");
 });
 
 it('narrows to a Blade view named explicitly, and not to a plain PHP file under the views', function (): void {
@@ -425,14 +425,14 @@ it('measures the views of the directories given with --views, relative to the pr
     expect($status)->toBe(0)
         ->and($runner->environment)->toHaveKey('SONDA_VIEWS', $root . '/app/views')
         ->toHaveKey('SONDA_TARGET', $root . '/app' . PATH_SEPARATOR . $root . '/app/views')
-        ->and($output)->toContain('Cobertura: linhas 3/4 (75,00%)');
+        ->and($output)->toContain('Coverage: lines 3/4 (75.00%)');
 });
 
 it('refuses a --views directory that does not exist', function (): void {
     $root = fakeProject();
 
     expect(fn (): array => runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--views=themes/none']), TemporaryDirectory::create()))
-        ->toThrow(InvalidArgumentException::class, 'A pasta de views themes/none não existe.');
+        ->toThrow(InvalidArgumentException::class, 'The views directory themes/none does not exist.');
 });
 
 it('hands the workers real paths, even when the temporary root is reached through a symlink', function (): void {
@@ -472,7 +472,7 @@ it('refuses to work under a directory open to other users, before running anythi
     $refused = $shared === 'root' ? $temporary . '/sonda' : $work;
 
     expect(fn (): array => runTestCommand($runner, $root, TestOptions::parse([]), $temporary))
-        ->toThrow(RuntimeException::class, "O diretório {$refused} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.")
+        ->toThrow(RuntimeException::class, "The directory {$refused} must belong to the current user and be private: chmod 700 on it fixes that.")
         ->and($runner->calls)->toBe(0);
 })->with(['root', 'project']);
 
@@ -482,7 +482,7 @@ it('lists the coverage of each file with --text', function (): void {
     [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--text']), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
-        ->and($output)->toContain("\nCobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\napp/Order.php: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+        ->and($output)->toContain("\nCoverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\napp/Order.php: lines 3/3 (100.00%), branches 2/2 (100.00%)\n");
 });
 
 it('fails below the floors of --min-lines and --min-branches, saying which, and passes at them', function (): void {
@@ -493,8 +493,8 @@ it('fails below the floors of --min-lines and --min-branches, saying which, and 
     [$failedRun] = runTestCommand(new FakeRunner(status: 2, hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--min-lines=70']), TemporaryDirectory::create());
 
     expect($below)->toBe(1)
-        ->and($belowOutput)->toContain("Cobertura abaixo do mínimo: linhas 66,67% < 70,00%\n")
-        ->toContain('Relatório HTML em ')
+        ->and($belowOutput)->toContain("Coverage below the minimum: lines 66.67% < 70.00%\n")
+        ->toContain('HTML report in ')
         ->and($at)->toBe(0)
         ->and($failedRun)->toBe(2);
 });
@@ -521,7 +521,7 @@ it("refuses to run when a file of Composer's files autoload is also required dir
     $runner = new FakeRunner();
 
     expect(fn (): array => runTestCommand($runner, $root, TestOptions::parse([]), TemporaryDirectory::create()))
-        ->toThrow(RuntimeException::class, 'app/helpers.php está na chave files do Composer e ainda é carregado por require direto em app/Boot.php:3: sob o Sonda seria declarado duas vezes. Tire o require.')
+        ->toThrow(RuntimeException::class, "app/helpers.php is in Composer's files key and is still loaded by a direct require in app/Boot.php:3: under Sonda it would be declared twice. Drop the require.")
         ->and($runner->calls)->toBe(0);
 });
 
@@ -535,11 +535,11 @@ it('measures the whole project when a floor is asked for, and keeps the verdict 
 
     expect($status)->toBe(0)
         ->and($runner->environment['SONDA_ONLY'])->toBe('')
-        ->and($output)->toContain("\nCobertura: linhas 3/4 (75,00%), branches 2/2 (100,00%)\n")
-        ->toContain("Os arquivos alterados estão 100% cobertos.\n")
+        ->and($output)->toContain("\nCoverage: lines 3/4 (75.00%), branches 2/2 (100.00%)\n")
+        ->toContain("The changed files are 100% covered.\n")
         ->and($narrowStatus)->toBe(0)
         ->and($narrow->environment['SONDA_ONLY'])->toBe($root . '/app/Order.php')
-        ->and($narrowOutput)->toContain("\nCobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\n");
+        ->and($narrowOutput)->toContain("\nCoverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\n");
 });
 
 it('fails the floor on the whole project even when the files given are all covered', function (): void {
@@ -549,8 +549,8 @@ it('fails the floor on the whole project even when the files given are all cover
     [$status, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--files=app/Order.php', '--min-lines=80']), TemporaryDirectory::create());
 
     expect($status)->toBe(1)
-        ->and($output)->toContain("Cobertura abaixo do mínimo: linhas 75,00% < 80,00%\n")
-        ->toContain("Os arquivos alterados estão 100% cobertos.\n");
+        ->and($output)->toContain("Coverage below the minimum: lines 75.00% < 80.00%\n")
+        ->toContain("The changed files are 100% covered.\n");
 });
 
 /**
@@ -600,7 +600,7 @@ it('runs only the test files the map says run what changed', function (): void {
     [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n")
+        ->and($output)->toStartWith("Running only the affected tests: tests/OrderTest.php\n")
         ->and(array_slice($runner->command, -1))->toBe([$root . '/tests/OrderTest.php'])
         ->and($runner->environment['SONDA_ONLY'])->toBe($root . '/app/Order.php');
 });
@@ -614,7 +614,7 @@ it('runs the whole suite and measures the whole project when the map cannot tell
     [$status, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: ainda não há mapa de testes deste projeto; esta execução o cria.\n")
+        ->and($output)->toStartWith("Running the whole suite and measuring the whole project: this project has no test map yet; this run creates it.\n")
         ->and($runner->command)->not->toContain($root . '/tests/OrderTest.php')
         ->and($runner->environment['SONDA_ONLY'])->toBe('')
         ->and(TestMap::load($mapPath, $root)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']]);
@@ -630,9 +630,9 @@ it('leaves --affected aside with a floor or with the tests to run given', functi
     [, $withFloor] = runTestCommand($floorRunner, $root, TestOptions::parse(['--changed=master', '--affected', '--min-lines=1']), $temporaryRoot);
     [, $withPath] = runTestCommand($pathRunner, $root, TestOptions::parse(['--changed=master', '--affected', 'tests/OtherTest.php']), $temporaryRoot);
 
-    expect($withFloor)->toStartWith("--affected ignorado: com piso de cobertura, a suíte inteira roda.\n")
+    expect($withFloor)->toStartWith("--affected ignored: with a coverage floor, the whole suite runs.\n")
         ->and($floorRunner->command)->not->toContain($root . '/tests/OrderTest.php')
-        ->and($withPath)->toStartWith("--affected ignorado: os testes a rodar já foram dados.\n")
+        ->and($withPath)->toStartWith("--affected ignored: the tests to run were given.\n")
         ->and(array_slice($pathRunner->command, -1))->toBe(['tests/OtherTest.php']);
 });
 
@@ -644,7 +644,7 @@ it('takes the files given as what changed when there is no reference', function 
 
     [, $output] = runTestCommand($runner, $root, TestOptions::parse(['--files=app/Order.php', '--affected', '--no-parallel']), $temporaryRoot);
 
-    expect($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n")
+    expect($output)->toStartWith("Running only the affected tests: tests/OrderTest.php\n")
         ->and(array_slice($runner->command, -1))->toBe([$root . '/tests/OrderTest.php']);
 });
 
@@ -661,7 +661,7 @@ it('counts the affected test files instead of naming them when they are more tha
 
     [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master', '--affected', '--no-parallel']), $temporaryRoot);
 
-    expect($output)->toStartWith("Rodando só os testes afetados: 11 de 12 arquivos de teste\n");
+    expect($output)->toStartWith("Running only the affected tests: 11 of 12 test files\n");
 });
 
 it('reports the gaps of the whole project for GitLab Code Quality when nothing narrows the check', function (): void {
@@ -670,8 +670,8 @@ it('reports the gaps of the whole project for GitLab Code Quality when nothing n
     [, $output] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--code-quality=gl.json']), TemporaryDirectory::create());
     $issues = json_decode((string) file_get_contents($root . '/gl.json'), true);
 
-    expect($output)->toEndWith("Relatório Code Quality em {$root}/gl.json\n")
-        ->and(array_column($issues, 'description'))->toBe(['Linha 8 sem cobertura: nenhum teste a executa.', 'Branch da linha 8 sem cobertura: algum desfecho dessa decisão nunca foi testado.'])
+    expect($output)->toEndWith("Code Quality report in {$root}/gl.json\n")
+        ->and(array_column($issues, 'description'))->toBe(['Line 8 uncovered: no test runs it.', 'Branch at line 8 uncovered: some outcome of this decision was never tested.'])
         ->and($issues[0]['location']['path'])->toBe('app/Order.php');
 });
 
@@ -702,14 +702,14 @@ it('keeps the test map where --map says, relative to the project', function (): 
     [, $output] = runTestCommand(new FakeRunner(), $root, TestOptions::parse(['--changed=master', '--affected', '--map=.cache/sonda/tests.map', '--no-parallel']), TemporaryDirectory::create());
 
     expect(TestMap::load($root . '/.cache/sonda/tests.map', $root)->sources)->toBe([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])
-        ->and($output)->toStartWith("Rodando só os testes afetados: tests/OrderTest.php\n");
+        ->and($output)->toStartWith("Running only the affected tests: tests/OrderTest.php\n");
 });
 
 it('warns when the details of some test could not be read, keeping the coverage', function (): void {
     [$status, $output] = runTestCommand(new FakeRunner(problems: ['Cannot access private property']), fakeProject(), new TestOptions(), TemporaryDirectory::create());
 
     expect($status)->toBe(0)
-        ->and($output)->toContain("Cobertura: linhas 3/3 (100,00%), branches 2/2 (100,00%)\nAviso: o Sonda não leu o arquivo ou o tamanho de algum teste; a cobertura não muda, mas o --affected e o --covered-by podem sair incompletos: Cannot access private property\n");
+        ->and($output)->toContain("Coverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\nWarning: Sonda could not read the file or the size of some test; the coverage is the same, but --affected and --covered-by may come out incomplete: Cannot access private property\n");
 });
 
 it('points at nothing in Code Quality when what changed since the reference is outside the source', function (): void {
@@ -718,7 +718,7 @@ it('points at nothing in Code Quality when what changed since the reference is o
 
     [, $output] = runTestCommand(new FakeRunner(hits: [0 => 1, 2 => 1]), $root, TestOptions::parse(['--changed=master', '--min-lines=1', '--code-quality=gl.json']), TemporaryDirectory::create());
 
-    expect($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
+    expect($output)->toStartWith("No changed file inside <source>: with a coverage floor, the whole project is measured.\n")
         ->and((string) file_get_contents($root . '/gl.json'))->toBe("[]\n");
 });
 

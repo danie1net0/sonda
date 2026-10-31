@@ -37,7 +37,7 @@ final class Process
         }
 
         if (! is_resource($process)) {
-            throw new RuntimeException('Não foi possível iniciar ' . implode(' ', $command) . ': ' . $reason);
+            throw new RuntimeException('Could not start ' . implode(' ', $command) . ': ' . $reason);
         }
 
         return $process;

@@ -29,7 +29,7 @@ function application(): array
     $error = fopen('php://memory', 'w+');
 
     if ($output === false || $error === false) {
-        throw new RuntimeException('Sem memória para a saída.');
+        throw new RuntimeException('No memory for the output.');
     }
 
     return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda'), new CompareCommand($processes, '/sonda'), '1.2.3'), $output, $error, $processes];
@@ -63,14 +63,14 @@ it('prints the usage without a command', function (): void {
     [$application, $output, $error] = application();
 
     expect($application->run([], '/project', $output, $error))->toBe(0)
-        ->and(contents($output))->toContain('uso: sonda test');
+        ->and(contents($output))->toContain('usage: sonda test');
 });
 
 it('rejects an unknown command', function (): void {
     [$application, $output, $error] = application();
 
     expect($application->run(['measure'], '/project', $output, $error))->toBe(1)
-        ->and(contents($error))->toBe("Comando desconhecido: measure\n\n" . Application::USAGE . "\n")
+        ->and(contents($error))->toBe("Unknown command: measure\n\n" . Application::USAGE . "\n")
         ->and(contents($output))->toBe('');
 });
 
@@ -79,14 +79,14 @@ it('reports a failure of the test command on the error stream', function (): voi
     $project = TemporaryDirectory::create();
 
     expect($application->run(['test'], $project, $output, $error))->toBe(1)
-        ->and(contents($error))->toBe("Nenhum phpunit.xml ou phpunit.xml.dist em {$project}.\n");
+        ->and(contents($error))->toBe("No phpunit.xml or phpunit.xml.dist in {$project}.\n");
 });
 
 it('reports a bad option on the error stream', function (): void {
     [$application, $output, $error] = application();
 
     expect($application->run(['test', '--changed='], '/project', $output, $error))->toBe(1)
-        ->and(contents($error))->toBe("A opção --changed precisa de um valor.\n");
+        ->and(contents($error))->toBe("The option --changed needs a value.\n");
 });
 
 it('hands the arguments after the command to the test command', function (): void {
@@ -113,5 +113,5 @@ it('hands the compare command its output directory and options, and reports a mi
         ->and($processes->command)->toBe(['bash', '/sonda/tools/compare-with-xdebug.sh', 'build/compare', '--filter=Order'])
         ->and($processes->environment)->toBe(['PROCESSES' => '4'])
         ->and($missing)->toBe(1)
-        ->and(contents($error))->toContain('O comando compare precisa do diretório de saída: sonda compare <saída>.');
+        ->and(contents($error))->toContain('The compare command needs the output directory: sonda compare <output>.');
 });

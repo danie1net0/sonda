@@ -18,7 +18,7 @@ final class ReportWriter
     public static function write(Run $run, array $sourceDirectories, array $excludedDirectories, string $outputFile): void
     {
         if ($outputFile === '') {
-            throw new InvalidArgumentException('O caminho do relatório não pode ser vazio.');
+            throw new InvalidArgumentException('The report path cannot be empty.');
         }
 
         $sourceFiles = SourceFiles::findAll($sourceDirectories, $excludedDirectories);

@@ -26,12 +26,12 @@ final class CodeQuality
             $path = self::relative($file, $root);
 
             foreach (Uncovered::runs($gaps['lines']) as [$begin, $end]) {
-                $what = $begin === $end ? "Linha {$begin} sem cobertura" : "Linhas {$begin}-{$end} sem cobertura";
-                $issues[] = self::issue('sonda-linha', $what . ': nenhum teste a executa.', $path, $begin, $end);
+                $what = $begin === $end ? "Line {$begin} uncovered" : "Lines {$begin}-{$end} uncovered";
+                $issues[] = self::issue('sonda-line', $what . ': no test runs it.', $path, $begin, $end);
             }
 
             foreach ($gaps['branches'] as [$begin, $end]) {
-                $issues[] = self::issue('sonda-branch', "Branch da linha {$begin} sem cobertura: algum desfecho dessa decisão nunca foi testado.", $path, $begin, $end);
+                $issues[] = self::issue('sonda-branch', "Branch at line {$begin} uncovered: some outcome of this decision was never tested.", $path, $begin, $end);
             }
         }
 

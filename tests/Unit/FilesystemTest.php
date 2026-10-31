@@ -13,7 +13,7 @@ it('reads a file', function (): void {
 
 it('fails to read a missing file', function (): void {
     expect(fn (): string => Filesystem::read('/missing/file.txt'))
-        ->toThrow(RuntimeException::class, 'O arquivo /missing/file.txt não pôde ser lido.');
+        ->toThrow(RuntimeException::class, 'The file /missing/file.txt could not be read.');
 });
 
 it('removes a directory with everything in it', function (): void {
@@ -43,25 +43,25 @@ it('refuses a directory open to other users', function (): void {
     mkdir($directory, 0o755);
 
     expect(fn () => Filesystem::privateDirectory($directory))
-        ->toThrow(RuntimeException::class, "O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
+        ->toThrow(RuntimeException::class, "The directory {$directory} must belong to the current user and be private: chmod 700 on it fixes that.");
 });
 
 it('refuses a directory of another user', function (): void {
     expect(fn () => Filesystem::privateDirectory('/usr'))
-        ->toThrow(RuntimeException::class, 'O diretório /usr precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.');
-})->skip(getmyuid() === 0, 'root é dono de tudo');
+        ->toThrow(RuntimeException::class, 'The directory /usr must belong to the current user and be private: chmod 700 on it fixes that.');
+})->skip(getmyuid() === 0, 'root owns everything');
 
 it('fails when the directory cannot be created', function (): void {
     expect(fn () => Filesystem::privateDirectory('/usr/sonda-cannot-create'))
-        ->toThrow(RuntimeException::class, 'Não foi possível criar o diretório /usr/sonda-cannot-create.');
-})->skip(getmyuid() === 0, 'root cria onde quiser');
+        ->toThrow(RuntimeException::class, 'The directory /usr/sonda-cannot-create could not be created.');
+})->skip(getmyuid() === 0, 'root creates anywhere');
 
 it('refuses a directory other users can enter', function (): void {
     $directory = TemporaryDirectory::create() . '/enterable';
     mkdir($directory, 0o701);
 
     expect(fn () => Filesystem::privateDirectory($directory))
-        ->toThrow(RuntimeException::class, "O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
+        ->toThrow(RuntimeException::class, "The directory {$directory} must belong to the current user and be private: chmod 700 on it fixes that.");
 });
 
 it('creates a directory with its parents, and leaves an existing one as it is', function (): void {
@@ -80,6 +80,6 @@ it('fails when a directory cannot be ensured, without letting the warning throug
     error_clear_last();
 
     expect(fn () => Filesystem::ensureDirectory('/usr/sonda-cannot-ensure'))
-        ->toThrow(RuntimeException::class, 'Não foi possível criar o diretório /usr/sonda-cannot-ensure.')
+        ->toThrow(RuntimeException::class, 'The directory /usr/sonda-cannot-ensure could not be created.')
         ->and(error_get_last())->toBeNull();
-})->skip(getmyuid() === 0, 'root cria onde quiser');
+})->skip(getmyuid() === 0, 'root creates anywhere');

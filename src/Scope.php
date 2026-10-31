@@ -33,7 +33,7 @@ final readonly class Scope
             $realDirectory = realpath($directory);
 
             if ($realDirectory === false) {
-                throw new InvalidArgumentException("O diretório {$directory} não existe.");
+                throw new InvalidArgumentException("The directory {$directory} does not exist.");
             }
 
             $targets[] = $realDirectory . '/';

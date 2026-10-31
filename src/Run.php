@@ -34,7 +34,7 @@ final readonly class Run
         $run = unserialize(Filesystem::read($path), ['allowed_classes' => [self::class]]);
 
         if (! $run instanceof self) {
-            throw new RuntimeException("O arquivo {$path} não contém uma execução do sonda.");
+            throw new RuntimeException("The file {$path} does not hold a sonda run.");
         }
 
         return $run;
@@ -46,7 +46,7 @@ final readonly class Run
         $files = glob($directory . '/run-*.ser') ?: [];
 
         if ($files === []) {
-            throw new RuntimeException("O diretório {$directory} não tem execuções do sonda.");
+            throw new RuntimeException("The directory {$directory} has no sonda runs.");
         }
 
         return self::merge(array_map(self::load(...), $files));

@@ -55,7 +55,7 @@ it('takes several target directories, resolved to real paths', function (): void
 
 it('rejects a target directory that does not exist', function (): void {
     expect(fn (): Scope => new Scope(['/missing/app']))
-        ->toThrow(InvalidArgumentException::class, 'O diretório /missing/app não existe.');
+        ->toThrow(InvalidArgumentException::class, 'The directory /missing/app does not exist.');
 });
 
 it('is not narrowed when every given file is missing', function (): void {

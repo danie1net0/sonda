@@ -43,7 +43,7 @@ final readonly class Instrumenter
         $ast = $this->parser->parse($code);
 
         if ($ast === null) {
-            throw new RuntimeException("O arquivo {$path} não pôde ser analisado.");
+            throw new RuntimeException("The file {$path} could not be parsed.");
         }
 
         $visitor = new InstrumentingVisitor($this->parser->getTokens(), $code, $fileId, $path, $this->strict, $this->fast, $mainScope);

@@ -1,125 +1,129 @@
 # Sonda
 
-Cobertura de linhas e de branches para PHP por instrumentação do código-fonte, muito mais
-rápida e leve que o Xdebug com `--path-coverage`.
+[Português](README.pt-BR.md)
 
-O Sonda insere sondas no código antes de carregá-lo, como o Istanbul faz no JavaScript. Cada
-sonda é uma atribuição num array; não há interceptação de opcodes nem enumeração de caminhos,
-que é o que torna o Xdebug lento e pesado.
+Line and branch coverage for PHP by source instrumentation: no Xdebug, no PCOV, the suite runs at
+its normal speed, and branches are counted with a strict semantics that asks for both outcomes of
+every decision.
 
-## Medições
+Sonda inserts probes into the code before loading it, as Istanbul does for JavaScript. Each probe
+is one assignment into an array; there is no opcode interception and no path enumeration, which is
+what makes Xdebug slow and heavy. Its numbers were validated against Xdebug path coverage on a
+whole real-world suite (see below).
 
-Suíte de um projeto Laravel 13 com Filament, Pest 4 e Postgres, 4.514 testes:
+## Measurements
 
-| Execução | Tempo | Memória |
+The suite of a Laravel 13 project with Filament, Pest 4 and Postgres, 4,514 tests:
+
+| Run | Time | Memory |
 |---|---|---|
-| Sem cobertura | 178s | 308 MB |
+| No coverage | 178s | 308 MB |
 | Sonda | 174s | 317 MB |
-| Xdebug só linhas | 671s | 640 MB |
-| Xdebug com `--path-coverage` | não terminou em 63 min | mais de 760 MB |
+| Xdebug, lines only | 671s | 640 MB |
+| Xdebug with `--path-coverage` | did not finish in 63 min | more than 760 MB |
 
-O Xdebug com paths na suíte inteira só terminou dividido em lotes de ~80 testes, cada um num
-processo novo: o php-code-coverage acumula, a cada teste, os ids de teste em todos os branches e
-caminhos dos arquivos carregados, e o custo por teste cresce ao longo da execução (de 56 para 3
-testes por minuto com 6 workers). Em lotes, 48 processos em 6 filas, 2h24; direto, não cabia numa
-noite.
+Xdebug with paths only finished the whole suite when split into batches of ~80 tests, each in a
+new process: php-code-coverage accumulates, on every test, the test ids on every branch and path of
+the loaded files, and the cost per test grows along the run (from 56 to 3 tests per minute with 6
+workers). In batches, 48 processes in 6 queues, 2h24; straight through, it did not fit in a night.
 
-Com `--parallel` (10 workers): 42s sem cobertura, 40s com o Sonda.
-Pico de memória por worker, nos 10 workers de `tests/Feature/Filament` dessa suíte, com o wrapper
-de include ligado: 52 MB. Até a 1.14.2, esse wrapper prendia memória a cada operação de arquivo, e o
-pico chegava a 107 MB por worker.
+With `--parallel` (10 workers): 42s without coverage, 40s with Sonda.
+Peak memory per worker, across the 10 workers of `tests/Feature/Filament` in that suite, with the
+include wrapper on: 52 MB. Up to 1.14.2, that wrapper held memory on every file operation, and the
+peak reached 107 MB per worker.
 
-O custo do Xdebug com paths é do próprio Xdebug, em C, e é por teste: num arquivo de 71 testes dessa
-suíte, 8s com o Xdebug carregado e a cobertura desligada, 257s com `XDEBUG_CC_BRANCH_CHECK` ligado
-uma vez no bootstrap, sem o php-code-coverage processar nada. Restringir os arquivos medidos não
-muda esse número.
+The cost of Xdebug with paths is Xdebug's own, in C, and it is per test: in a file of 71 tests of
+that suite, 8s with Xdebug loaded and coverage off, 257s with `XDEBUG_CC_BRANCH_CHECK` enabled once
+in the bootstrap, without php-code-coverage processing anything. Restricting the measured files does
+not change that number.
 
-Fidelidade contra o Xdebug, medida na suíte inteira dessa aplicação (4.923 testes, 697 arquivos de
-`app/`, Xdebug com paths rodado em lotes de testes, 2h24 num Mac mini M1): 12.1 mil linhas
-executáveis, nenhuma divergência de linha coberta ou não coberta; 5 linhas em que só uma das
-ferramentas vê um ponto executável, todas em instrução de várias linhas (heredoc, `match` de
-retorno, fechamento de closure). Vereditos de branch por método: 2.333 iguais; 21 em que só o
-Xdebug dá 100%, todos pelo modo estrito do Sonda; 42 em que só o Sonda dá 100%, com 108 blocos
-que o Xdebug dá como perdidos e que têm todas as linhas executadas pela própria contagem dele:
-desvio de fallback de função frameless, corpo de `if` terminado em `return`/`throw`, braço
-implícito do `match` e blocos duplicados do `&&`/`||`. Nenhum trecho sem execução ficou escondido
-atrás de um 100% do Sonda.
+Fidelity against Xdebug, measured on the whole suite of that application (4,923 tests, 697 files in
+`app/`, Xdebug with paths run in batches of tests, 2h24 on a Mac mini M1): 12.1 thousand executable
+lines, no divergence on which lines are covered or not; 5 lines where only one of the tools sees an
+executable point, all in multi-line statements (heredoc, returned `match`, closing of a closure).
+Branch verdicts per method: 2,333 equal; 21 where only Xdebug gives 100%, all because of Sonda's
+strict mode; 42 where only Sonda gives 100%, with 108 blocks that Xdebug reports as missed while
+every line in them is executed by its own count: the fallback jump of a frameless function call,
+the body of an `if` ending in `return`/`throw`, the implicit arm of `match` and duplicated blocks
+of `&&`/`||`. No unexecuted code was hidden behind a 100% from Sonda.
 
-## Requisitos
+## Requirements
 
-- PHP 8.4 ou mais recente, com `git` no PATH para `--changed`.
-- No projeto medido: PHPUnit 11.5 (Pest 3) ou 12 (Pest 4), com o php-code-coverage da mesma
-  versão, que trazem o `nikic/php-parser` usado pela instrumentação. O Sonda usa a fachada de
-  eventos do PHPUnit, que é interna, e o CI roda a suíte nas duas versões, na mais baixa e na
-  mais recente de cada.
+- PHP 8.4 or newer, with `git` on the PATH for `--changed`.
+- In the measured project: PHPUnit 11.5 (Pest 3) or 12 (Pest 4), with the php-code-coverage of
+  the same version, which bring the `nikic/php-parser` the instrumentation uses. Sonda uses
+  PHPUnit's event facade, which is internal, and CI runs the suite on both versions, on the lowest
+  and on the latest of each.
 
-## Instalação
+## Installation
 
-Como dependência de desenvolvimento do projeto, que é o jeito de fixar a versão e deixar o
-Renovate ou o Dependabot atualizá-la:
+As a development dependency of the project, which is the way to pin the version and let Renovate
+or Dependabot update it:
 
 ```bash
 composer require --dev ddr/sonda
 vendor/bin/sonda test
 ```
 
-Sem instalar nada no projeto medido, um clone por máquina, uma vez, e o comando no PATH. O Sonda
-usa então as dependências do próprio projeto (PHPUnit, php-code-coverage, php-parser):
+Without installing anything in the measured project: one clone per machine, once, and the command
+on the PATH. Sonda then uses the project's own dependencies (PHPUnit, php-code-coverage,
+php-parser):
 
 ```bash
 git clone https://github.com/danie1net0/sonda.git /opt/sonda
 ln -s /opt/sonda/bin/sonda /usr/local/bin/sonda
 ```
 
-Atualizar é `git -C /opt/sonda pull`.
+Updating is `git -C /opt/sonda pull`. `sonda --version` prints the version of the sonda that is
+running: the one Composer installed, or the tag of the checkout.
 
-## Uso
+## Usage
 
-Na raiz do projeto:
+At the root of the project:
 
 ```bash
 sonda test
 ```
 
-O Sonda lê o `<source>` (`include` e `exclude`) e o `bootstrap` do `phpunit.xml`, roda os testes
-com `php artisan test --parallel` (ou `vendor/bin/pest`, `vendor/bin/paratest`,
-`vendor/bin/phpunit`, o que houver), e mostra:
+Sonda reads the `<source>` (`include` and `exclude`) and the `bootstrap` from `phpunit.xml`, runs
+the tests with `php artisan test --parallel` (or `vendor/bin/pest`, `vendor/bin/paratest`,
+`vendor/bin/phpunit`, whichever is there), and prints:
 
 ```
-Cobertura: linhas 11140/11232 (99,18%), branches 4303/4371 (98,44%)
+Coverage: lines 11140/11232 (99.18%), branches 4303/4371 (98.44%)
 ```
 
-Qualquer argumento que o Sonda não conheça vai para o runner: `sonda test --filter=Order`,
-`sonda test tests/Feature/Actions`. Vários caminhos (`sonda test tests/Unit tests/Feature/Actions`)
-rodam em paralelo do mesmo jeito: o ParaTest só aceita um na linha de comando, então o Sonda os
-põe num `phpunit.xml` gerado ao lado do do projeto, apagado no fim.
+Any argument Sonda does not know goes to the runner: `sonda test --filter=Order`,
+`sonda test tests/Feature/Actions`. Several paths (`sonda test tests/Unit tests/Feature/Actions`)
+run in parallel just the same: ParaTest only takes one on the command line, so Sonda puts them in a
+`phpunit.xml` generated next to the project's, deleted at the end.
 
-### Só o que mudou
+### Only what changed
 
 ```bash
 sonda test --changed=origin/master
 ```
 
-Mede só os arquivos do `<source>` alterados desde o `merge-base` com a referência: commitados,
-modificados e novos. Num clone raso, sem história em comum para achar o `merge-base`, a própria
-referência serve de base, que é o que o CI entrega (`CI_MERGE_REQUEST_DIFF_BASE_SHA` no GitLab).
-O veredito cobra 100% **do que mudou**: as linhas que o diff acrescentou ou trocou e os métodos
-e funções em que elas caem, inteiros; arquivo novo é cobrado inteiro. Lacuna antiga noutro método
-do mesmo arquivo não reprova. Lista o que sobrou descoberto e sai com erro:
+Measures only the files of the `<source>` changed since the `merge-base` with the reference:
+committed, modified and new. In a shallow clone, with no common history to find the `merge-base`,
+the reference itself is the base, which is what CI hands over (`CI_MERGE_REQUEST_DIFF_BASE_SHA` on
+GitLab). The verdict demands 100% **of what changed**: the lines the diff added or replaced and the
+methods and functions they fall in, whole; a new file is demanded whole. An old gap in another
+method of the same file does not fail. It lists what is left uncovered and exits with an error:
 
 ```
-Cobertura: linhas 118/120 (98,33%), branches 61/63 (96,83%)
-Do que mudou: linhas 40/42 (95,24%), branches 18/20 (90,00%)
-Sem cobertura:
-app/Actions/Scheduling/BookAppointmentAction.php: linhas 57-58; branches 57-60
+Coverage: lines 118/120 (98.33%), branches 61/63 (96.83%)
+Of what changed: lines 40/42 (95.24%), branches 18/20 (90.00%)
+Uncovered:
+app/Actions/Scheduling/BookAppointmentAction.php: lines 57-58; branches 57-60
 app/Models/ScheduleResource.php: branches 272
 ```
 
-É o uso pensado para o CI: um job que mede só o que o MR tocou e exige 100%. `--files=a.php,b.php`
-cobra os arquivos da lista inteiros, mesmo que também tenham mudado.
+This is the intended use in CI: a job that measures only what the MR touched and demands 100%.
+`--files=a.php,b.php` demands the listed files whole, even when they also changed.
 
-No GitLab, os relatórios Cobertura e Code Quality juntos marcam no diff do MR o que está coberto e
-apontam, na própria linha, o que falta testar:
+On GitLab, the Cobertura and Code Quality reports together mark in the MR diff what is covered and
+point, on the line itself, at what still needs a test:
 
 ```yaml
 coverage:
@@ -134,77 +138,77 @@ coverage:
       codequality: coverage/code-quality.json
 ```
 
-### Só os testes afetados
+### Only the affected tests
 
 ```bash
 sonda test --changed=origin/master --affected
 ```
 
-Cada execução grava, fora do projeto, um mapa de que arquivos do `<source>` os testes de cada
-arquivo de teste executaram. Com `--affected`, junto de `--changed` ou `--files`, o Sonda roda só
-os arquivos de teste que executam o que mudou, mais os arquivos de teste que mudaram. Os testes
-que cobrem o código alterado são todos esses, então o veredito continua o mesmo, em segundos em
-vez da suíte inteira.
+Every run writes, outside the project, a map of which files of the `<source>` the tests of each
+test file executed. With `--affected`, together with `--changed` or `--files`, Sonda runs only the
+test files that execute what changed, plus the test files that changed. The tests covering the
+changed code are all of those, so the verdict stays the same, in seconds instead of the whole
+suite.
 
-O mapa não responde por tudo, e aí a suíte inteira roda, medindo o projeto todo para o mapa
-aprender: na primeira vez, quando muda um arquivo do `<source>` que nenhum teste conhecido
-executa (arquivo novo, ou nunca executado), e quando muda qualquer arquivo que não é do `<source>`
-nem um teste (configuração, rotas, migrations, `composer.lock`, um helper dos testes), porque
-qualquer teste pode lê-lo. O comando diz o motivo antes de rodar. Com piso de cobertura, ou com
-os testes a rodar já passados ao runner, `--affected` fica de lado.
+The map does not answer for everything, and then the whole suite runs, measuring the whole project
+so the map learns: the first time, when a file of the `<source>` that no known test executes changes
+(a new file, or one never executed), and when any file that is neither in the `<source>` nor a test
+changes (configuration, routes, migrations, `composer.lock`, a test helper), because any test may
+read it. The command states the reason before running. With a coverage floor, or with the tests to
+run already given to the runner, `--affected` is set aside.
 
-O mapa fica fora do projeto, no diretório de trabalho do Sonda, e se atualiza a cada execução.
-`--map=<arq>` o guarda noutro lugar, por exemplo dentro do projeto, para o cache do CI levá-lo de
-um job para o outro. O arquivo guarda os caminhos relativos ao projeto, então serve a um checkout
-noutro diretório, e ele mesmo não conta como mudança:
+The map lives outside the project, in Sonda's work directory, and is refreshed on every run.
+`--map=<file>` keeps it elsewhere, for example inside the project, so the CI cache carries it from
+one job to the next. The file stores paths relative to the project, so it serves a checkout in
+another directory, and it does not count as a change itself:
 
 ```yaml
 coverage:
   cache:
-    key: sonda-mapa-de-testes
+    key: sonda-test-map
     paths: [.sonda/tests.map]
   script:
     - php .sonda/bin/sonda test --changed="$CI_MERGE_REQUEST_DIFF_BASE_SHA" --affected --map=.sonda/tests.map
 ```
 
-Um mapa velho não deixa teste afetado de fora: cada execução reescreve o que os arquivos de teste
-que rodaram executam, e um arquivo do `<source>` que o mapa não conhece manda rodar a suíte
-inteira. O que ele pode fazer é rodar testes a mais. Com piso de cobertura (`--min-lines`,
-`--min-branches`), a suíte inteira roda de qualquer jeito.
+A stale map never leaves an affected test out: every run rewrites what the test files that ran
+execute, and a file of the `<source>` the map does not know makes the whole suite run. What it can
+do is run extra tests. With a coverage floor (`--min-lines`, `--min-branches`), the whole suite runs
+anyway.
 
-### Opções
+### Options
 
-| Opção | Efeito |
+| Option | Effect |
 |---|---|
-| `--changed=<ref>` | mede só os arquivos alterados desde o merge-base com a referência e falha se as linhas mudadas ou os métodos tocados tiverem algo descoberto |
-| `--files=a,b` | mede só esses arquivos e falha se sobrar algo descoberto neles, inteiros |
-| `--html=<dir>` | grava o relatório HTML |
-| `--clover=<arq>` | grava o relatório Clover |
-| `--cov=<arq>` | grava o `.cov` do php-code-coverage, que serve para qualquer outro formato |
-| `--cobertura=<arq>` | grava o relatório Cobertura, o formato que o GitLab lê para marcar a cobertura no diff do MR |
-| `--code-quality=<arq>` | grava o que ficou descoberto como relatório de Code Quality do GitLab: cada trecho de linhas e cada branch sem teste vira um apontamento no diff do MR. Com `--changed` ou `--files`, só o que o veredito cobra; sem eles, o projeto inteiro. Os caminhos partem da raiz do repositório |
-| `--no-strict` | não exige o `else` de todo `if` nem o lado nulo de `?->` |
-| `--no-fast` | sondas sem a referência local por função |
-| `--no-parallel` | não usa o ParaTest mesmo quando instalado |
-| `--no-blade` | não mede as views do Blade de um projeto Laravel |
-| `--views=a,b` | mede também as views do Blade dessas pastas |
-| `--text` | lista a cobertura de cada arquivo depois do total |
-| `--affected` | com `--changed` ou `--files`, roda só os testes que executam o que mudou (ver acima) |
-| `--includes`, `--no-includes` | instrumenta, ou não, os arquivos do diretório alvo carregados por `include` ou `require` direto; sem elas, o Sonda decide sozinho, ligando quando há arquivos que o autoloader não carrega |
-| `--map=<arq>` | onde guardar o mapa de testes do `--affected`, para o cache do CI (ver acima) |
-| `--covered-by` | cada linha e branch coberto leva o nome dos testes que o executaram, como com o Xdebug; no HTML, aparecem ao passar o mouse sobre a linha. Pesa numa suíte grande: em 5.615 testes, o HTML foi de 123 MB para 1,3 GB e a memória do relatório de 300 MB para 870 MB |
-| `--min-lines=<n>`, `--min-branches=<n>` | falha se a cobertura do projeto inteiro ficar abaixo de n% (piso global, além do 100% do que mudou). Com piso, o Sonda instrumenta e mede o `<source>` inteiro mesmo com `--changed` ou `--files`, cujo veredito continua olhando só os arquivos deles; o total impresso é o do projeto |
-| `-c <arquivo>` | o `phpunit.xml` a usar, também repassado ao runner |
+| `--changed=<ref>` | measures only the files changed since the merge-base with the reference and fails if the changed lines or the touched methods have anything uncovered |
+| `--files=a,b` | measures only those files and fails if anything is left uncovered in them, whole |
+| `--html=<dir>` | writes the HTML report |
+| `--clover=<file>` | writes the Clover report |
+| `--cov=<file>` | writes php-code-coverage's `.cov`, which serves any other format |
+| `--cobertura=<file>` | writes the Cobertura report, the format GitLab reads to mark coverage in the MR diff |
+| `--code-quality=<file>` | writes what is left uncovered as a GitLab Code Quality report: every stretch of lines and every branch without a test becomes a finding in the MR diff. With `--changed` or `--files`, only what the verdict demands; without them, the whole project. Paths start at the repository root |
+| `--no-strict` | does not require the `else` of every `if` nor the null side of `?->` |
+| `--no-fast` | probes without the local reference per function |
+| `--no-parallel` | does not use ParaTest even when installed |
+| `--no-blade` | does not measure the Blade views of a Laravel project |
+| `--views=a,b` | also measures the Blade views of those directories |
+| `--text` | lists the coverage of each file after the total |
+| `--affected` | with `--changed` or `--files`, runs only the tests that execute what changed (see above) |
+| `--includes`, `--no-includes` | instruments, or not, the files of the target directory loaded by a direct `include` or `require`; without them, Sonda decides on its own, turning it on when there are files the autoloader does not load |
+| `--map=<file>` | where to keep the test map of `--affected`, for the CI cache (see above) |
+| `--covered-by` | every covered line and branch carries the names of the tests that executed it, as with Xdebug; in the HTML, they show on hovering the line. It weighs on a big suite: with 5,615 tests, the HTML went from 123 MB to 1.3 GB and the report's memory from 300 MB to 870 MB |
+| `--min-lines=<n>`, `--min-branches=<n>` | fails if the coverage of the whole project is below n% (global floor, on top of the 100% of what changed). With a floor, Sonda instruments and measures the whole `<source>` even with `--changed` or `--files`, whose verdict keeps looking only at their files; the printed total is the project's |
+| `-c <file>` | the `phpunit.xml` to use, also passed on to the runner |
+| `--version`, `-V` | prints the version of the sonda that is running |
 
-Cache e execuções ficam fora do projeto, em `$XDG_CACHE_HOME/sonda` ou `~/.cache/sonda`, num
-diretório privado do usuário (modo 0700): as cópias instrumentadas rodam como código, então
-ninguém mais pode escrever ali. O Sonda recusa um diretório de cache que pertença a outro usuário
-ou esteja aberto a outros.
+Cache and runs stay outside the project, in `$XDG_CACHE_HOME/sonda` or `~/.cache/sonda`, in a
+directory private to the user (mode 0700): the instrumented copies run as code, so nobody else may
+write there. Sonda refuses a cache directory owned by another user or open to others.
 
-### Sem o comando
+### Without the command
 
-O `bootstrap.php` funciona direto no PHPUnit, no Pest e no ParaTest, configurado por variáveis
-de ambiente; é o que o comando faz por baixo:
+`bootstrap.php` works directly in PHPUnit, Pest and ParaTest, configured by environment
+variables; it is what the command does underneath:
 
 ```bash
 SONDA_AUTOLOAD=vendor/autoload.php SONDA_TARGET=app SONDA_EXCLUDE=app/Providers \
@@ -214,153 +218,157 @@ php artisan test --parallel --bootstrap=/opt/sonda/bootstrap.php
 php /opt/sonda/report.php /tmp/sonda/runs app coverage.cov app/Providers
 ```
 
-| Variável | Obrigatória | Significado |
+| Variable | Required | Meaning |
 |---|---|---|
-| `SONDA_AUTOLOAD` | sim | `vendor/autoload.php` do projeto medido |
-| `SONDA_TARGET` | sim | diretórios instrumentados, separados por `PATH_SEPARATOR` |
-| `SONDA_CACHE` | sim | diretório dos arquivos instrumentados |
-| `SONDA_OUT` | sim | diretório das execuções, um arquivo por processo; use um novo a cada medição |
-| `SONDA_EXCLUDE` | não | diretórios deixados de fora |
-| `SONDA_ONLY` | não | os únicos arquivos medidos |
-| `SONDA_STRICT=1` | não | semântica estrita de branches |
-| `SONDA_FAST=1` | não | referência local por função: sondas mais baratas |
-| `SONDA_CHAIN` | não | bootstrap original do projeto, quando não é só o autoload |
-| `SONDA_VIEWS` | não | pastas de views do Blade a medir, separadas por `PATH_SEPARATOR` |
+| `SONDA_AUTOLOAD` | yes | `vendor/autoload.php` of the measured project |
+| `SONDA_TARGET` | yes | instrumented directories, separated by `PATH_SEPARATOR` |
+| `SONDA_CACHE` | yes | directory of the instrumented files |
+| `SONDA_OUT` | yes | directory of the runs, one file per process; use a new one for each measurement |
+| `SONDA_EXCLUDE` | no | directories left out |
+| `SONDA_ONLY` | no | the only files measured |
+| `SONDA_STRICT=1` | no | strict branch semantics |
+| `SONDA_FAST=1` | no | local reference per function: cheaper probes |
+| `SONDA_CHAIN` | no | the project's original bootstrap, when it is not just the autoload |
+| `SONDA_VIEWS` | no | directories of Blade views to measure, separated by `PATH_SEPARATOR` |
 
-## Como funciona
+## How it works
 
-1. O bootstrap registra um autoloader na frente do Composer. Uma classe do diretório alvo é
-   carregada de uma cópia instrumentada, guardada em cache por caminho, data de modificação e
-   versão do instrumentador. Os arquivos da chave `files` do Composer que estão no alvo (helpers)
-   são reservados antes de o autoload do Composer rodar e carregados instrumentados logo depois.
-2. A instrumentação lê o arquivo com o `nikic/php-parser` e insere as sondas por posição de
-   byte no fonte original, sem reimprimir o código. Nenhuma linha muda de número, e `__FILE__` e
-   `__DIR__` continuam apontando para o arquivo original.
-3. Só contam as sondas executadas durante cada teste, a mesma janela que o PHPUnit dá ao Xdebug:
-   código executado em data provider não conta como coberto.
-4. O que o autoloader não vê também vem instrumentado: um arquivo PHP do diretório alvo que o
-   código carrega pelo caminho, com `include` ou `require` (uma migration do Laravel, um arquivo
-   de rotas, um teste que faz `require` do arquivo), abre a cópia instrumentada. Um stream wrapper
-   de `file://`, registrado só nos processos que rodam testes, faz essa troca; qualquer outra
-   operação de arquivo segue para o wrapper do próprio PHP. Ele só entra quando o diretório alvo
-   tem arquivos que o autoloader não carrega (que não declaram classe, interface, trait nem enum
-   com nome, fora a chave `files` do Composer). `--includes` e `--no-includes` forçam a escolha.
-5. Ao fim de cada teste, o Sonda guarda quais sondas ele executou, com o arquivo, o tamanho
-   (`#[Small]`, `#[Medium]`, `#[Large]`), a duração e se falhou. Conjuntos iguais de sondas são
-   guardados uma vez só, porque os testes de uma suíte passam quase todos pelo mesmo código.
-6. No fim de cada processo, a execução é gravada. O comando junta as execuções de todos os
-   workers e monta o relatório com o php-code-coverage. Com `--covered-by`, cada linha e cada
-   branch coberto leva o nome dos testes que o executaram, como com o Xdebug: no HTML, passar o
-   mouse sobre uma linha mostra esses testes, e um teste que falhou aparece em vermelho.
+1. The bootstrap registers an autoloader ahead of Composer's. A class of the target directory is
+   loaded from an instrumented copy, cached by path, modification time and instrumenter version.
+   The files of Composer's `files` key that are inside the target (helpers) are claimed before
+   Composer's autoload runs and loaded instrumented right after.
+2. The instrumentation reads the file with `nikic/php-parser` and inserts the probes by byte
+   offset into the original source, without reprinting the code. No line changes its number, and
+   `__FILE__` and `__DIR__` keep pointing at the original file.
+3. Only the probes executed during each test count, the same window PHPUnit gives Xdebug: code
+   executed in a data provider does not count as covered.
+4. What the autoloader never sees comes instrumented too: a PHP file of the target directory that
+   the code loads by its path, with `include` or `require` (a Laravel migration, a routes file, a
+   test that `require`s the file), opens the instrumented copy. A `file://` stream wrapper,
+   registered only in the processes that run tests, makes that swap; every other file operation
+   goes on to PHP's own wrapper. It only steps in when the target directory has files the
+   autoloader does not load (those that declare no named class, interface, trait or enum, apart
+   from Composer's `files` key). `--includes` and `--no-includes` force the choice.
+5. At the end of each test, Sonda records which probes it executed, with the file, the size
+   (`#[Small]`, `#[Medium]`, `#[Large]`), the duration and whether it failed. Equal sets of probes
+   are stored once, because the tests of a suite nearly all go through the same code.
+6. At the end of each process, the run is written. The command merges the runs of all workers and
+   builds the report with php-code-coverage. With `--covered-by`, every covered line and branch
+   carries the names of the tests that executed it, as with Xdebug: in the HTML, hovering a line
+   shows those tests, and a test that failed shows in red.
 
-## Views do Blade
+## Blade views
 
-Num projeto Laravel (com `artisan`), as views do Blade entram na medição junto com o `<source>`:
-cada `.blade.php` de `resources/views`, e das pastas `resources/views` dos pacotes e módulos
-guardados no projeto (fora de `vendor`, `node_modules`, `storage`, `public`, `tests` e
-`bootstrap`), aparece nos relatórios com as linhas de diretiva e de echo (`@if`, `@foreach`,
-`{{ }}`, `<x-componente>`) cobertas ou não, e com os branches das decisões (`@if`, `@unless`,
-`@isset`, `@foreach`, `@forelse`, `@switch`, `??` e `?->` nos echos), no mesmo modo estrito do
-PHP: um `@if` sem `@else` precisa do caso falso testado. A linha do `@endif` não é executável.
-A view entra no veredito do `--changed` como um todo, como um método: linha mudada numa view
-cobra as linhas e os branches dela inteira. `--views=a,b` acrescenta outras pastas de views;
-`--no-blade` deixa as views de fora.
+In a Laravel project (one with `artisan`), the Blade views join the measurement along with the
+`<source>`: every `.blade.php` in `resources/views`, and in the `resources/views` directories of
+the packages and modules kept inside the project (outside `vendor`, `node_modules`, `storage`,
+`public`, `tests` and `bootstrap`), appears in the reports with its directive and echo lines
+(`@if`, `@foreach`, `{{ }}`, `<x-component>`) covered or not, and with the branches of its
+decisions (`@if`, `@unless`, `@isset`, `@foreach`, `@forelse`, `@switch`, `??` and `?->` in
+echos), in the same strict mode as PHP: an `@if` without `@else` needs its false case tested. The
+`@endif` line is not executable. A view enters the `--changed` verdict as a whole, like a method:
+a changed line in a view demands the lines and branches of the whole view. `--views=a,b` adds other
+view directories; `--no-blade` leaves the views out.
 
-Como funciona: a primeira vez que um teste sobe a aplicação, o Sonda compila todas as views com
-o compilador Blade dela (diretivas próprias incluídas), instrumenta o PHP compilado e grava o
-resultado onde o Laravel vai incluí-lo, numa pasta de views compiladas só deste processo, apontada
-por `VIEW_COMPILED_PATH` no ambiente (a configuração padrão do Laravel lê essa variável). O cache
-do projeto em `storage/framework/views` não é tocado. As linhas do PHP compilado voltam para as
-linhas do template por um mapa: um marcador inserido antes de cada construção sobrevive à
-compilação e diz de que linha ela veio. A cópia instrumentada fica mais nova que o template, para
-o Laravel não a compilar de novo sem sondas; com `--parallel`, cada worker tem a própria pasta, e a
-subpasta por token que o teste paralelo do Laravel usa é criada antes da cópia.
+How it works: the first time a test boots the application, Sonda compiles every view with the
+application's own Blade compiler (custom directives included), instruments the compiled PHP and
+writes the result where Laravel will include it, in a compiled-views directory of this process
+alone, pointed at by `VIEW_COMPILED_PATH` in the environment (Laravel's default configuration reads
+that variable). The project's cache in `storage/framework/views` is not touched. The lines of the
+compiled PHP map back to the template's lines: a marker inserted before each construct survives
+compilation and tells which line it came from. The instrumented copy is kept newer than the
+template, so Laravel does not compile it again without probes; with `--parallel`, each worker has
+its own directory, and the per-token subdirectory that Laravel's parallel testing uses is created
+before the copy.
 
-O que o Blade e o Livewire escrevem em volta do template não conta como decisão, porque o desfecho
-depende de como a view é renderizada e nenhum teste o controla: a guarda
-`if (ExtendBlade::isRenderingLivewireComponent())` que o Livewire põe em cada `@if`, `@unless` e
-`@foreach`; o salvar e restaurar de `$component`, `$attributes` e `$message` em volta de uma tag de
-componente e do `@error`; o `$component->shouldRender()`; os laços, `if` e `??` com que `@props`,
-`@aware` e `@livewire` tratam `$__key` e as outras variáveis de dois sublinhados. As linhas desse
-código continuam medidas; as decisões do template (`@error`, `@forelse`, `@if`...) também.
+What Blade and Livewire write around the template does not count as a decision, because its
+outcome depends on how the view is rendered and no test controls it: the
+`if (ExtendBlade::isRenderingLivewireComponent())` guard Livewire puts on every `@if`, `@unless`
+and `@foreach`; the saving and restoring of `$component`, `$attributes` and `$message` around a
+component tag and `@error`; the `$component->shouldRender()`; the loops, `if` and `??` with which
+`@props`, `@aware` and `@livewire` handle `$__key` and the other double-underscore variables. The
+lines of that code are still measured; the template's decisions (`@error`, `@forelse`, `@if`...)
+too.
 
-Para o php-code-coverage, que só conta branches de funções declaradas, cada view é a função
-`view`: a cópia do compilado que o relatório analisa no lugar do template declara essa função
-em volta do código (com os `use` apagados, que não cabem numa função), e as sondas da view
-levam esse nome. É ela que aparece na tabela de funções do HTML.
+For php-code-coverage, which only counts branches of declared functions, each view is the function
+`view`: the copy of the compiled code that the report analyses in place of the template declares
+that function around the code (with the `use` statements removed, which do not fit in a function),
+and the probes of the view carry that name. It is what appears in the functions table of the HTML.
 
-## Semântica dos branches
+## Branch semantics
 
-Um branch é um desfecho de decisão: a entrada de uma função, o corpo de `if`, `elseif`, `else`,
-laço, `case`, `catch` e `finally`, o operando direito de `&&`, `||`, `and`, `or` e `??`, os
-braços de `?:` e `match`, e o valor não nulo de `?->`.
+A branch is one outcome of a decision: the entry of a function, the body of `if`, `elseif`,
+`else`, a loop, `case`, `catch` and `finally`, the right operand of `&&`, `||`, `and`, `or` and
+`??`, the arms of `?:` and `match`, and the non-null value of `?->`.
 
-No modo estrito, que é o padrão:
+In strict mode, which is the default:
 
-- Corpo vazio de `if`, `elseif`, `else` e laço é um desfecho como outro qualquer: ganha uma
-  sonda sem linha, e conta como branch.
-- `fn&(...) => expr` vira a closure que ele abrevia, `function &(...) use (...) { sonda; return expr; }`,
-  com as variáveis da expressão capturadas por valor como a arrow function faz; `&get => expr`
-  vira `&get { sonda; return expr; }`. A referência devolvida fica intacta.
-- Todo `if` sem `else` ganha um `else` sintético: os dois desfechos precisam ser testados. O
-  Xdebug conta blocos básicos, então um `if` sem `else` cuja condição é sempre verdadeira dá
-  100% nele e não no Sonda.
-- `?->` conta os dois lados, nulo e não nulo.
-- O operando esquerdo de `&&`, `||`, `and` e `or` precisa decidir sozinho ao menos uma vez (o
-  curto-circuito, quando o direito nem roda), como o Xdebug conta. Em `??` não: o lado esquerdo
-  pode ser uma chave indefinida, que só o próprio operador lê sem aviso.
+- An empty body of `if`, `elseif`, `else` and loops is an outcome like any other: it gets a probe
+  without a line, and counts as a branch.
+- `fn&(...) => expr` becomes the closure it abbreviates, `function &(...) use (...) { probe; return expr; }`,
+  with the variables of the expression captured by value as the arrow function does; `&get => expr`
+  becomes `&get { probe; return expr; }`. The returned reference stays intact.
+- Every `if` without `else` gets a synthetic `else`: both outcomes need to be tested. Xdebug counts
+  basic blocks, so an `if` without `else` whose condition is always true gives 100% there and not
+  in Sonda.
+- `?->` counts both sides, null and non-null.
+- The left operand of `&&`, `||`, `and` and `or` has to decide alone at least once (the short
+  circuit, when the right one does not even run), as Xdebug counts. Not in `??`: its left side may
+  be an undefined key, which only that operator reads without a warning.
 
-O Sonda não conta o branch implícito de "nenhum braço casou" do `match`, que o Xdebug conta e
-nenhum teste alcança quando os braços cobrem todos os casos de um enum.
+Sonda does not count the implicit "no arm matched" branch of `match`, which Xdebug counts and no
+test reaches when the arms cover every case of an enum.
 
-O Sonda também não conta o desvio de fallback que o Xdebug vê em chamada a função nativa
-*frameless* (`in_array`, `max`, `preg_replace`, `str_contains`...) feita dentro de namespace sem
-`use function`: é um detalhe do opcode, não uma decisão do código, e um `use function` só para
-calar a cobertura deixa de ser necessário.
+Sonda also does not count the fallback jump Xdebug sees in a call to a native *frameless* function
+(`in_array`, `max`, `preg_replace`, `str_contains`...) made inside a namespace without
+`use function`: it is a detail of the opcode, not a decision of the code, and a `use function`
+only to silence the coverage stops being needed.
 
-Um método chamado como *first-class callable* (`$this->metodo(...)`) aparece no Xdebug como uma
-função solta com o nome do método, com os acertos, e o método da classe fica zerado; o Sonda
-credita o método. O `tools/compare.php` junta as duas entradas antes de comparar.
+A method called as a *first-class callable* (`$this->method(...)`) shows in Xdebug as a loose
+function named after the method, with the hits, while the class method stays at zero; Sonda
+credits the method. `tools/compare.php` merges the two entries before comparing.
 
-## Limitações conhecidas
+## Known limits
 
-- Views do Blade: só as pastas `resources/views` do projeto são achadas sozinhas; outra pasta
-  entra com `--views`.
-- Um arquivo da chave `files` do Composer que outro arquivo do diretório alvo também carrega por
-  `require` direto seria declarado duas vezes, da cópia instrumentada e do próprio caminho. O
-  comando recusa rodar nesse caso, resolvendo `__DIR__`, `__FILE__` e `dirname()` no argumento
-  do `require`.
-- A linha de um `catch` pela qual passou uma exceção de outro tipo aparece como não coberta
-  (o Xdebug a conta como executada).
-- Testes que leem o arquivo da classe por reflection veem a cópia instrumentada.
+- Blade views: only the project's `resources/views` directories are found on their own; another
+  directory comes in with `--views`.
+- A file of Composer's `files` key that another file of the target directory also loads by a direct
+  `require` would be declared twice, from the instrumented copy and from its own path. The command
+  refuses to run in that case, resolving `__DIR__`, `__FILE__` and `dirname()` in the argument of
+  the `require`.
+- The line of a `catch` that an exception of another type passed through shows as uncovered (Xdebug
+  counts it as executed).
+- Tests that read the class file through reflection see the instrumented copy.
 
-## Desenvolvimento
+## Development
 
 ```bash
-composer check          # pint, phpstan, rector (dry-run) e a suíte
-composer format         # rector e pint
+composer check          # pint, phpstan, rector (dry-run) and the suite
+composer format         # rector and pint
 XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --path-coverage --coverage-text
 XDEBUG_MODE=coverage php -d zend_extension=xdebug.so vendor/bin/pest --mutate --class='Sonda\Probe'
-php tools/phpunit-for-installed-coverage.php   # phpunit.xml sem as classes de compatibilidade da outra versão do php-code-coverage, para a cobertura de 100%
-php tools/lint-corpus.php vendor 1   # instrumenta um diretório inteiro e confere que o PHP continua válido
-php tools/compare.php xdebug.cov sonda.cov -v   # compara dois .cov linha a linha e método a método
-sonda compare <pasta de saída>   # na raiz de um projeto: Sonda, Xdebug com paths e a comparação, com summary.txt
+php tools/phpunit-for-installed-coverage.php   # phpunit.xml without the compatibility classes of the other php-code-coverage version, for the 100% coverage
+php tools/lint-corpus.php vendor 1   # instruments a whole directory and checks that the PHP is still valid
+php tools/compare.php xdebug.cov sonda.cov -v   # compares two .cov files line by line and method by method
+sonda compare <output directory>   # at the root of a project: Sonda, Xdebug with paths and the comparison, with summary.txt
 ```
 
-O `sonda compare` (o `tools/compare-with-xdebug.sh`; `--processes`, `--batch` e `--xdebug` viram
-as variáveis abaixo) roda a suíte duas vezes, com o Sonda e com o Xdebug em `--parallel`, e
-deixa `sonda.cov`, `xdebug.cov`, `compare.txt` e `summary.txt` na pasta informada; argumentos extras
-vão para o runner (`tools/compare-with-xdebug.sh saida tests/Feature/Pedidos` mede só essa pasta).
-Ele gera um `phpunit.xml` próprio com `pathCoverage="true"`, porque o ParaTest não aceita
-`--path-coverage`, e com caminhos absolutos. O `--coverage-filter` do PHPUnit não serve para
-restringir: ele soma ao `<source>` do `phpunit.xml`. Em suíte grande, `BATCH=80` roda o lado
-Xdebug em lotes de até 80 testes, um processo por lote e `PROCESSES` filas com banco próprio
-(`${DB_DATABASE}_q<N>`), e junta os `.cov` no fim: foi assim que a suíte do Laravel acima terminou.
+`sonda compare` (`tools/compare-with-xdebug.sh`; `--processes`, `--batch` and `--xdebug` become
+the variables below) runs the suite twice, with Sonda and with Xdebug in `--parallel`, and leaves
+`sonda.cov`, `xdebug.cov`, `compare.txt` and `summary.txt` in the given directory; extra arguments
+go to the runner (`tools/compare-with-xdebug.sh output tests/Feature/Orders` measures only that
+directory). It generates its own `phpunit.xml` with `pathCoverage="true"`, because ParaTest does
+not accept `--path-coverage`, and with absolute paths. PHPUnit's `--coverage-filter` does not
+restrict anything: it adds to the `<source>` of `phpunit.xml`. On a big suite, `BATCH=80` runs the
+Xdebug side in batches of up to 80 tests, one process per batch and `PROCESSES` queues with their
+own database (`${DB_DATABASE}_q<N>`), and merges the `.cov` files at the end: that is how the
+Laravel suite above finished.
 
-Todo código novo sai com 100% de linhas e de branches, medidos com Xdebug, e com mutação sem
-sobreviventes além dos equivalentes. Os testes de `tests/Feature` rodam o `bin/sonda` e o
-`bootstrap.php` sobre um projeto de exemplo, com PHPUnit e com ParaTest.
+All new code ships with 100% of lines and branches, measured with Xdebug, and with mutation testing
+leaving no survivors beyond the equivalent ones. The tests in `tests/Feature` run `bin/sonda` and
+`bootstrap.php` over a sample project, with PHPUnit and with ParaTest. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Licença
+## License
 
 MIT.

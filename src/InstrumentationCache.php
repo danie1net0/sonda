@@ -63,7 +63,7 @@ final readonly class InstrumentationCache
 
         foreach (is_array($contents) ? $contents : [null] as $compiledLine => $templateLine) {
             if (! is_int($compiledLine) || ! is_int($templateLine)) {
-                throw new RuntimeException("O mapa de linhas {$key} está corrompido no cache {$this->directory}.");
+                throw new RuntimeException("The line map {$key} is corrupt in the cache {$this->directory}.");
             }
 
             $map[$compiledLine] = $templateLine;
@@ -80,7 +80,7 @@ final readonly class InstrumentationCache
 
         foreach (is_array($contents) ? $contents : [null] as $id => $probe) {
             if (! is_int($id) || ! $probe instanceof Probe) {
-                throw new RuntimeException("O mapa de sondas {$key} está corrompido no cache {$this->directory}.");
+                throw new RuntimeException("The probe map {$key} is corrupt in the cache {$this->directory}.");
             }
 
             $probes[$id] = $probe;

@@ -61,7 +61,7 @@ it('passes everything after -- to the runner untouched', function (): void {
 it('runs the affected tests only with something that says what changed', function (): void {
     expect(TestOptions::parse(['--affected', '--files=a.php']))->affected->toBeTrue()
         ->and(fn (): TestOptions => TestOptions::parse(['--affected']))
-        ->toThrow(InvalidArgumentException::class, 'A opção --affected precisa de --changed ou --files: são eles que dizem o que mudou.');
+        ->toThrow(InvalidArgumentException::class, 'The option --affected needs --changed or --files: they say what changed.');
 });
 
 it('ignores empty entries in the file and view lists', function (): void {
@@ -79,9 +79,9 @@ it('requires a value for the options that take one', function (string $argument,
     expect(fn (): TestOptions => TestOptions::parse([$argument]))
         ->toThrow(InvalidArgumentException::class, $message);
 })->with([
-    ['--changed=', 'A opção --changed precisa de um valor.'],
-    ['--html=', 'A opção --html precisa de um valor.'],
-    ['-c', 'A opção -c precisa de um arquivo.'],
+    ['--changed=', 'The option --changed needs a value.'],
+    ['--html=', 'The option --html needs a value.'],
+    ['-c', 'The option -c needs a file.'],
 ]);
 
 it('accepts the ends of the range for the floors', function (): void {
@@ -91,7 +91,7 @@ it('accepts the ends of the range for the floors', function (): void {
 
 it('requires a percentage from 0 to 100 for the floors', function (string $argument, string $option): void {
     expect(fn (): TestOptions => TestOptions::parse([$argument]))
-        ->toThrow(InvalidArgumentException::class, "A opção {$option} precisa de um número de 0 a 100.");
+        ->toThrow(InvalidArgumentException::class, "The option {$option} needs a number from 0 to 100.");
 })->with([
     ['--min-lines=abc', '--min-lines'],
     ['--min-lines=101', '--min-lines'],

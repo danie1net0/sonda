@@ -23,7 +23,7 @@ final readonly class Version
             }
         }
 
-        return self::describe($sondaRoot) ?? 'desconhecida';
+        return self::describe($sondaRoot) ?? 'unknown';
     }
 
     /** The nearest tag of a checkout, with the commits past it; the commit alone before any tag. */

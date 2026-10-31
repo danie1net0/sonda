@@ -166,7 +166,7 @@ function sonda(string $root, string ...$arguments): array
     );
 
     if (! is_resource($process)) {
-        throw new RuntimeException('Não foi possível iniciar o sonda.');
+        throw new RuntimeException('Could not start o sonda.');
     }
 
     $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
@@ -188,7 +188,7 @@ it('measures a project in parallel with nothing installed in it', function (): v
 
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (2 tests, 3 assertions)')
-        ->toContain("\nCobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)\n");
+        ->toContain("\nCoverage: lines 3/5 (60.00%), branches 4/7 (57.14%)\n");
 });
 
 it('runs several test paths in parallel, through a configuration generated for them', function (): void {
@@ -199,7 +199,7 @@ it('runs several test paths in parallel, through a configuration generated for t
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('Processes:')
         ->toContain('OK (2 tests, 3 assertions)')
-        ->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
+        ->toContain('Coverage: lines 3/5 (60.00%), branches 4/7 (57.14%)')
         ->and(glob($root . '/.sonda-*'))->toBe([]);
 });
 
@@ -207,8 +207,8 @@ it('measures a project with plain PHPUnit when asked not to run in parallel', fu
     [$status, $output] = sonda(sondaProject(), 'test', '--no-parallel', '--html=build/html');
 
     expect($status)->toBe(0)
-        ->and($output)->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
-        ->toContain('Relatório HTML em ');
+        ->and($output)->toContain('Coverage: lines 3/5 (60.00%), branches 4/7 (57.14%)')
+        ->toContain('HTML report in ');
 });
 
 it('measures the Blade views of a Laravel project, in the subdirectory per worker of its parallel testing', function (): void {
@@ -216,7 +216,7 @@ it('measures the Blade views of a Laravel project, in the subdirectory per worke
 
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (3 tests, 4 assertions)')
-        ->toContain("\nCobertura: linhas 5/8 (62,50%), branches 5/9 (55,56%)\n");
+        ->toContain("\nCoverage: lines 5/8 (62.50%), branches 5/9 (55.56%)\n");
 });
 
 it('reports the Blade views next to the source, with plain PHPUnit', function (): void {
@@ -225,7 +225,7 @@ it('reports the Blade views next to the source, with plain PHPUnit', function ()
     [$status, $output] = sonda($root, 'test', '--no-parallel', '--html=build/html');
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toContain('Cobertura: linhas 5/8 (62,50%), branches 5/9 (55,56%)')
+        ->and($output)->toContain('Coverage: lines 5/8 (62.50%), branches 5/9 (55.56%)')
         ->and($root . '/build/html/resources/views/greeting.blade.php.html')->toBeFile()
         ->and($root . '/build/html/src/Discount.php.html')->toBeFile();
 });
@@ -237,7 +237,7 @@ it('leaves the Blade views out when asked', function (): void {
 
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (3 tests, 4 assertions)')
-        ->toContain('Cobertura: linhas 3/5 (60,00%), branches 4/7 (57,14%)')
+        ->toContain('Coverage: lines 3/5 (60.00%), branches 4/7 (57.14%)')
         ->and(is_dir($root . '/build/html/resources'))->toBeFalse();
 });
 
@@ -247,9 +247,9 @@ it("measures the helpers of Composer's files autoload, in parallel and in series
 
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (3 tests, 4 assertions)')
-        ->toContain("\nCobertura: linhas 5/8 (62,50%), branches 6/10 (60,00%)\n")
+        ->toContain("\nCoverage: lines 5/8 (62.50%), branches 6/10 (60.00%)\n")
         ->and($seriesStatus)->toBe(0, $seriesOutput)
-        ->and($seriesOutput)->toContain('Cobertura: linhas 5/8 (62,50%), branches 6/10 (60,00%)');
+        ->and($seriesOutput)->toContain('Coverage: lines 5/8 (62.50%), branches 6/10 (60.00%)');
 });
 
 it('fails on the uncovered parts of the methods changed since a reference', function (): void {
@@ -260,7 +260,7 @@ it('fails on the uncovered parts of the methods changed since a reference', func
     [$status, $output] = sonda($root, 'test', '--changed=master');
 
     expect($status)->toBe(1)
-        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n");
+        ->and($output)->toContain("Coverage: lines 1/1 (100.00%), branches 2/3 (66.67%)\nOf what changed: lines 1/1 (100.00%), branches 2/3 (66.67%)\nUncovered:\nsrc/Shipping.php: branches 11\n");
 });
 
 it('finds the changes of a project in a subdirectory of the repository', function (): void {
@@ -273,7 +273,7 @@ it('finds the changes of a project in a subdirectory of the repository', functio
     [$status, $output] = sonda($root, 'test', '--changed=master');
 
     expect($status)->toBe(1)
-        ->and($output)->toContain("Do que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n");
+        ->and($output)->toContain("Of what changed: lines 1/1 (100.00%), branches 2/3 (66.67%)\nUncovered:\nsrc/Shipping.php: branches 11\n");
 });
 
 it('passes a change that touches no method, whatever the file leaves uncovered', function (): void {
@@ -284,7 +284,7 @@ it('passes a change that touches no method, whatever the file leaves uncovered',
     [$status, $output] = sonda($root, 'test', '--changed=master');
 
     expect($status)->toBe(0)
-        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 0/0 (100,00%), branches 0/0 (100,00%)\nO que mudou está 100% coberto.\n");
+        ->and($output)->toContain("Coverage: lines 1/1 (100.00%), branches 2/3 (66.67%)\nOf what changed: lines 0/0 (100.00%), branches 0/0 (100.00%)\nWhat changed is 100% covered.\n");
 });
 
 it('checks a new file whole', function (): void {
@@ -295,7 +295,7 @@ it('checks a new file whole', function (): void {
     [$status, $output] = sonda($root, 'test', '--changed=master');
 
     expect($status)->toBe(1)
-        ->and($output)->toContain("Cobertura: linhas 0/1 (0,00%), branches 0/0 (100,00%)\nDo que mudou: linhas 0/1 (0,00%), branches 0/0 (100,00%)\nSem cobertura:\nsrc/Fresh.php: linhas 11\n");
+        ->and($output)->toContain("Coverage: lines 0/1 (0.00%), branches 0/0 (100.00%)\nOf what changed: lines 0/1 (0.00%), branches 0/0 (100.00%)\nUncovered:\nsrc/Fresh.php: lines 11\n");
 });
 
 it('checks the files named explicitly whole, even when they also changed', function (): void {
@@ -306,14 +306,14 @@ it('checks the files named explicitly whole, even when they also changed', funct
     [$status, $output] = sonda($root, 'test', '--changed=master', '--files=src/Shipping.php');
 
     expect($status)->toBe(1)
-        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nDo que mudou: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 12\n");
+        ->and($output)->toContain("Coverage: lines 1/1 (100.00%), branches 2/3 (66.67%)\nOf what changed: lines 1/1 (100.00%), branches 2/3 (66.67%)\nUncovered:\nsrc/Shipping.php: branches 12\n");
 });
 
 it('checks the files named explicitly whole, without a change summary', function (): void {
     [$status, $output] = sonda(sondaProject(), 'test', '--files=src/Shipping.php');
 
     expect($status)->toBe(1)
-        ->and($output)->toContain("Cobertura: linhas 1/1 (100,00%), branches 2/3 (66,67%)\nSem cobertura:\nsrc/Shipping.php: branches 11\n")
+        ->and($output)->toContain("Coverage: lines 1/1 (100.00%), branches 2/3 (66.67%)\nUncovered:\nsrc/Shipping.php: branches 11\n")
         ->not->toContain('Do que mudou');
 });
 
@@ -325,8 +325,8 @@ it('measures the whole project, views included, when nothing changed in the sour
     [$status, $output] = sonda($root, 'test', '--changed=master', '--min-lines=50', '--cobertura=build/cobertura.xml');
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toStartWith("Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n")
-        ->toContain('Cobertura: linhas 5/8 (62,50%), branches 5/9 (55,56%)')
+        ->and($output)->toStartWith("No changed file inside <source>: with a coverage floor, the whole project is measured.\n")
+        ->toContain('Coverage: lines 5/8 (62.50%), branches 5/9 (55.56%)')
         ->and($root . '/build/cobertura.xml')->toBeFile();
 });
 
@@ -338,7 +338,7 @@ it('writes the reports asked for even when nothing changed in the source', funct
     [$status, $output] = sonda($root, 'test', '--changed=master', '--cobertura=build/cobertura.xml');
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\nRelatório Cobertura em {$root}/build/cobertura.xml\n")
+        ->and($output)->toBe("No changed file inside <source>: nothing to measure.\nCobertura report in {$root}/build/cobertura.xml\n")
         ->and((string) file_get_contents($root . '/build/cobertura.xml'))->toContain('lines-valid="0"');
 });
 
@@ -350,14 +350,14 @@ it('runs nothing when the changes are outside the source', function (): void {
     [$status, $output] = sonda($root, 'test', '--changed=master');
 
     expect($status)->toBe(0)
-        ->and($output)->toBe("Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
+        ->and($output)->toBe("No changed file inside <source>: nothing to measure.\n");
 });
 
 it('refuses to run outside a project', function (): void {
     [$status, $output] = sonda(TemporaryDirectory::create(), 'test');
 
     expect($status)->toBe(1)
-        ->and($output)->toBe("Rode o sonda na raiz de um projeto com vendor/autoload.php.\n");
+        ->and($output)->toBe("Run sonda from the root of a project with vendor/autoload.php.\n");
 });
 
 it('names the tests that ran each covered line when asked, in parallel and in series', function (string ...$runner): void {
@@ -405,13 +405,13 @@ it('runs only the tests of the changed code once a run has mapped them', functio
     [$thirdStatus, $third] = sonda($root, 'test', '--files=src/Shipping.php', '--affected');
 
     expect($firstStatus)->toBe(0, $first)
-        ->and($first)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: ainda não há mapa de testes deste projeto; esta execução o cria.\n")
+        ->and($first)->toStartWith("Running the whole suite and measuring the whole project: this project has no test map yet; this run creates it.\n")
         ->toContain('OK (2 tests, 3 assertions)')
         ->and($secondStatus)->toBe(0, $second)
-        ->and($second)->toStartWith("Rodando só os testes afetados: tests/DiscountTest.php\n")
+        ->and($second)->toStartWith("Running only the affected tests: tests/DiscountTest.php\n")
         ->toContain('OK (1 test, 2 assertions)')
         ->and($thirdStatus)->toBe(1, $third)
-        ->and($third)->toStartWith("Rodando só os testes afetados: tests/ShippingTest.php\n")
+        ->and($third)->toStartWith("Running only the affected tests: tests/ShippingTest.php\n")
         ->toContain('OK (1 test, 1 assertion)');
 });
 
@@ -424,7 +424,7 @@ it('runs the whole suite when a change reaches beyond the source and the tests',
     [$status, $output] = sonda($root, 'test', '--changed=master', '--affected');
 
     expect($status)->toBe(0, $output)
-        ->and($output)->toStartWith("Rodando a suíte inteira e medindo o projeto todo: {$root}/routes.php mudou e não é um arquivo do <source> nem um teste.\n")
+        ->and($output)->toStartWith("Running the whole suite and measuring the whole project: {$root}/routes.php changed and is neither a <source> file nor a test.\n")
         ->toContain('OK (2 tests, 3 assertions)');
 });
 
@@ -435,9 +435,9 @@ it('leaves --affected aside when a floor asks for the whole suite or the tests t
     [, $withFloor] = sonda($root, 'test', '--changed=master', '--affected', '--min-lines=1');
     [, $withPath] = sonda($root, 'test', '--changed=master', '--affected', 'tests/DiscountTest.php');
 
-    expect($withFloor)->toStartWith("--affected ignorado: com piso de cobertura, a suíte inteira roda.\n")
+    expect($withFloor)->toStartWith("--affected ignored: with a coverage floor, the whole suite runs.\n")
         ->toContain('OK (2 tests, 3 assertions)')
-        ->and($withPath)->toStartWith("--affected ignorado: os testes a rodar já foram dados.\n")
+        ->and($withPath)->toStartWith("--affected ignored: the tests to run were given.\n")
         ->toContain('OK (1 test, 2 assertions)');
 });
 
@@ -450,8 +450,8 @@ it('measures a file of the source that a test requires by its path, outside the 
 
     expect($status)->toBe(0, $output)
         ->and($output)->toContain('OK (3 tests, 4 assertions)')
-        ->toContain("Cobertura: linhas 3/3 (100,00%), branches 0/0 (100,00%)")
-        ->toContain('Os arquivos alterados estão 100% cobertos.');
+        ->toContain("Coverage: lines 3/3 (100.00%), branches 0/0 (100.00%)")
+        ->toContain('The changed files are 100% covered.');
 })->with([
     'in parallel' => [],
     'in series' => ['--no-parallel'],

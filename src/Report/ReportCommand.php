@@ -10,7 +10,7 @@ use Sonda\Run;
 /** `report.php <run directory> <source directory> <output .cov> [excluded directory]...`. */
 final class ReportCommand
 {
-    public const string USAGE = 'uso: report.php <diretório das execuções> <diretório do fonte> <arquivo .cov de saída> [diretório excluído]...';
+    public const string USAGE = 'usage: report.php <runs directory> <source directory> <output .cov file> [excluded directory]...';
 
     /**
      * @param list<string> $arguments the command-line arguments, without the script name

@@ -60,7 +60,7 @@ it('refuses a test path that does not exist', function (): void {
     ['root' => $root] = configuredProject();
 
     expect(fn (): string => SuiteConfiguration::write('phpunit.xml', ['tests/Unit', 'tests/None'], $root))
-        ->toThrow(InvalidArgumentException::class, 'O caminho de teste tests/None não existe.');
+        ->toThrow(InvalidArgumentException::class, 'The test path tests/None does not exist.');
 });
 
 it('refuses a configuration that is not XML', function (): void {
@@ -68,7 +68,7 @@ it('refuses a configuration that is not XML', function (): void {
     file_put_contents($root . '/phpunit.xml', 'not xml');
 
     expect(fn (): string => SuiteConfiguration::write('phpunit.xml', ['tests/Unit'], $root))
-        ->toThrow(RuntimeException::class, "O arquivo {$root}/phpunit.xml não é um XML válido.")
+        ->toThrow(RuntimeException::class, "The file {$root}/phpunit.xml is not valid XML.")
         ->and(libxml_use_internal_errors())->toBeFalse()
         ->and(libxml_get_errors())->toBe([]);
 });

@@ -53,5 +53,5 @@ it('writes a php-code-coverage file with the lines and branches of the run', fun
 
 it('refuses an empty output path', function (): void {
     expect(fn () => ReportWriter::write(new Run('/cache', [], []), ['/app'], [], ''))
-        ->toThrow(InvalidArgumentException::class, 'O caminho do relatório não pode ser vazio.');
+        ->toThrow(InvalidArgumentException::class, 'The report path cannot be empty.');
 });

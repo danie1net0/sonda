@@ -60,7 +60,7 @@ final readonly class TestCommand
 
         if ($checkedFiles === []) {
             if (! $hasFloor) {
-                fwrite($output, "Nenhum arquivo alterado dentro de <source>: nada a medir.\n");
+                fwrite($output, "No changed file inside <source>: nothing to measure.\n");
                 // The reports asked for still exist, empty, for whatever reads them after the job.
                 $this->writeReports($options, CoverageBuilder::empty(), $projectRoot, $output);
                 $this->writeCodeQuality($options, [], $projectRoot, $output);
@@ -68,7 +68,7 @@ final readonly class TestCommand
                 return 0;
             }
 
-            fwrite($output, "Nenhum arquivo alterado dentro de <source>: com piso de cobertura, o projeto inteiro é medido.\n");
+            fwrite($output, "No changed file inside <source>: with a coverage floor, the whole project is measured.\n");
             $checkedFiles = null;
         }
 
@@ -107,7 +107,7 @@ final readonly class TestCommand
             $coverage = CoverageBuilder::build($run, $sourceFiles, $options->coveredBy);
             TestMap::load($mapPath, $projectRoot)->updatedWith($run, $sourceFiles)->save($mapPath, $projectRoot);
         } catch (RuntimeException $runtimeException) {
-            fwrite($output, "\nSem dados de cobertura: {$runtimeException->getMessage()}\n");
+            fwrite($output, "\nNo coverage data: {$runtimeException->getMessage()}\n");
 
             return $status === 0 ? 1 : $status;
         } finally {
@@ -117,7 +117,7 @@ final readonly class TestCommand
         fwrite($output, "\n" . $this->summary($coverage) . "\n");
 
         foreach ($run->problems as $problem) {
-            fwrite($output, "Aviso: o Sonda não leu o arquivo ou o tamanho de algum teste; a cobertura não muda, mas o --affected e o --covered-by podem sair incompletos: {$problem}\n");
+            fwrite($output, "Warning: Sonda could not read the file or the size of some test; the coverage is the same, but --affected and --covered-by may come out incomplete: {$problem}\n");
         }
 
         if ($options->text) {
@@ -146,12 +146,12 @@ final readonly class TestCommand
         }
 
         if ($change->uncovered === []) {
-            fwrite($output, ($options->changed !== null ? 'O que mudou está 100% coberto.' : 'Os arquivos alterados estão 100% cobertos.') . "\n");
+            fwrite($output, ($options->changed !== null ? 'What changed is 100% covered.' : 'The changed files are 100% covered.') . "\n");
 
             return $status;
         }
 
-        fwrite($output, "Sem cobertura:\n" . Uncovered::describe($change->uncovered, $projectRoot) . "\n");
+        fwrite($output, "Uncovered:\n" . Uncovered::describe($change->uncovered, $projectRoot) . "\n");
 
         return $status === 0 ? 1 : $status;
     }
@@ -212,7 +212,7 @@ final readonly class TestCommand
             $realDirectory = realpath(str_starts_with($directory, '/') ? $directory : $projectRoot . '/' . $directory);
 
             if ($realDirectory === false) {
-                throw new InvalidArgumentException("A pasta de views {$directory} não existe.");
+                throw new InvalidArgumentException("The views directory {$directory} does not exist.");
             }
 
             $directories[$realDirectory] = $realDirectory;
@@ -260,25 +260,25 @@ final readonly class TestCommand
         if ($options->html !== null) {
             $directory = $this->absolute($options->html, $projectRoot);
             new HtmlReport()->process($coverage, $directory);
-            fwrite($output, "Relatório HTML em {$directory}\n");
+            fwrite($output, "HTML report in {$directory}\n");
         }
 
         if ($options->clover !== null) {
             $file = $this->reportPath($options->clover, $projectRoot);
             new Clover()->process($coverage, $file);
-            fwrite($output, "Relatório Clover em {$file}\n");
+            fwrite($output, "Clover report in {$file}\n");
         }
 
         if ($options->cov !== null) {
             $file = $this->reportPath($options->cov, $projectRoot);
             new PHP()->process($coverage, $file);
-            fwrite($output, "Relatório .cov em {$file}\n");
+            fwrite($output, ".cov report in {$file}\n");
         }
 
         if ($options->cobertura !== null) {
             $file = $this->reportPath($options->cobertura, $projectRoot);
             new Cobertura()->process($coverage, $file);
-            fwrite($output, "Relatório Cobertura em {$file}\n");
+            fwrite($output, "Cobertura report in {$file}\n");
         }
     }
 
@@ -304,7 +304,7 @@ final readonly class TestCommand
         $file = $this->reportPath($options->codeQuality, $projectRoot);
         Filesystem::ensureDirectory(dirname($file));
         file_put_contents($file, CodeQuality::of($uncovered, $root));
-        fwrite($output, "Relatório Code Quality em {$file}\n");
+        fwrite($output, "Code Quality report in {$file}\n");
     }
 
     /**
@@ -325,7 +325,7 @@ final readonly class TestCommand
             // A file required by its path is measured too; one Composer also loads from its `files`
             // comes from the instrumented copy there and from its own path here: declared twice.
             if (isset($listed[$require->target])) {
-                throw new RuntimeException("{$target} está na chave files do Composer e ainda é carregado por require direto em {$where}: sob o Sonda seria declarado duas vezes. Tire o require.");
+                throw new RuntimeException("{$target} is in Composer's files key and is still loaded by a direct require in {$where}: under Sonda it would be declared twice. Drop the require.");
             }
         }
     }
@@ -383,13 +383,13 @@ final readonly class TestCommand
     private function affectedTests(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $explicitFiles, array $allSources, bool $hasFloor, string $mapPath, $output): ?array
     {
         if ($hasFloor) {
-            fwrite($output, "--affected ignorado: com piso de cobertura, a suíte inteira roda.\n");
+            fwrite($output, "--affected ignored: with a coverage floor, the whole suite runs.\n");
 
             return [];
         }
 
         if (TestSelection::of($options->runnerArguments)->paths !== []) {
-            fwrite($output, "--affected ignorado: os testes a rodar já foram dados.\n");
+            fwrite($output, "--affected ignored: the tests to run were given.\n");
 
             return [];
         }
@@ -402,7 +402,7 @@ final readonly class TestCommand
         $affected = AffectedTests::of($changed, $testMap, $allSources, $configuration->testPaths);
 
         if ($affected->tests === null) {
-            fwrite($output, "Rodando a suíte inteira e medindo o projeto todo: {$affected->reason}.\n");
+            fwrite($output, "Running the whole suite and measuring the whole project: {$affected->reason}.\n");
 
             return null;
         }
@@ -410,8 +410,8 @@ final readonly class TestCommand
         // Up to ten test files are named; more only counted, against the test files the map knows.
         $which = count($affected->tests) <= 10
             ? implode(', ', array_map(static fn (string $test): string => TextSummary::relative($test, $projectRoot), $affected->tests))
-            : count($affected->tests) . ' de ' . count($testMap->sources) . ' arquivos de teste';
-        fwrite($output, "Rodando só os testes afetados: {$which}\n");
+            : count($affected->tests) . ' of ' . count($testMap->sources) . ' test files';
+        fwrite($output, "Running only the affected tests: {$which}\n");
 
         return $affected->tests;
     }
@@ -421,7 +421,7 @@ final readonly class TestCommand
         $report = $coverage->getReport();
 
         return sprintf(
-            'Cobertura: linhas %d/%d (%s), branches %d/%d (%s)',
+            'Coverage: lines %d/%d (%s), branches %d/%d (%s)',
             $report->numberOfExecutedLines(),
             $report->numberOfExecutableLines(),
             TextSummary::percentage($report->numberOfExecutedLines(), $report->numberOfExecutableLines()),
@@ -440,7 +440,7 @@ final readonly class TestCommand
     {
         $report = $coverage->getReport();
         $measures = [];
-        $measures['linhas'] = [$options->minLines, $report->numberOfExecutedLines(), $report->numberOfExecutableLines()];
+        $measures['lines'] = [$options->minLines, $report->numberOfExecutedLines(), $report->numberOfExecutableLines()];
         $measures['branches'] = [$options->minBranches, $report->numberOfExecutedBranches(), $report->numberOfExecutableBranches()];
         $below = [];
 
@@ -454,7 +454,7 @@ final readonly class TestCommand
             return false;
         }
 
-        fwrite($output, 'Cobertura abaixo do mínimo: ' . implode(', ', $below) . "\n");
+        fwrite($output, 'Coverage below the minimum: ' . implode(', ', $below) . "\n");
 
         return true;
     }
@@ -462,7 +462,7 @@ final readonly class TestCommand
     private function changeSummary(ChangeCoverage $change): string
     {
         return sprintf(
-            'Do que mudou: linhas %d/%d (%s), branches %d/%d (%s)',
+            'Of what changed: lines %d/%d (%s), branches %d/%d (%s)',
             $change->executedLines,
             $change->executableLines,
             TextSummary::percentage($change->executedLines, $change->executableLines),

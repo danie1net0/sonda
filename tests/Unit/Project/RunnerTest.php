@@ -49,5 +49,5 @@ it('fails when no runner is installed', function (): void {
     $root = projectWith([]);
 
     expect(fn (): array => Runner::command($root, true))
-        ->toThrow(RuntimeException::class, "Nenhum runner de testes em {$root}: esperava artisan, vendor/bin/pest ou vendor/bin/phpunit.");
+        ->toThrow(RuntimeException::class, "No test runner in {$root}: expected artisan, vendor/bin/pest or vendor/bin/phpunit.");
 });

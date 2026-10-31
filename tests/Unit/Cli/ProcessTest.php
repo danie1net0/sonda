@@ -19,7 +19,7 @@ it('fails instead of warning when the command cannot start', function (): void {
     try {
         expect(function () use (&$pipes): void {
             Process::open(['/missing/binary', 'x'], [1 => ['pipe', 'w']], $pipes);
-        })->toThrow(RuntimeException::class, 'Não foi possível iniciar /missing/binary x: proc_open(): posix_spawn() failed: No such file or directory');
+        })->toThrow(RuntimeException::class, 'Could not start /missing/binary x: proc_open(): posix_spawn() failed: No such file or directory');
     } finally {
         $printed = ob_get_clean();
     }

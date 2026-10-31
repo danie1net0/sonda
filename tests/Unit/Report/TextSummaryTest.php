@@ -19,9 +19,9 @@ it('lists each file with its lines and branches, relative to the root and sorted
     new InstrumentationCache($root . '/cache')->store('order', new InstrumentationResult('<?php', $probes));
     $coverage = CoverageBuilder::build(new Run($root . '/cache', ['o' => [$order, 'order']], ['o' => [0 => 1, 2 => 1]]), [$order, $never]);
 
-    expect(TextSummary::of($coverage, $root))->toBe("app/Models/Never.php: linhas 0/1 (0,00%), branches 0/0 (100,00%)\napp/Order.php: linhas 2/3 (66,67%), branches 1/2 (50,00%)")
-        ->and(TextSummary::of($coverage, $root . '/'))->toStartWith('app/Models/Never.php: linhas 0/1')
-        ->and(TextSummary::of($coverage, '/elsewhere'))->toStartWith($root . '/app/Models/Never.php: linhas 0/1');
+    expect(TextSummary::of($coverage, $root))->toBe("app/Models/Never.php: lines 0/1 (0.00%), branches 0/0 (100.00%)\napp/Order.php: lines 2/3 (66.67%), branches 1/2 (50.00%)")
+        ->and(TextSummary::of($coverage, $root . '/'))->toStartWith('app/Models/Never.php: lines 0/1')
+        ->and(TextSummary::of($coverage, '/elsewhere'))->toStartWith($root . '/app/Models/Never.php: lines 0/1');
 });
 
 it('lists the files in path order, whatever order the run met them in', function (): void {
@@ -35,15 +35,15 @@ it('lists the files in path order, whatever order the run met them in', function
 
     $coverage = CoverageBuilder::build(new Run($root . '/cache', ['z' => [$root . '/app/Zeta.php', 'zeta'], 'a' => [$root . '/app/Alpha.php', 'alpha']], ['z' => [0 => 1], 'a' => [0 => 1]]), [$root . '/app/Zeta.php', $root . '/app/Alpha.php']);
 
-    expect(TextSummary::of($coverage, $root))->toBe("app/Alpha.php: linhas 1/1 (100,00%), branches 1/1 (100,00%)\napp/Zeta.php: linhas 1/1 (100,00%), branches 1/1 (100,00%)");
+    expect(TextSummary::of($coverage, $root))->toBe("app/Alpha.php: lines 1/1 (100.00%), branches 1/1 (100.00%)\napp/Zeta.php: lines 1/1 (100.00%), branches 1/1 (100.00%)");
 });
 
-it('formats percentages the Brazilian way, a whole as all covered', function (): void {
-    expect(TextSummary::percentage(0, 0))->toBe('100,00%')
-        ->and(TextSummary::percentage(1, 3))->toBe('33,33%')
+it('formats percentages with two decimals, a whole as all covered', function (): void {
+    expect(TextSummary::percentage(0, 0))->toBe('100.00%')
+        ->and(TextSummary::percentage(1, 3))->toBe('33.33%')
         ->and(TextSummary::ratio(0, 0))->toBe(100.0)
         ->and(TextSummary::ratio(1, 4))->toBe(25.0)
-        ->and(TextSummary::format(1234.5))->toBe('1.234,50%');
+        ->and(TextSummary::format(1234.5))->toBe('1234.50%');
 });
 
 it('keeps a path outside the root as it is', function (): void {

@@ -246,7 +246,7 @@ it('places probes correctly after multibyte text', function (): void {
 
 it('fails when the file cannot be read', function (): void {
     expect(fn (): InstrumentationResult => new Instrumenter()->instrument('/missing/File.php', 'file'))
-        ->toThrow(RuntimeException::class, 'O arquivo /missing/File.php não pôde ser lido.');
+        ->toThrow(RuntimeException::class, 'The file /missing/File.php could not be read.');
 });
 
 it('fails when the parser gives no syntax tree', function (): void {
@@ -264,7 +264,7 @@ it('fails when the parser gives no syntax tree', function (): void {
     $path = writeSource('<?php');
 
     expect(fn (): InstrumentationResult => new Instrumenter(parser: $parser)->instrument($path, 'file'))
-        ->toThrow(RuntimeException::class, "O arquivo {$path} não pôde ser analisado.");
+        ->toThrow(RuntimeException::class, "The file {$path} could not be parsed.");
 });
 
 it('names the file-level code as asked, so its branches can count toward a declared function', function (): void {

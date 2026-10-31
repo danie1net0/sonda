@@ -122,7 +122,7 @@ final readonly class TestOptions
             } elseif (self::valueOf($argument, '--map') !== null) {
                 $map = self::valueOf($argument, '--map');
             } elseif ($argument === '-c' || $argument === '--configuration') {
-                $configuration = $arguments[$index + 1] ?? throw new InvalidArgumentException("A opção {$argument} precisa de um arquivo.");
+                $configuration = $arguments[$index + 1] ?? throw new InvalidArgumentException("The option {$argument} needs a file.");
                 $runnerArguments[] = $argument;
                 $runnerArguments[] = $configuration;
                 $index++;
@@ -135,7 +135,7 @@ final readonly class TestOptions
         }
 
         if ($affected && $changed === null && $files === []) {
-            throw new InvalidArgumentException('A opção --affected precisa de --changed ou --files: são eles que dizem o que mudou.');
+            throw new InvalidArgumentException('The option --affected needs --changed or --files: they say what changed.');
         }
 
         return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $affected, $includes, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $codeQuality, $map, $runnerArguments);
@@ -147,7 +147,7 @@ final readonly class TestOptions
         $number = str_replace(',', '.', $value);
 
         if (! is_numeric($number) || (float) $number < 0 || (float) $number > 100) {
-            throw new InvalidArgumentException("A opção {$option} precisa de um número de 0 a 100.");
+            throw new InvalidArgumentException("The option {$option} needs a number from 0 to 100.");
         }
 
         return (float) $number;
@@ -167,7 +167,7 @@ final readonly class TestOptions
         $value = substr($argument, strlen($name) + 1);
 
         if ($value === '') {
-            throw new InvalidArgumentException("A opção {$name} precisa de um valor.");
+            throw new InvalidArgumentException("The option {$name} needs a value.");
         }
 
         return $value;

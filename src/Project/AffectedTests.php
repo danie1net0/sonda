@@ -33,7 +33,7 @@ final readonly class AffectedTests
     public static function of(array $changed, TestMap $map, array $sourceFiles, array $testPaths): self
     {
         if ($map->sources === []) {
-            return new self(null, 'ainda não há mapa de testes deste projeto; esta execução o cria');
+            return new self(null, 'this project has no test map yet; this run creates it');
         }
 
         $isSource = array_flip($sourceFiles);
@@ -43,7 +43,7 @@ final readonly class AffectedTests
         foreach ($changed as $path) {
             if (isset($isSource[$path])) {
                 if (! $map->knows($path)) {
-                    return new self(null, "nenhum teste conhecido executa {$path}");
+                    return new self(null, "no known test runs {$path}");
                 }
 
                 $changedSources[] = $path;
@@ -53,7 +53,7 @@ final readonly class AffectedTests
                     $tests[$path] = $path;
                 }
             } else {
-                return new self(null, "{$path} mudou e não é um arquivo do <source> nem um teste");
+                return new self(null, "{$path} changed and is neither a <source> file nor a test");
             }
         }
 

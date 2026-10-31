@@ -38,12 +38,12 @@ it('fails to load a file that is not a run', function (): void {
     file_put_contents($path, serialize(['not', 'a', 'run']));
 
     expect(fn (): Run => Run::load($path))
-        ->toThrow(RuntimeException::class, "O arquivo {$path} não contém uma execução do sonda.");
+        ->toThrow(RuntimeException::class, "The file {$path} does not hold a sonda run.");
 });
 
 it('fails to load a missing file', function (): void {
     expect(fn (): Run => Run::load('/missing/run.ser'))
-        ->toThrow(RuntimeException::class, 'O arquivo /missing/run.ser não pôde ser lido.');
+        ->toThrow(RuntimeException::class, 'The file /missing/run.ser could not be read.');
 });
 
 it('reads the probes of a file from its cache', function (): void {
@@ -98,7 +98,7 @@ it('fails to load a directory without runs', function (): void {
     $directory = TemporaryDirectory::create();
 
     expect(fn (): Run => Run::loadDirectory($directory))
-        ->toThrow(RuntimeException::class, "O diretório {$directory} não tem execuções do sonda.");
+        ->toThrow(RuntimeException::class, "The directory {$directory} has no sonda runs.");
 });
 
 it('keeps the cache directory of the first run when merging', function (): void {

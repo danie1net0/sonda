@@ -16,12 +16,12 @@ it('leaves the knobs unset when not given, and takes the first argument that is 
 
 it('requires the output directory', function (): void {
     expect(fn (): CompareOptions => CompareOptions::parse(['--processes=2']))
-        ->toThrow(InvalidArgumentException::class, 'O comando compare precisa do diretório de saída: sonda compare <saída>.');
+        ->toThrow(InvalidArgumentException::class, 'The compare command needs the output directory: sonda compare <output>.');
 });
 
 it('requires a whole number from 1 for the counts', function (string $argument, string $option): void {
     expect(fn (): CompareOptions => CompareOptions::parse(['out', $argument]))
-        ->toThrow(InvalidArgumentException::class, "A opção {$option} precisa de um número inteiro a partir de 1.");
+        ->toThrow(InvalidArgumentException::class, "The option {$option} needs an integer of 1 or more.");
 })->with([
     ['--processes=0', '--processes'],
     ['--processes=x', '--processes'],

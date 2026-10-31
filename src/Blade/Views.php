@@ -103,7 +103,7 @@ final class Views
 
         // Compiled views outside this process's directory would reach the project's own cache, probes included.
         if (! str_starts_with($compiledDirectory . '/', $this->compiledDirectory . '/')) {
-            fwrite($this->errors, "Sonda: as views compiladas não estão em {$this->compiledDirectory} (VIEW_COMPILED_PATH não chegou à configuração): views não medidas.\n");
+            fwrite($this->errors, "Sonda: the compiled views are not in {$this->compiledDirectory} (VIEW_COMPILED_PATH did not reach the configuration): views not measured.\n");
 
             return;
         }
@@ -135,7 +135,7 @@ final class Views
                 $this->cache->store($key, $this->viewInstrumenter->instrument($view, $compiledPath, $fileId, static fn (string $template): string => $compiler->compileString($template)));
             } catch (Throwable $throwable) {
                 // A view that does not compile fails the tests that render it, with Laravel's own message.
-                fwrite($this->errors, "Sonda: a view {$view} não compilou e não é medida: {$throwable->getMessage()}\n");
+                fwrite($this->errors, "Sonda: the view {$view} did not compile and is not measured: {$throwable->getMessage()}\n");
 
                 return;
             }

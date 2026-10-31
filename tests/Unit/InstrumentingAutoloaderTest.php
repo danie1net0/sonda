@@ -127,7 +127,7 @@ it('refuses to register over a cache directory open to other users', function ()
     $autoloader = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
 
     expect(fn () => $autoloader->register())
-        ->toThrow(RuntimeException::class, "O diretório {$directory}/cache precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
+        ->toThrow(RuntimeException::class, "The directory {$directory}/cache must belong to the current user and be private: chmod 700 on it fixes that.");
 });
 
 it('reports a run with the probes collected so far', function (): void {

@@ -10,7 +10,7 @@ function stream(string $path, string $mode)
     $stream = fopen($path, $mode);
 
     if ($stream === false) {
-        throw new RuntimeException("Não foi possível abrir {$path}.");
+        throw new RuntimeException("Could not open {$path}.");
     }
 
     return $stream;

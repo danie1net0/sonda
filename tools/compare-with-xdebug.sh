@@ -1,23 +1,22 @@
 #!/bin/bash
-# Compara a cobertura do Sonda com a do Xdebug (path coverage) no projeto do diretório atual.
+# Compares Sonda's coverage with Xdebug's (path coverage) on the project in the current directory.
 #
-# Uso, na raiz do projeto medido:
-#   DB_DATABASE=<banco privado> tools/compare-with-xdebug.sh <diretório de saída> [argumentos do runner...]
+# Usage, from the root of the measured project:
+#   DB_DATABASE=<private database> tools/compare-with-xdebug.sh <output directory> [runner arguments...]
 #
-# Variáveis: PROCESSES (workers do ParaTest ou filas de lotes, padrão 3), XDEBUG_SO (caminho do
-# xdebug.so) e BATCH (testes por lote; com ela o lado Xdebug roda em lotes, ver abaixo; nos lotes
-# só a pasta de testes, primeiro argumento do runner quando é uma pasta, é considerada).
-# Saída: sonda.cov, xdebug.cov, compare.txt e summary.txt no diretório informado.
+# Variables: PROCESSES (ParaTest workers or batch queues, default 3), XDEBUG_SO (path of xdebug.so)
+# and BATCH (tests per batch; with it the Xdebug side runs in batches, see below; in batches only
+# the tests directory, the first runner argument when it is a directory, is considered).
+# Output: sonda.cov, xdebug.cov, compare.txt and summary.txt in the given directory.
 #
-# O Xdebug com paths custa ~30x o tempo da suíte, e o php-code-coverage acumula, a cada teste, os
-# ids de teste em todos os branches e caminhos dos arquivos carregados: numa suíte grande o custo
-# por teste cresce até a rodada não terminar. BATCH=80 divide os arquivos de teste em lotes de até
-# 80 testes, cada um num processo novo, PROCESSES filas em paralelo, e junta os .cov no fim com
-# CodeCoverage::merge(). Cada fila usa o banco ${DB_DATABASE}_q<N>, criado com createdb quando
-# houver. Rodar com a máquina livre (caffeinate evita o sleep).
-set -uo pipefail
+# Xdebug with paths costs ~30x the time of the suite, and php-code-coverage accumulates, on every
+# test, the test ids on every branch and path of the loaded files: in a large suite the cost per
+# test grows until the run never finishes. BATCH=80 splits the test files into batches of up to 80
+# tests, each in a new process, PROCESSES queues in parallel, and merges the .cov at the end with
+# CodeCoverage::merge(). Each queue uses the database ${DB_DATABASE}_q<N>, created with createdb
+# when available. Run on an idle machine (caffeinate keeps it from sleeping).
 
-OUT=${1:?informe o diretório de saída}
+OUT=${1:?give the output directory}
 shift
 ROOT=$(pwd)
 SONDA=$(cd "$(dirname "$0")/.." && pwd)
@@ -28,7 +27,7 @@ CAFFEINATE=$(command -v caffeinate >/dev/null && echo "caffeinate -i" || echo ""
 
 [ -f "$ROOT/phpunit.xml" ] || { echo "Rode na raiz de um projeto com phpunit.xml." >&2; exit 1; }
 [ -f "$ROOT/vendor/autoload.php" ] || { echo "Falta vendor/autoload.php: composer install." >&2; exit 1; }
-[ -f "$XDEBUG_SO" ] || { echo "Xdebug não encontrado em $XDEBUG_SO (XDEBUG_SO=...)." >&2; exit 1; }
+[ -f "$XDEBUG_SO" ] || { echo "Xdebug not found at $XDEBUG_SO (XDEBUG_SO=...)." >&2; exit 1; }
 RUNNER=vendor/bin/pest; [ -x "$RUNNER" ] || RUNNER=vendor/bin/paratest
 [ -x "$RUNNER" ] || { echo "Falta vendor/bin/pest ou vendor/bin/paratest." >&2; exit 1; }
 
@@ -39,14 +38,14 @@ printf 'zend_extension=%s\nxdebug.mode=coverage\nmemory_limit=-1\n' "$XDEBUG_SO"
 step() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$OUT/summary.txt"; }
 tests_line() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E 'Tests:' | tail -1 | sed 's/^ *//'; }
 
-# Lotes de até $BATCH testes (arquivo de teste inteiro), distribuídos por contagem entre $PROCESSES
-# filas; cada lote é um processo novo, cada fila tem o próprio banco; os .cov são juntados no fim.
+# Batches of up to $BATCH tests (whole test files), spread by count over $PROCESSES queues; each
+# batch is a new process, each queue has its own database; the .cov files are merged at the end.
 xdebug_in_batches() {
     local tests_root=$1
     mkdir -p "$OUT/batches" "$OUT/queues"
     rm -f "$OUT/batches"/* "$OUT/queues"/*
     for f in $(find "$tests_root" -name '*Test.php' | sort); do
-        # Testes do Pest (it, test, arch) ou métodos test* do PHPUnit; ao menos um por arquivo.
+        # Pest tests (it, test, arch) or PHPUnit test* methods; at least one per file.
         echo "$(grep -cE '^\s*(it|test|arch)\(|function test' "$f" | awk '{print ($1 > 0) ? $1 : 1}') $f"
     done > "$OUT/queues/files.txt"
     python3 - "$OUT/queues" "$PROCESSES" "$BATCH" <<'PY'
@@ -71,7 +70,7 @@ for i, items in enumerate(lists, start=1):
     open(f"{out}/queue-{i}.txt", "w").write("\n".join(items) + "\n")
 PY
     local total; total=$(cat "$OUT/queues"/queue-*.txt | grep -c .)
-    step "xdebug em lotes: início, $total lotes de até $BATCH testes em $PROCESSES filas"
+    step "xdebug in batches: start, $total batches of up to $BATCH tests in $PROCESSES queues"
     local start; start=$(date +%s)
     local queue
     for queue in $(seq 1 "$PROCESSES"); do
@@ -84,7 +83,7 @@ PY
             while read -r name files; do
                 [ -z "$name" ] && continue
                 s=$(date +%s)
-                # O Pest aceita vários caminhos; o PHPUnit, um só: aí cada arquivo do lote roda sozinho.
+                # Pest takes several paths; PHPUnit, one only: then each file of the batch runs alone.
                 if [ "$RUNNER" = vendor/bin/pest ]; then
                     DB_DATABASE=$db php "$RUNNER" -c "$OUT/phpunit.xdebug.xml" --do-not-cache-result --coverage-php="$OUT/batches/$name.cov" $files > "$OUT/batches/$name.log" 2>&1
                     status=$?
@@ -114,16 +113,16 @@ PY
 }
 
 : > "$OUT/summary.txt"
-step "projeto $ROOT, árvore: $(git -C "$ROOT" status --short 2>/dev/null | wc -l | tr -d ' ') arquivo(s) modificado(s)"
+step "project $ROOT, tree: $(git -C "$ROOT" status --short 2>/dev/null | wc -l | tr -d ' ') modified file(s)"
 
-# 1. Sonda, com o <source> do phpunit.xml do projeto.
-step "sonda: início"
+# 1. Sonda, with the <source> of the project's phpunit.xml.
+step "sonda: start"
 start=$(date +%s)
 $CAFFEINATE "$SONDA/bin/sonda" test --cov="$OUT/sonda.cov" "$@" > "$OUT/sonda.log" 2>&1
 step "sonda: exit=$? $(( $(date +%s) - start ))s | $(tests_line "$OUT/sonda.log") | $(sed 's/\x1b\[[0-9;]*m//g' "$OUT/sonda.log" | grep -E '^Cobertura' | tail -1)"
 
-# 2. phpunit.xml com caminhos absolutos e pathCoverage ligado: --path-coverage não passa pelo ParaTest,
-#    e um config fora da raiz resolve caminhos relativos a partir da própria pasta.
+# 2. phpunit.xml with absolute paths and pathCoverage on: --path-coverage does not go through ParaTest,
+#    and a config outside the root resolves relative paths from its own directory.
 sed -e "s#bootstrap=\"\([^/\"][^\"]*\)\"#bootstrap=\"$ROOT/\1\"#" \
     -e "s#\(<directory[^>]*>\)\([^/]\)#\1$ROOT/\2#" \
     -e "s#\(<file[^>]*>\)\([^/]\)#\1$ROOT/\2#" \
@@ -134,24 +133,24 @@ elif ! grep -q 'pathCoverage=' "$OUT/phpunit.xdebug.xml"; then
     sed 's#<coverage#<coverage pathCoverage="true"#' "$OUT/phpunit.xdebug.xml" > "$OUT/phpunit.tmp" && mv "$OUT/phpunit.tmp" "$OUT/phpunit.xdebug.xml"
 fi
 
-# 3. Xdebug nos workers via PHP_INI_SCAN_DIR (opção -d não chega aos processos filhos). Só a pasta
-#    deste script é lida, sem o conf.d padrão: um Xdebug já carregado ali seria carregado duas vezes,
-#    e o PCOV, se houver, disputa a cobertura com ele.
+# 3. Xdebug in the workers via PHP_INI_SCAN_DIR (the -d option does not reach child processes). Only
+#    this script's directory is read, without the default conf.d: an Xdebug already loaded there would
+#    be loaded twice, and PCOV, when present, would compete with it for the coverage.
 export PHP_INI_SCAN_DIR="$OUT/ini" XDEBUG_MODE=coverage LARAVEL_PARALLEL_TESTING=1
 if [ "$BATCH" -gt 0 ]; then
-    # A pasta de testes é o primeiro argumento do runner quando ele é uma pasta; os demais não chegam aos lotes.
+    # The tests directory is the first runner argument when it is a directory; the others do not reach the batches.
     tests_root=tests; [ $# -gt 0 ] && [ -d "$1" ] && tests_root=$1
     xdebug_in_batches "$tests_root"
 else
-    step "xdebug: início, $PROCESSES workers"
+    step "xdebug: start, $PROCESSES workers"
     start=$(date +%s)
     $CAFFEINATE php "$RUNNER" --parallel --processes="$PROCESSES" -c "$OUT/phpunit.xdebug.xml" --coverage-php="$OUT/xdebug.cov" "$@" > "$OUT/xdebug.log" 2>&1
     step "xdebug: exit=$? $(( $(date +%s) - start ))s | $(tests_line "$OUT/xdebug.log")"
 fi
 unset PHP_INI_SCAN_DIR XDEBUG_MODE LARAVEL_PARALLEL_TESTING
 
-# 4. Comparação linha a linha e método a método.
-[ -f "$OUT/xdebug.cov" ] || { step "xdebug.cov não foi gerado: ver $OUT/xdebug.log"; exit 1; }
+# 4. Comparison line by line and method by method.
+[ -f "$OUT/xdebug.cov" ] || { step "xdebug.cov was not written: see $OUT/xdebug.log"; exit 1; }
 php -d memory_limit=-1 "$SONDA/tools/compare.php" "$OUT/xdebug.cov" "$OUT/sonda.cov" -v > "$OUT/compare.txt" 2>&1
 step "compare: exit=$?"
 grep -E 'LINES|only|hit,|BRANCH|METHOD|SOUNDNESS' "$OUT/compare.txt" | tee -a "$OUT/summary.txt"

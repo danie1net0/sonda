@@ -98,9 +98,9 @@ it('describes the gaps with ranges and paths relative to the root', function ():
     ];
 
     expect(Uncovered::describe($uncovered, '/project/'))->toBe(
-        "app/Order.php: linhas 3-5, 9, 11; branches 8, 20-23\n"
+        "app/Order.php: lines 3-5, 9, 11; branches 8, 20-23\n"
         . "/elsewhere/Thing.php: branches 1\n"
-        . 'app/Paid.php: linhas 2',
+        . 'app/Paid.php: lines 2',
     );
 });
 

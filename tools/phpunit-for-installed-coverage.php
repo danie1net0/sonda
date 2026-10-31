@@ -22,7 +22,7 @@ $document->preserveWhiteSpace = false;
 $document->formatOutput = true;
 $document->load($root . '/phpunit.xml.dist');
 
-$source = $document->getElementsByTagName('source')->item(0) ?? throw new RuntimeException('phpunit.xml.dist sem <source>.');
+$source = $document->getElementsByTagName('source')->item(0) ?? throw new RuntimeException('phpunit.xml.dist without <source>.');
 $exclude = $source->getElementsByTagName('exclude')->item(0) ?? $source->appendChild($document->createElement('exclude'));
 
 foreach ($otherVersion as $file) {
@@ -30,4 +30,4 @@ foreach ($otherVersion as $file) {
 }
 
 $document->save($root . '/phpunit.xml');
-echo 'phpunit.xml sem ' . implode(', ', $otherVersion) . "\n";
+echo 'phpunit.xml without ' . implode(', ', $otherVersion) . "\n";

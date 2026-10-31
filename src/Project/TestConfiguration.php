@@ -36,7 +36,7 @@ final readonly class TestConfiguration
             }
         }
 
-        throw new RuntimeException("Nenhum phpunit.xml ou phpunit.xml.dist em {$projectRoot}.");
+        throw new RuntimeException("No phpunit.xml or phpunit.xml.dist in {$projectRoot}.");
     }
 
     public static function load(string $path): self
@@ -52,7 +52,7 @@ final readonly class TestConfiguration
         }
 
         if (! $xml instanceof SimpleXMLElement) {
-            throw new RuntimeException("O arquivo {$path} não é um XML válido.");
+            throw new RuntimeException("The file {$path} is not valid XML.");
         }
 
         $base = dirname($path);
@@ -60,7 +60,7 @@ final readonly class TestConfiguration
         $sources = self::directories($xml, '/phpunit/source/include/directory', $base);
 
         if ($sources === []) {
-            throw new RuntimeException("O arquivo {$path} não tem <source><include><directory>: o sonda precisa dele para saber o que medir.");
+            throw new RuntimeException("The file {$path} has no <source><include><directory>: sonda needs it to know what to measure.");
         }
 
         return new self(

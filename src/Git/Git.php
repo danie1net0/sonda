@@ -24,7 +24,7 @@ final class Git
         $error = stream_get_contents($pipes[2]) ?: '';
 
         if (proc_close($process) !== 0) {
-            throw new RuntimeException('git ' . implode(' ', $arguments) . ' falhou: ' . trim($error));
+            throw new RuntimeException('git ' . implode(' ', $arguments) . ' failed: ' . trim($error));
         }
 
         return $output;

@@ -18,7 +18,7 @@ final class Filesystem
         $contents = is_file($path) ? file_get_contents($path) : false;
 
         if ($contents === false) {
-            throw new RuntimeException("O arquivo {$path} não pôde ser lido.");
+            throw new RuntimeException("The file {$path} could not be read.");
         }
 
         return $contents;
@@ -35,7 +35,7 @@ final class Filesystem
         $info = new SplFileInfo($directory);
 
         if ($info->getOwner() !== getmyuid() || ($info->getPerms() & 0o077) !== 0) {
-            throw new RuntimeException("O diretório {$directory} precisa pertencer ao usuário atual e ser privado: chmod 700 nele resolve.");
+            throw new RuntimeException("The directory {$directory} must belong to the current user and be private: chmod 700 on it fixes that.");
         }
     }
 
@@ -54,7 +54,7 @@ final class Filesystem
         }
 
         if (! is_dir($directory)) {
-            throw new RuntimeException("Não foi possível criar o diretório {$directory}.");
+            throw new RuntimeException("The directory {$directory} could not be created.");
         }
     }
 

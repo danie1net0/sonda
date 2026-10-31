@@ -45,7 +45,7 @@ final readonly class CompareOptions
         }
 
         if ($outputDirectory === null) {
-            throw new InvalidArgumentException('O comando compare precisa do diretório de saída: sonda compare <saída>.');
+            throw new InvalidArgumentException('The compare command needs the output directory: sonda compare <output>.');
         }
 
         return new self($outputDirectory, $processes, $batch, $xdebug, $runnerArguments);
@@ -56,7 +56,7 @@ final readonly class CompareOptions
         $value = substr($argument, strlen($option) + 1);
 
         if (! ctype_digit($value) || (int) $value < 1) {
-            throw new InvalidArgumentException("A opção {$option} precisa de um número inteiro a partir de 1.");
+            throw new InvalidArgumentException("The option {$option} needs an integer of 1 or more.");
         }
 
         return (int) $value;

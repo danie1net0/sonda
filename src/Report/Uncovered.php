@@ -129,7 +129,7 @@ final class Uncovered
             $parts = [];
 
             if ($gaps['lines'] !== []) {
-                $parts[] = 'linhas ' . self::list(self::runs($gaps['lines']));
+                $parts[] = 'lines ' . self::list(self::runs($gaps['lines']));
             }
 
             if ($gaps['branches'] !== []) {

@@ -13,7 +13,7 @@ function runCommand(array $command, array $environment = []): string
     $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 2), [...getenv(), ...$environment]);
 
     if (! is_resource($process)) {
-        throw new RuntimeException('Não foi possível iniciar o processo.');
+        throw new RuntimeException('Could not start the process.');
     }
 
     $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
@@ -29,7 +29,7 @@ function loadCoverage(string $path): CodeCoverage
     $coverage = require $path;
 
     if (! $coverage instanceof CodeCoverage) {
-        throw new RuntimeException("O arquivo {$path} não contém um relatório.");
+        throw new RuntimeException("The file {$path} does not hold a report.");
     }
 
     return $coverage;
@@ -127,11 +127,11 @@ it('refuses to build a report without the required arguments', function (): void
     $process = proc_open([PHP_BINARY, 'report.php', '/runs'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname(__DIR__, 2));
 
     if (! is_resource($process)) {
-        throw new RuntimeException('Não foi possível iniciar o processo.');
+        throw new RuntimeException('Could not start the process.');
     }
 
     $error = stream_get_contents($pipes[2]);
 
     expect(proc_close($process))->toBe(1)
-        ->and($error)->toContain('uso: report.php');
+        ->and($error)->toContain('usage: report.php');
 });

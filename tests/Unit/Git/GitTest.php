@@ -50,7 +50,7 @@ it('fails with what git said when the command fails', function (): void {
     try {
         Git::run($directory, ['rev-parse', 'HEAD']);
     } catch (RuntimeException $runtimeException) {
-        expect($runtimeException->getMessage())->toStartWith('git rev-parse HEAD falhou: fatal:')
+        expect($runtimeException->getMessage())->toStartWith('git rev-parse HEAD failed: fatal:')
             ->not->toEndWith("\n");
 
         return;

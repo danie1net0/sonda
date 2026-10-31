@@ -72,12 +72,12 @@ it('requires each mandatory setting', function (string $name): void {
     unset($environment[$name]);
 
     expect(fn (): Settings => Settings::fromEnvironment($environment))
-        ->toThrow(InvalidArgumentException::class, "A variável de ambiente {$name} é obrigatória.");
+        ->toThrow(InvalidArgumentException::class, "The environment variable {$name} is required.");
 })->with(['SONDA_AUTOLOAD', 'SONDA_TARGET', 'SONDA_CACHE', 'SONDA_OUT']);
 
 it('rejects an empty mandatory setting', function (): void {
     expect(fn (): Settings => Settings::fromEnvironment(environment(['SONDA_TARGET' => ''])))
-        ->toThrow(InvalidArgumentException::class, 'A variável de ambiente SONDA_TARGET é obrigatória.');
+        ->toThrow(InvalidArgumentException::class, 'The environment variable SONDA_TARGET is required.');
 });
 
 it('builds the scope of the instrumentation', function (): void {

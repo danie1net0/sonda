@@ -27,7 +27,7 @@ it('fails when the project has no configuration file', function (): void {
     $directory = TemporaryDirectory::create();
 
     expect(fn (): string => TestConfiguration::find($directory))
-        ->toThrow(RuntimeException::class, "Nenhum phpunit.xml ou phpunit.xml.dist em {$directory}.");
+        ->toThrow(RuntimeException::class, "No phpunit.xml or phpunit.xml.dist in {$directory}.");
 });
 
 it('reads the bootstrap and the source directories, relative to the file', function (): void {
@@ -93,7 +93,7 @@ it('fails without source directories', function (): void {
     $path = writeConfiguration($directory, '<phpunit><source><include/></source></phpunit>');
 
     expect(fn (): TestConfiguration => TestConfiguration::load($path))
-        ->toThrow(RuntimeException::class, "O arquivo {$path} não tem <source><include><directory>: o sonda precisa dele para saber o que medir.");
+        ->toThrow(RuntimeException::class, "The file {$path} has no <source><include><directory>: sonda needs it to know what to measure.");
 });
 
 it('fails on invalid XML', function (): void {
@@ -101,7 +101,7 @@ it('fails on invalid XML', function (): void {
     $path = writeConfiguration($directory, '<phpunit><source>');
 
     expect(fn (): TestConfiguration => TestConfiguration::load($path))
-        ->toThrow(RuntimeException::class, "O arquivo {$path} não é um XML válido.")
+        ->toThrow(RuntimeException::class, "The file {$path} is not valid XML.")
         ->and(libxml_use_internal_errors())->toBeFalse()
         ->and(libxml_get_errors())->toBe([]);
 });

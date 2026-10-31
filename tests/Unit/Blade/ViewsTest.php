@@ -163,7 +163,7 @@ it('leaves out a view that does not compile, saying so', function (): void {
     rewind($errors);
 
     expect(array_column($views->files(), 0))->toBe([$viewsDirectory . '/home.blade.php'])
-        ->and(stream_get_contents($errors))->toBe("Sonda: a view {$viewsDirectory}/nested/item.blade.php não compilou e não é medida: boom\n");
+        ->and(stream_get_contents($errors))->toBe("Sonda: the view {$viewsDirectory}/nested/item.blade.php did not compile and is not measured: boom\n");
 });
 
 it('does nothing with a container that has no Blade compiler, and tries again later', function (): void {
@@ -201,7 +201,7 @@ it('refuses compiled views outside its directory, which would reach the project 
     rewind($errors);
 
     expect($views->files())->toBe([])
-        ->and(stream_get_contents($errors))->toBe("Sonda: as views compiladas não estão em {$compiled} (VIEW_COMPILED_PATH não chegou à configuração): views não medidas.\n")
+        ->and(stream_get_contents($errors))->toBe("Sonda: the compiled views are not in {$compiled} (VIEW_COMPILED_PATH did not reach the configuration): views not measured.\n")
         ->and(is_dir($compiled))->toBeFalse();
 });
 

@@ -12,53 +12,54 @@ use function in_array;
 final readonly class Application
 {
     public const string USAGE = <<<'TEXT'
-    uso: sonda test [opções] [argumentos do runner]
+    usage: sonda test [options] [runner arguments]
 
-    Roda os testes do projeto da pasta atual com a instrumentação do Sonda e mostra a
-    cobertura de linhas e de branches do <source> do phpunit.xml. Sem instalar nada no projeto.
+    Runs the tests of the project in the current directory with Sonda's instrumentation and
+    prints the line and branch coverage of the <source> of phpunit.xml. Nothing is installed
+    in the project.
 
-    Opções:
-      --changed=<ref>   mede só os arquivos de <source> alterados desde o merge-base com a
-                        referência (commitados, modificados e novos); falha se sobrar algo descoberto
-      --files=a,b       mede só esses arquivos; falha se sobrar algo descoberto
-      --html=<dir>      grava o relatório HTML
-      --clover=<arq>    grava o relatório Clover
-      --cov=<arq>       grava o .cov do php-code-coverage
-      --cobertura=<arq> grava o relatório Cobertura (o que o GitLab lê no MR)
-      --code-quality=<arq> grava o que ficou descoberto como Code Quality do GitLab (apontado no diff)
-      --no-strict       não exige o else de todo if nem o lado nulo de ?->
-      --no-fast         sondas sem a referência local por função
-      --no-parallel     não usa o ParaTest mesmo quando instalado
-      --no-blade        não mede as views do Blade (resources/views) de um projeto Laravel
-      --views=a,b       mede também as views do Blade dessas pastas
-      --text            lista a cobertura de cada arquivo
-      --affected        com --changed ou --files, roda só os testes que executam o que mudou,
-                        pelo mapa que cada execução grava; sem mapa ou com mudança que ele não
-                        explica (config, rotas, arquivo novo), roda a suíte inteira
-      --includes        mede também os arquivos carregados por include/require direto (padrão:
-                        só quando o source tem arquivos sem classe, como migrations)
-      --no-includes     não mede esses arquivos
-      --map=<arq>       guarda o mapa de testes do --affected nesse arquivo (para o cache do CI)
-      --covered-by      diz nos relatórios que testes executaram cada linha e branch (pesa:
-                        num projeto grande, o HTML passa de 1 GB)
-      --min-lines=<n>   falha se a cobertura de linhas do projeto ficar abaixo de n%
-      --min-branches=<n> o mesmo para branches
-      -c <arquivo>      o phpunit.xml a usar, também repassado ao runner
+    Options:
+      --changed=<ref>   measures only the <source> files changed since the merge-base with the
+                        reference (committed, modified and new); fails if anything is left uncovered
+      --files=a,b       measures only these files; fails if anything is left uncovered
+      --html=<dir>      writes the HTML report
+      --clover=<file>   writes the Clover report
+      --cov=<file>      writes the .cov of php-code-coverage
+      --cobertura=<file> writes the Cobertura report (what GitLab reads in the MR)
+      --code-quality=<file> writes what is left uncovered as GitLab Code Quality (shown in the diff)
+      --no-strict       does not require the else of every if nor the null side of ?->
+      --no-fast         probes without the local reference per function
+      --no-parallel     does not use ParaTest even when installed
+      --no-blade        does not measure the Blade views (resources/views) of a Laravel project
+      --views=a,b       measures the Blade views of these directories too
+      --text            lists the coverage of each file
+      --affected        with --changed or --files, runs only the tests that execute what changed,
+                        by the map each run writes; without a map, or with a change it does not
+                        explain (config, routes, a new file), runs the whole suite
+      --includes        measures the files loaded by a direct include/require too (default: only
+                        when the source has files without a class, such as migrations)
+      --no-includes     does not measure those files
+      --map=<file>      keeps the test map of --affected in this file (for the CI cache)
+      --covered-by      says in the reports which tests executed each line and branch (heavy:
+                        in a large project the HTML passes 1 GB)
+      --min-lines=<n>   fails if the line coverage of the project is below n%
+      --min-branches=<n> the same for branches
+      -c <file>         the phpunit.xml to use, also passed on to the runner
 
-    sonda --version mostra a versão deste sonda.
+    Any other argument goes to the runner (php artisan test, pest or phpunit).
 
-    Qualquer outro argumento vai para o runner (php artisan test, pest ou phpunit).
+    sonda --version prints the version of this sonda.
 
-    uso: sonda compare <saída> [opções] [argumentos do runner]
+    usage: sonda compare <output> [options] [runner arguments]
 
-    Mede o projeto com o Sonda e com o Xdebug (path coverage) e compara os dois, gravando
-    sonda.cov, xdebug.cov, compare.txt e summary.txt em <saída>. Precisa de um banco privado
-    em DB_DATABASE no ambiente e de uma máquina livre.
+    Measures the project with Sonda and with Xdebug (path coverage) and compares the two,
+    writing sonda.cov, xdebug.cov, compare.txt and summary.txt in <output>. Needs a private
+    database in DB_DATABASE in the environment and an idle machine.
 
-    Opções:
-      --processes=<n>   workers do ParaTest, ou filas de lotes (padrão 3)
-      --batch=<n>       testes por lote do lado Xdebug, que numa suíte grande não termina de uma vez
-      --xdebug=<so>     o xdebug.so a carregar
+    Options:
+      --processes=<n>   ParaTest workers, or batch queues (default 3)
+      --batch=<n>       tests per batch on the Xdebug side, which in a large suite does not finish in one go
+      --xdebug=<so>     the xdebug.so to load
     TEXT;
 
     public function __construct(private TestCommand $testCommand, private CompareCommand $compareCommand, private string $version)
@@ -87,7 +88,7 @@ final readonly class Application
         }
 
         if (! in_array($command, ['test', 'compare'], true)) {
-            fwrite($error, "Comando desconhecido: {$command}\n\n" . self::USAGE . "\n");
+            fwrite($error, "Unknown command: {$command}\n\n" . self::USAGE . "\n");
 
             return 1;
         }

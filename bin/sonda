@@ -13,7 +13,7 @@ $projectRoot = getcwd();
 $projectAutoload = $projectRoot . '/vendor/autoload.php';
 
 if ($projectRoot === false || ! is_file($projectAutoload)) {
-    fwrite(STDERR, "Rode o sonda na raiz de um projeto com vendor/autoload.php.\n");
+    fwrite(STDERR, "Run sonda from the root of a project with vendor/autoload.php.\n");
 
     exit(1);
 }

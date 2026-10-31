@@ -22,7 +22,7 @@ final class TextSummary
             }
 
             $lines[] = sprintf(
-                '%s: linhas %d/%d (%s), branches %d/%d (%s)',
+                '%s: lines %d/%d (%s), branches %d/%d (%s)',
                 self::relative($node->pathAsString(), $root),
                 $node->numberOfExecutedLines(),
                 $node->numberOfExecutableLines(),
@@ -58,6 +58,6 @@ final class TextSummary
 
     public static function format(float $percentage): string
     {
-        return number_format($percentage, 2, ',', '.') . '%';
+        return number_format($percentage, 2, '.', '') . '%';
     }
 }

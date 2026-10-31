@@ -30,7 +30,7 @@ it('falls back to the checkout when Composer does not list it', function (): voi
     mkdir($vendor . '/composer');
     file_put_contents($vendor . '/composer/installed.php', "<?php return ['versions' => []];");
 
-    expect(Version::of($vendor . '/ddr/sonda'))->toBe('desconhecida');
+    expect(Version::of($vendor . '/ddr/sonda'))->toBe('unknown');
 });
 
 it('describes a checkout by its tag, without the v, and by the commit before any tag', function (): void {
@@ -42,5 +42,5 @@ it('describes a checkout by its tag, without the v, and by the commit before any
 });
 
 it('is unknown outside a checkout', function (): void {
-    expect(Version::of(TemporaryDirectory::create()))->toBe('desconhecida');
+    expect(Version::of(TemporaryDirectory::create()))->toBe('unknown');
 });

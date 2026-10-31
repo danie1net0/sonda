@@ -27,7 +27,7 @@ function compatFileNode(): File
         }
     }
 
-    throw new LogicException('O relatório não tem arquivo.');
+    throw new LogicException('The report has no file.');
 }
 
 /** A branch as the compatibility layer hands it out. @return array{op_start: int, op_end: int, line_start: int, line_end: int, hit: list<string>, out: array<int, int>, out_hit: array<int, int>} */

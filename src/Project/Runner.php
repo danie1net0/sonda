@@ -30,6 +30,6 @@ final class Runner
             return [PHP_BINARY, 'vendor/bin/phpunit'];
         }
 
-        throw new RuntimeException("Nenhum runner de testes em {$projectRoot}: esperava artisan, vendor/bin/pest ou vendor/bin/phpunit.");
+        throw new RuntimeException("No test runner in {$projectRoot}: expected artisan, vendor/bin/pest or vendor/bin/phpunit.");
     }
 }

@@ -60,21 +60,21 @@ it('runs the whole suite without a map', function (): void {
     ['root' => $root, 'sources' => $sources, 'testPaths' => $testPaths] = affectedProject();
 
     expect(AffectedTests::of([$root . '/app/Order.php'], new TestMap(), $sources, $testPaths))
-        ->toEqual(new AffectedTests(null, 'ainda não há mapa de testes deste projeto; esta execução o cria'));
+        ->toEqual(new AffectedTests(null, 'this project has no test map yet; this run creates it'));
 });
 
 it('runs the whole suite for a source file no test is known to run, view or class', function (string $file): void {
     ['root' => $root, 'map' => $map, 'sources' => $sources, 'testPaths' => $testPaths] = affectedProject();
 
     expect(AffectedTests::of([$root . '/app/Order.php', $root . '/' . $file], $map, $sources, $testPaths))
-        ->toEqual(new AffectedTests(null, "nenhum teste conhecido executa {$root}/{$file}"));
+        ->toEqual(new AffectedTests(null, "no known test runs {$root}/{$file}"));
 })->with(['app/Fresh.php', 'resources/views/home.blade.php']);
 
 it('runs the whole suite when a file that is neither source nor test changes', function (string $file): void {
     ['root' => $root, 'map' => $map, 'sources' => $sources, 'testPaths' => $testPaths] = affectedProject();
 
     expect(AffectedTests::of([$root . '/' . $file], $map, $sources, $testPaths))
-        ->toEqual(new AffectedTests(null, "{$root}/{$file} mudou e não é um arquivo do <source> nem um teste"));
+        ->toEqual(new AffectedTests(null, "{$root}/{$file} changed and is neither a <source> file nor a test"));
 })->with([
     'configuration' => 'config/app.php',
     'a deleted source file' => 'app/Removed.php',
