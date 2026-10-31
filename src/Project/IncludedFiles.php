@@ -6,7 +6,7 @@ namespace Sonda\Project;
 
 use Sonda\Filesystem;
 
-use function in_array, str_ends_with;
+use function in_array;
 
 /**
  * The PHP files of the scope that the autoloader can never load, for they declare no class,

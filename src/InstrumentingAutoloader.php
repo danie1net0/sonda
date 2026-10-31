@@ -7,7 +7,7 @@ namespace Sonda;
 use Closure;
 use Composer\Autoload\ClassLoader;
 
-use function str_ends_with, substr;
+use function substr;
 
 /**
  * Runs before Composer's autoloader: a class whose file is in scope is loaded from its

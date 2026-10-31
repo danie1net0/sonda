@@ -13,7 +13,7 @@ use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, D
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
-use function array_all, implode, in_array, preg_match, str_ends_with, str_starts_with, substr, trim, dirname;
+use function implode, in_array, preg_match, str_starts_with, substr, trim, dirname;
 
 /**
  * Walks the AST and records the edits (probe insertions) and the probe metadata of a file.

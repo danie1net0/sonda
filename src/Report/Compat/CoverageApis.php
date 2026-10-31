@@ -6,8 +6,6 @@ namespace Sonda\Report\Compat;
 
 use SebastianBergmann\CodeCoverage\StaticAnalysis\SourceAnalyser;
 
-use function interface_exists;
-
 /** The php-code-coverage the project has installed: 12 has the SourceAnalyser that 11 lacks. */
 final class CoverageApis
 {

@@ -14,7 +14,7 @@ use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
 
-use function dirname, implode, str_ends_with, str_starts_with, substr, trim;
+use function dirname, implode, str_starts_with, substr, trim;
 
 /**
  * `sonda test`: runs the project's tests instrumented, then reports the coverage of the
@@ -88,17 +88,17 @@ final readonly class TestCommand
         $scope = $hasFloor || $affectedTests === null ? $wholeProject : $narrowed;
         $sourceFiles = $this->sourceFiles($scope, $viewDirectories);
         $this->refuseDoubleDeclarations($sourceFiles, $scope, $projectRoot);
-        [$runnerArguments, $generatedConfiguration] = $this->runnerArguments($options, $configuration, $projectRoot, $affectedTests ?? []);
+        $invocation = $this->runnerArguments($options, $configuration, $projectRoot, $affectedTests ?? []);
 
         try {
             $status = $this->processes->run(
-                [...Runner::command($projectRoot, $options->parallel), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$runnerArguments],
+                [...Runner::command($projectRoot, $options->parallel), '--no-coverage', '--bootstrap=' . $this->sondaRoot . '/bootstrap.php', ...$invocation->arguments],
                 $this->environment($configuration, $projectRoot, $scope->narrowsToFiles() ? $sourceFiles : [], $viewDirectories, $workDirectory . '/cache', $runsDirectory, $options, $this->includes($options, $sourceFiles, $projectRoot)),
                 $projectRoot,
             );
         } finally {
-            if ($generatedConfiguration !== null) {
-                unlink($generatedConfiguration);
+            if ($invocation->generatedConfiguration !== null) {
+                unlink($invocation->generatedConfiguration);
             }
         }
 
@@ -336,20 +336,19 @@ final readonly class TestCommand
      *
      * @param list<string> $affectedTests the test files `--affected` chose, after the runner's own arguments
      *
-     * @return array{0: list<string>, 1: string|null} the arguments and the generated configuration, to remove after the run
      */
-    private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $affectedTests): array
+    private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $affectedTests): RunnerInvocation
     {
         $arguments = [...$options->runnerArguments, ...$affectedTests];
         $selection = TestSelection::of($arguments);
 
         if (! $options->parallel || count($selection->paths) <= 1) {
-            return [$arguments, null];
+            return new RunnerInvocation($arguments);
         }
 
         $generated = SuiteConfiguration::write($configuration->path, $selection->paths, $projectRoot);
 
-        return [[...$selection->options, '--configuration=' . $generated], $generated];
+        return new RunnerInvocation([...$selection->options, '--configuration=' . $generated], $generated);
     }
 
     /**

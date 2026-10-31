@@ -13,23 +13,30 @@ final class Runner
     public static function command(string $projectRoot, bool $parallel): array
     {
         $parallel = $parallel && is_file($projectRoot . '/vendor/bin/paratest');
+        $command = [];
+        $command[] = PHP_BINARY;
 
         if (is_file($projectRoot . '/artisan')) {
-            return [PHP_BINARY, 'artisan', 'test', ...($parallel ? ['--parallel'] : [])];
-        }
+            $command[] = 'artisan';
+            $command[] = 'test';
+        } elseif (is_file($projectRoot . '/vendor/bin/pest')) {
+            $command[] = 'vendor/bin/pest';
+        } elseif ($parallel) {
+            $command[] = 'vendor/bin/paratest';
 
-        if (is_file($projectRoot . '/vendor/bin/pest')) {
-            return [PHP_BINARY, 'vendor/bin/pest', ...($parallel ? ['--parallel'] : [])];
+            return $command;
+        } elseif (is_file($projectRoot . '/vendor/bin/phpunit')) {
+            $command[] = 'vendor/bin/phpunit';
+
+            return $command;
+        } else {
+            throw new RuntimeException("No test runner in {$projectRoot}: expected artisan, vendor/bin/pest or vendor/bin/phpunit.");
         }
 
         if ($parallel) {
-            return [PHP_BINARY, 'vendor/bin/paratest'];
+            $command[] = '--parallel';
         }
 
-        if (is_file($projectRoot . '/vendor/bin/phpunit')) {
-            return [PHP_BINARY, 'vendor/bin/phpunit'];
-        }
-
-        throw new RuntimeException("No test runner in {$projectRoot}: expected artisan, vendor/bin/pest or vendor/bin/phpunit.");
+        return $command;
     }
 }

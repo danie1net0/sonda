@@ -9,8 +9,6 @@ use Sonda\Run;
 use Sonda\Report\Compat\{CoverageApi, CoverageApis};
 use SebastianBergmann\CodeCoverage\{CodeCoverage, Filter};
 
-use function str_ends_with;
-
 /**
  * A php-code-coverage object holding a run, ready for any of its reports.
  *

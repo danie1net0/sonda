@@ -4,26 +4,33 @@ declare(strict_types=1);
 
 namespace Sonda\Cli;
 
+use function dirname;
+
 /** The version of the sonda that is running: the one Composer installed, or the tag of a checkout. */
 final readonly class Version
 {
     public static function of(string $sondaRoot): string
     {
-        // Installed as a dependency, the root is vendor/ddr/sonda and Composer keeps the version
-        // beside it, in vendor/composer/installed.php.
+        return self::installed($sondaRoot) ?? self::describe($sondaRoot) ?? 'unknown';
+    }
+
+    /**
+     * The version Composer installed: as a dependency, the root is vendor/ddr/sonda and Composer
+     * keeps the versions beside it, in vendor/composer/installed.php.
+     */
+    private static function installed(string $sondaRoot): ?string
+    {
         $installed = dirname($sondaRoot, 2) . '/composer/installed.php';
 
-        if (is_file($installed)) {
-            /** @var array{versions?: array<string, array{pretty_version?: string}>} $packages */
-            $packages = require $installed;
-            $version = $packages['versions']['ddr/sonda']['pretty_version'] ?? null;
-
-            if (is_string($version)) {
-                return $version;
-            }
+        if (! is_file($installed)) {
+            return null;
         }
 
-        return self::describe($sondaRoot) ?? 'unknown';
+        /** @var array{versions?: array<string, array{pretty_version?: string}>} $packages */
+        $packages = require $installed;
+        $version = $packages['versions']['ddr/sonda']['pretty_version'] ?? null;
+
+        return is_string($version) ? $version : null;
     }
 
     /** The nearest tag of a checkout, with the commits past it; the commit alone before any tag. */

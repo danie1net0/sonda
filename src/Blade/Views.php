@@ -10,7 +10,7 @@ use Sonda\{Filesystem, InstrumentationCache, Instrumenter, Scope, Settings};
 use Sonda\Report\SourceFiles;
 use Throwable;
 
-use function class_exists, dirname, max, str_ends_with, str_starts_with, substr;
+use function class_exists, dirname, max, str_starts_with, substr;
 
 /**
  * The Blade views of a test process: compiled and instrumented once the Laravel application

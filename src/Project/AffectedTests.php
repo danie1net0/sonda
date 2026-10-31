@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Sonda\Project;
 
-use function str_ends_with, str_starts_with;
+use function str_starts_with;
 
 /**
  * The test files a change affects, by the test map: those whose tests ran a changed source file,

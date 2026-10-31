@@ -7,7 +7,7 @@ namespace Sonda\Blade;
 use PhpToken;
 use Sonda\{Edit, SourceEditor};
 
-use function max, preg_replace, str_ends_with, str_starts_with, substr;
+use function max, preg_replace, str_starts_with, substr;
 
 /**
  * The copy of a compiled view that php-code-coverage analyses in place of the template: the same
