@@ -1,3 +1,10 @@
+# [1.16.0](https://github.com/danie1net0/sonda/compare/v1.15.0...v1.16.0) (2026-10-31)
+
+
+### Features
+
+* the CLI, the README and the contributor files speak English ([6e72d66](https://github.com/danie1net0/sonda/commit/6e72d6663f3fbccb0b446281c9594483d111064c))
+
 # [1.15.0](https://github.com/danie1net0/sonda/compare/v1.14.5...v1.15.0) (2026-10-30)
 
 
