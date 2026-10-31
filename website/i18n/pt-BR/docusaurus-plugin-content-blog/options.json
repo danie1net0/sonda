@@ -1,0 +1,14 @@
+{
+  "title": {
+    "message": "Sonda blog",
+    "description": "The title for the blog used in SEO"
+  },
+  "description": {
+    "message": "Releases, measurements and notes on coverage in PHP.",
+    "description": "The description for the blog used in SEO"
+  },
+  "sidebar.title": {
+    "message": "Recent posts",
+    "description": "The label for the left sidebar"
+  }
+}

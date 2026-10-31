@@ -1,0 +1,14 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Usage": {
+    "message": "Uso",
+    "description": "The label for category 'Usage' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.In CI": {
+    "message": "No CI",
+    "description": "The label for category In CI in sidebar docs"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "link.title.Docs": {
+    "message": "Docs",
+    "description": "The title of the footer links column with title=Docs in the footer"
+  },
+  "link.title.Project": {
+    "message": "Projeto",
+    "description": "The title of the footer links column with title=Project in the footer"
+  },
+  "link.title.More": {
+    "message": "Mais",
+    "description": "The title of the footer links column with title=More in the footer"
+  },
+  "link.item.label.Getting started": {
+    "message": "Começando",
+    "description": "The label of footer link with label=Getting started linking to /docs/getting-started"
+  },
+  "link.item.label.CLI reference": {
+    "message": "Referência da CLI",
+    "description": "The label of footer link with label=CLI reference linking to /docs/usage/cli-reference"
+  },
+  "link.item.label.Branch semantics": {
+    "message": "Semântica dos branches",
+    "description": "The label of footer link with label=Branch semantics linking to /docs/branch-semantics"
+  },
+  "link.item.label.In CI": {
+    "message": "No CI",
+    "description": "The label of footer link with label=In CI linking to /docs/ci/gitlab"
+  },
+  "link.item.label.GitHub": {
+    "message": "GitHub",
+    "description": "The label of footer link with label=GitHub linking to https://github.com/danie1net0/sonda"
+  },
+  "link.item.label.Packagist": {
+    "message": "Packagist",
+    "description": "The label of footer link with label=Packagist linking to https://packagist.org/packages/ddr/sonda"
+  },
+  "link.item.label.Changelog": {
+    "message": "Changelog",
+    "description": "The label of footer link with label=Changelog linking to https://github.com/danie1net0/sonda/blob/master/CHANGELOG.md"
+  },
+  "link.item.label.Issues": {
+    "message": "Issues",
+    "description": "The label of footer link with label=Issues linking to https://github.com/danie1net0/sonda/issues"
+  },
+  "link.item.label.Blog": {
+    "message": "Blog",
+    "description": "The label of footer link with label=Blog linking to /blog"
+  },
+  "link.item.label.Contributing": {
+    "message": "Contribuir",
+    "description": "The label of footer link with label=Contributing linking to /docs/contributing"
+  },
+  "copyright": {
+    "message": "MIT © 2026 Daniel Neto",
+    "description": "The footer copyright"
+  }
+}

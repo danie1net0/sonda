@@ -1,0 +1,455 @@
+{
+  "home.eyebrow": {
+    "message": "Cobertura de PHP por instrumentação"
+  },
+  "home.title.before": {
+    "message": "Cobertura de linhas e "
+  },
+  "home.title.em": {
+    "message": "branches"
+  },
+  "home.title.after": {
+    "message": " para PHP. Sem Xdebug, sem PCOV."
+  },
+  "home.lead": {
+    "message": "O Sonda insere sondas no fonte antes de carregá-lo, como o Istanbul faz no JavaScript. A suíte roda no tempo normal dela, e cada decisão precisa mostrar os dois desfechos."
+  },
+  "home.cta.start": {
+    "message": "Começar"
+  },
+  "home.cta.compare": {
+    "message": "Números contra o Xdebug"
+  },
+  "home.bars.none": {
+    "message": "Sem cobertura"
+  },
+  "home.bars.sonda": {
+    "message": "Sonda, linhas e branches"
+  },
+  "home.bars.xdebugLines": {
+    "message": "Xdebug, só linhas"
+  },
+  "home.bars.xdebugPaths": {
+    "message": "Xdebug --path-coverage"
+  },
+  "home.bars.unfinished": {
+    "message": "> 63 min"
+  },
+  "home.measure.title": {
+    "message": "A suíte roda no tempo dela"
+  },
+  "home.measure.lead": {
+    "message": "Uma aplicação Laravel 13 com Filament, Pest 4 e Postgres: 4.514 testes, medidos na mesma máquina. O Xdebug com path coverage não terminou em uma hora."
+  },
+  "home.measure.note": {
+    "message": "Memória: 308 MB sem cobertura, 317 MB com o Sonda, 640 MB com o Xdebug só de linhas. Com ParaTest e 10 workers: 42 s sem cobertura, 40 s com o Sonda."
+  },
+  "home.f1.title": {
+    "message": "Branches, não só linhas"
+  },
+  "home.f1.body": {
+    "message": "Cada desfecho de if, laços, match, ?:, ??, ?-> e dos operadores de curto-circuito é um branch com a própria sonda."
+  },
+  "home.f2.title": {
+    "message": "Sem extensão"
+  },
+  "home.f2.body": {
+    "message": "Nada para instalar no runner. Qualquer PHP 8.4+ com o seu vendor/ basta; o relatório sai do php-code-coverage."
+  },
+  "home.f3.title": {
+    "message": "Estrito por padrão"
+  },
+  "home.f3.body": {
+    "message": "Um if sem else ainda precisa dos dois desfechos testados. O Sonda sintetiza o else e o conta."
+  },
+  "home.f4.title": {
+    "message": "Só o que mudou"
+  },
+  "home.f4.body": {
+    "message": "--changed mede os arquivos que o seu branch tocou e falha se uma linha ou branch deles ficar descoberta."
+  },
+  "home.f5.title": {
+    "message": "Só os testes afetados"
+  },
+  "home.f5.body": {
+    "message": "--affected roda só os testes que executaram os arquivos mudados, por um mapa que a execução anterior gravou."
+  },
+  "home.f6.title": {
+    "message": "Views do Blade também"
+  },
+  "home.f6.body": {
+    "message": "Os templates compilados são instrumentados e mapeados de volta para a view, linha e branch, diretivas próprias incluídas."
+  },
+  "home.features.title": {
+    "message": "O que você ganha"
+  },
+  "home.features.lead": {
+    "message": "Feito para ser trava de merge: 100% das linhas e dos branches do que o merge request mudou, no tempo que a suíte já leva."
+  },
+  "home.how.title": {
+    "message": "Como funciona"
+  },
+  "home.how.lead": {
+    "message": "Sem interceptar opcodes e sem enumerar caminhos, que é o que deixa o Xdebug lento. Uma sonda é uma atribuição num array, e a cópia instrumentada preserva todas as linhas."
+  },
+  "home.how.s1.title": {
+    "message": "Instrumentar"
+  },
+  "home.how.s1.body": {
+    "message": "Cada arquivo do source do seu phpunit.xml ganha uma sonda em cada desfecho de branch. As cópias ficam em cache por hash do arquivo: a segunda execução não instrumenta nada."
+  },
+  "home.how.s2.title": {
+    "message": "Rodar"
+  },
+  "home.how.s2.body": {
+    "message": "Um bootstrap registra um autoloader antes do do Composer, que carrega as cópias. PHPUnit, Pest, ParaTest e artisan test rodam como sempre; cada worker grava o que executou."
+  },
+  "home.how.s3.title": {
+    "message": "Relatar"
+  },
+  "home.how.s3.body": {
+    "message": "As sondas viram um relatório do php-code-coverage: HTML, Clover, Cobertura para o diff do GitLab e Code Quality apontando as linhas descobertas."
+  },
+  "home.how.before": {
+    "message": "O seu código"
+  },
+  "home.how.after": {
+    "message": "O que roda (simplificado)"
+  },
+  "home.cta2.title": {
+    "message": "Dois comandos até o primeiro relatório"
+  },
+  "home.cta2.lead": {
+    "message": "Composer, depois sonda test na raiz do projeto. PHP 8.4+, PHPUnit 12 ou Pest 4."
+  },
+  "home.cta2.button": {
+    "message": "Ler o guia de início"
+  },
+  "theme.ErrorPageContent.title": {
+    "message": "Esta página quebrou.",
+    "description": "The title of the fallback page when the page crashed"
+  },
+  "theme.blog.archive.title": {
+    "message": "Arquivo",
+    "description": "The page & hero title of the blog archive page"
+  },
+  "theme.blog.archive.description": {
+    "message": "Arquivo",
+    "description": "The page & hero description of the blog archive page"
+  },
+  "theme.blog.paginator.navAriaLabel": {
+    "message": "Navegação das páginas do blog",
+    "description": "The ARIA label for the blog pagination"
+  },
+  "theme.blog.paginator.newerEntries": {
+    "message": "Posts mais novos",
+    "description": "The label used to navigate to the newer blog posts page (previous page)"
+  },
+  "theme.blog.paginator.olderEntries": {
+    "message": "Posts mais antigos",
+    "description": "The label used to navigate to the older blog posts page (next page)"
+  },
+  "theme.BackToTopButton.buttonAriaLabel": {
+    "message": "Voltar ao topo",
+    "description": "The ARIA label for the back to top button"
+  },
+  "theme.blog.post.paginator.navAriaLabel": {
+    "message": "Navegação entre posts",
+    "description": "The ARIA label for the blog posts pagination"
+  },
+  "theme.blog.post.paginator.newerPost": {
+    "message": "Post mais novo",
+    "description": "The blog post button label to navigate to the newer/previous post"
+  },
+  "theme.blog.post.paginator.olderPost": {
+    "message": "Post mais antigo",
+    "description": "The blog post button label to navigate to the older/next post"
+  },
+  "theme.tags.tagsPageLink": {
+    "message": "Ver todas as tags",
+    "description": "The label of the link targeting the tag list page"
+  },
+  "theme.colorToggle.ariaLabel.mode.system": {
+    "message": "modo do sistema",
+    "description": "The name for the system color mode"
+  },
+  "theme.colorToggle.ariaLabel.mode.light": {
+    "message": "modo claro",
+    "description": "The name for the light color mode"
+  },
+  "theme.colorToggle.ariaLabel.mode.dark": {
+    "message": "modo escuro",
+    "description": "The name for the dark color mode"
+  },
+  "theme.colorToggle.ariaLabel": {
+    "message": "Alternar o modo claro ou escuro (atual: {mode})",
+    "description": "The ARIA label for the color mode toggle"
+  },
+  "theme.docs.breadcrumbs.navAriaLabel": {
+    "message": "Trilha",
+    "description": "The ARIA label for the breadcrumbs"
+  },
+  "theme.docs.paginator.navAriaLabel": {
+    "message": "Páginas da documentação",
+    "description": "The ARIA label for the docs pagination"
+  },
+  "theme.docs.paginator.previous": {
+    "message": "Anterior",
+    "description": "The label used to navigate to the previous doc"
+  },
+  "theme.docs.paginator.next": {
+    "message": "Próxima",
+    "description": "The label used to navigate to the next doc"
+  },
+  "theme.docs.tagDocListPageTitle.nDocsTagged": {
+    "message": "{nDocsTagged} documentos",
+    "description": "Pluralized label for \"{count} docs tagged\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
+  },
+  "theme.docs.tagDocListPageTitle": {
+    "message": "{nDocsTagged} com a tag \"{tagName}\"",
+    "description": "The title of the page for a docs tag"
+  },
+  "theme.docs.versionBadge.label": {
+    "message": "Versão: {versionLabel}"
+  },
+  "theme.docs.versions.unreleasedVersionLabel": {
+    "message": "Esta é a documentação da versão {versionLabel}, ainda não lançada.",
+    "description": "The label used to tell the user that he's browsing an unreleased doc version"
+  },
+  "theme.docs.versions.unmaintainedVersionLabel": {
+    "message": "Esta é a documentação da versão {versionLabel}, que não recebe mais manutenção.",
+    "description": "The label used to tell the user that he's browsing an unmaintained doc version"
+  },
+  "theme.docs.versions.latestVersionSuggestionLabel": {
+    "message": "A documentação mais recente é a {latestVersionLink} ({versionLabel}).",
+    "description": "The label used to tell the user to check the latest version"
+  },
+  "theme.docs.versions.latestVersionLinkLabel": {
+    "message": "versão mais recente",
+    "description": "The label used for the latest version suggestion link label"
+  },
+  "theme.common.editThisPage": {
+    "message": "Editar esta página",
+    "description": "The link label to edit the current page"
+  },
+  "theme.lastUpdated.atDate": {
+    "message": " em {date}",
+    "description": "The words used to describe on which date a page has been last updated"
+  },
+  "theme.lastUpdated.byUser": {
+    "message": " por {user}",
+    "description": "The words used to describe by who the page has been last updated"
+  },
+  "theme.lastUpdated.lastUpdatedAtBy": {
+    "message": "Atualizado{atDate}{byUser}",
+    "description": "The sentence used to display when a page has been last updated, and by who"
+  },
+  "theme.common.headingLinkTitle": {
+    "message": "Link direto para {heading}",
+    "description": "Title for link to heading"
+  },
+  "theme.NotFound.title": {
+    "message": "Página não encontrada",
+    "description": "The title of the 404 page"
+  },
+  "theme.navbar.mobileVersionsDropdown.label": {
+    "message": "Versões",
+    "description": "The label for the navbar versions dropdown on mobile view"
+  },
+  "theme.tags.tagsListLabel": {
+    "message": "Tags:",
+    "description": "The label alongside a tag list"
+  },
+  "theme.AnnouncementBar.closeButtonAriaLabel": {
+    "message": "Fechar",
+    "description": "The ARIA label for close button of announcement bar"
+  },
+  "theme.admonition.caution": {
+    "message": "cuidado",
+    "description": "The default label used for the Caution admonition (:::caution)"
+  },
+  "theme.admonition.danger": {
+    "message": "perigo",
+    "description": "The default label used for the Danger admonition (:::danger)"
+  },
+  "theme.admonition.info": {
+    "message": "info",
+    "description": "The default label used for the Info admonition (:::info)"
+  },
+  "theme.admonition.note": {
+    "message": "nota",
+    "description": "The default label used for the Note admonition (:::note)"
+  },
+  "theme.admonition.tip": {
+    "message": "dica",
+    "description": "The default label used for the Tip admonition (:::tip)"
+  },
+  "theme.admonition.warning": {
+    "message": "atenção",
+    "description": "The default label used for the Warning admonition (:::warning)"
+  },
+  "theme.blog.sidebar.navAriaLabel": {
+    "message": "Posts recentes",
+    "description": "The ARIA label for recent posts in the blog sidebar"
+  },
+  "theme.DocSidebarItem.expandCategoryAriaLabel": {
+    "message": "Expandir a categoria '{label}'",
+    "description": "The ARIA label to expand the sidebar category"
+  },
+  "theme.DocSidebarItem.collapseCategoryAriaLabel": {
+    "message": "Recolher a categoria '{label}'",
+    "description": "The ARIA label to collapse the sidebar category"
+  },
+  "theme.IconExternalLink.ariaLabel": {
+    "message": "(opens in new tab)",
+    "description": "The ARIA label for the external link icon"
+  },
+  "theme.NavBar.navAriaLabel": {
+    "message": "Navegação principal",
+    "description": "The ARIA label for the main navigation"
+  },
+  "theme.NotFound.p1": {
+    "message": "Não achamos o que você procurava.",
+    "description": "The first paragraph of the 404 page"
+  },
+  "theme.NotFound.p2": {
+    "message": "Avise o dono do link que trouxe você aqui.",
+    "description": "The 2nd paragraph of the 404 page"
+  },
+  "theme.navbar.mobileLanguageDropdown.label": {
+    "message": "Idiomas",
+    "description": "The label for the mobile language switcher dropdown"
+  },
+  "theme.TOCCollapsible.toggleButtonLabel": {
+    "message": "Nesta página",
+    "description": "The label used by the button on the collapsible TOC component"
+  },
+  "theme.blog.post.readMore": {
+    "message": "Ler mais",
+    "description": "The label used in blog post item excerpts to link to full blog posts"
+  },
+  "theme.blog.post.readMoreLabel": {
+    "message": "Ler mais sobre {title}",
+    "description": "The ARIA label for the link to full blog posts from excerpts"
+  },
+  "theme.CodeBlock.copy": {
+    "message": "Copiar",
+    "description": "The copy button label on code blocks"
+  },
+  "theme.CodeBlock.copied": {
+    "message": "Copiado",
+    "description": "The copied button label on code blocks"
+  },
+  "theme.CodeBlock.copyButtonAriaLabel": {
+    "message": "Copiar o código",
+    "description": "The ARIA label for copy code blocks button"
+  },
+  "theme.blog.post.readingTime.plurals": {
+    "message": "1 min de leitura|{readingTime} min de leitura",
+    "description": "Pluralized label for \"{readingTime} min read\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
+  },
+  "theme.CodeBlock.wordWrapToggle": {
+    "message": "Quebrar linhas",
+    "description": "The title attribute for toggle word wrapping button of code block lines"
+  },
+  "theme.docs.breadcrumbs.home": {
+    "message": "Início",
+    "description": "The ARIA label for the home page in the breadcrumbs"
+  },
+  "theme.docs.sidebar.collapseButtonTitle": {
+    "message": "Recolher a barra lateral",
+    "description": "The title attribute for collapse button of doc sidebar"
+  },
+  "theme.docs.sidebar.collapseButtonAriaLabel": {
+    "message": "Recolher a barra lateral",
+    "description": "The title attribute for collapse button of doc sidebar"
+  },
+  "theme.docs.sidebar.navAriaLabel": {
+    "message": "Barra lateral da documentação",
+    "description": "The ARIA label for the sidebar navigation"
+  },
+  "theme.docs.sidebar.closeSidebarButtonAriaLabel": {
+    "message": "Fechar a barra de navegação",
+    "description": "The ARIA label for close button of mobile sidebar"
+  },
+  "theme.docs.sidebar.toggleSidebarButtonAriaLabel": {
+    "message": "Abrir ou fechar a barra de navegação",
+    "description": "The ARIA label for hamburger menu button of mobile navigation"
+  },
+  "theme.navbar.mobileDropdown.collapseButton.expandAriaLabel": {
+    "message": "Expandir a seleção",
+    "description": "The ARIA label of the button to expand the mobile dropdown navbar item"
+  },
+  "theme.navbar.mobileDropdown.collapseButton.collapseAriaLabel": {
+    "message": "Recolher a seleção",
+    "description": "The ARIA label of the button to collapse the mobile dropdown navbar item"
+  },
+  "theme.navbar.mobileSidebarSecondaryMenu.backButtonLabel": {
+    "message": "← Voltar ao menu",
+    "description": "The label of the back button to return to main menu, inside the mobile navbar sidebar secondary menu (notably used to display the docs sidebar)"
+  },
+  "theme.docs.sidebar.expandButtonTitle": {
+    "message": "Expandir a barra lateral",
+    "description": "The ARIA label and title attribute for expand button of doc sidebar"
+  },
+  "theme.docs.sidebar.expandButtonAriaLabel": {
+    "message": "Expandir a barra lateral",
+    "description": "The ARIA label and title attribute for expand button of doc sidebar"
+  },
+  "theme.blog.post.plurals": {
+    "message": "Um post|{count} posts",
+    "description": "Pluralized label for \"{count} posts\". Use as much plural forms (separated by \"|\") as your language support (see https://www.unicode.org/cldr/cldr-aux/charts/34/supplemental/language_plural_rules.html)"
+  },
+  "theme.blog.tagTitle": {
+    "message": "{nPosts} com a tag \"{tagName}\"",
+    "description": "The title of the page for a blog tag"
+  },
+  "theme.blog.author.pageTitle": {
+    "message": "{authorName} - {nPosts}",
+    "description": "The title of the page for a blog author"
+  },
+  "theme.blog.authorsList.pageTitle": {
+    "message": "Autores",
+    "description": "The title of the authors page"
+  },
+  "theme.blog.authorsList.viewAll": {
+    "message": "Ver todos os autores",
+    "description": "The label of the link targeting the blog authors page"
+  },
+  "theme.blog.author.noPosts": {
+    "message": "Este autor ainda não escreveu nenhum post.",
+    "description": "The text for authors with 0 blog post"
+  },
+  "theme.contentVisibility.unlistedBanner.title": {
+    "message": "Página não listada",
+    "description": "The unlisted content banner title"
+  },
+  "theme.contentVisibility.unlistedBanner.message": {
+    "message": "Esta página não aparece nas listas; só quem tem o link chega aqui.",
+    "description": "The unlisted content banner message"
+  },
+  "theme.contentVisibility.draftBanner.title": {
+    "message": "Rascunho",
+    "description": "The draft content banner title"
+  },
+  "theme.contentVisibility.draftBanner.message": {
+    "message": "Esta página é um rascunho: só aparece em desenvolvimento e fica fora do build.",
+    "description": "The draft content banner message"
+  },
+  "theme.docs.DocCard.categoryDescription.plurals": {
+    "message": "1 item|{count} itens",
+    "description": "The default description for a category card in the generated index about how many items this category includes"
+  },
+  "theme.ErrorPageContent.tryAgain": {
+    "message": "Tentar de novo",
+    "description": "The label of the button to try again rendering when the React error boundary captures an error"
+  },
+  "theme.common.skipToMainContent": {
+    "message": "Pular para o conteúdo",
+    "description": "The skip to content label used for accessibility, allowing to rapidly navigate to main content with keyboard tab/enter navigation"
+  },
+  "theme.tags.tagsPageTitle": {
+    "message": "Tags",
+    "description": "The title of the tag list page"
+  }
+}

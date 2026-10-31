@@ -1,0 +1,26 @@
+{
+  "title": {
+    "message": "Sonda",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "Sonda",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Docs": {
+    "message": "Docs",
+    "description": "Navbar item with label Docs"
+  },
+  "item.label.vs Xdebug": {
+    "message": "vs Xdebug",
+    "description": "Navbar item with label vs Xdebug"
+  },
+  "item.label.Blog": {
+    "message": "Blog",
+    "description": "Navbar item with label Blog"
+  },
+  "item.label.Packagist": {
+    "message": "Packagist",
+    "description": "Navbar item with label Packagist"
+  }
+}

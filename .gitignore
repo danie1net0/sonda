@@ -27,3 +27,10 @@ phpstan.neon
 /*.map
 /.php
 /key.*
+
+# Site da documentação (Docusaurus)
+/website/node_modules
+/website/build
+/website/.docusaurus
+!/website/package-lock.json
+/.claude/launch.json

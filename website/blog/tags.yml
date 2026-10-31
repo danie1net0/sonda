@@ -1,0 +1,6 @@
+release:
+  label: Release
+  description: New versions of Sonda
+coverage:
+  label: Coverage
+  description: Measuring coverage in PHP
