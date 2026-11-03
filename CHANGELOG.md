@@ -1,3 +1,15 @@
+## [1.16.1](https://github.com/danie1net0/sonda/compare/v1.16.0...v1.16.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **cache:** a pasta privada é do usuário que roda o processo, não do dono do script ([a426aff](https://github.com/danie1net0/sonda/commit/a426aff172425b56f4029d1126cfcbb5b4d2af16))
+* **compare:** o lado sonda roda sem Xdebug, e as mensagens do script saem em inglês ([94d5f4e](https://github.com/danie1net0/sonda/commit/94d5f4ed3950ddaa4d8765a1d17192efd30009ac))
+* **compare:** o pacote do Composer leva os scripts que o sonda compare roda ([73d7981](https://github.com/danie1net0/sonda/commit/73d79814dbb823d04ddca95b79974c75e24141d8)), closes [#8](https://github.com/danie1net0/sonda/issues/8)
+* **compare:** os workers do Xdebug mantêm as extensões do conf.d do PHP ([0454c55](https://github.com/danie1net0/sonda/commit/0454c5573342161a7832d59a67b1cd1e94b16a2e)), closes [#7](https://github.com/danie1net0/sonda/issues/7)
+* **config:** caminhos com ../ no phpunit.xml resolvem a partir da pasta dele ([4c94863](https://github.com/danie1net0/sonda/commit/4c94863c1059a3f65cb45aabb414013793417ae6)), closes [#5](https://github.com/danie1net0/sonda/issues/5)
+* **report:** o processo do sonda usa o memory_limit que o phpunit.xml dá aos testes ([48ba59f](https://github.com/danie1net0/sonda/commit/48ba59fd8343cf8cf7531f2337fbb3f0c0cb7340)), closes [#6](https://github.com/danie1net0/sonda/issues/6)
+
 # [1.16.0](https://github.com/danie1net0/sonda/compare/v1.15.0...v1.16.0) (2026-10-31)
 
 
