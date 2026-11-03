@@ -11,4 +11,7 @@
 /pint.json          export-ignore
 /rector.php         export-ignore
 /tests              export-ignore
-/tools              export-ignore
+# tools/compare-with-xdebug.sh and tools/compare.php ship: `sonda compare` runs them.
+/tools/inspect.php  export-ignore
+/tools/lint-corpus.php export-ignore
+/tools/phpunit-for-installed-coverage.php export-ignore

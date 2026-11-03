@@ -42,3 +42,11 @@ it('adds nothing to the environment without knobs', function (): void {
 
     expect($processes->environment)->toBe([]);
 });
+
+it('runs scripts that ship in the Composer package', function (): void {
+    $root = escapeshellarg(dirname(__DIR__, 3));
+    $archived = (string) shell_exec("git -C {$root} archive --worktree-attributes HEAD tools | tar -t");
+
+    expect(explode("\n", trim($archived)))->toContain('tools/compare-with-xdebug.sh', 'tools/compare.php')
+        ->not->toContain('tools/inspect.php');
+});
