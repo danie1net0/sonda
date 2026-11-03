@@ -34,7 +34,7 @@ final class Filesystem
 
         $info = new SplFileInfo($directory);
 
-        if ($info->getOwner() !== getmyuid() || ($info->getPerms() & 0o077) !== 0) {
+        if ($info->getOwner() !== self::processOwner($directory) || ($info->getPerms() & 0o077) !== 0) {
             throw new RuntimeException("The directory {$directory} must belong to the current user and be private: chmod 700 on it fixes that.");
         }
     }
@@ -73,5 +73,31 @@ final class Filesystem
         }
 
         rmdir($directory);
+    }
+
+    /**
+     * The user the process runs as, read from a file it creates in the directory: getmyuid() gives
+     * the owner of the script instead, which differs when root runs a sonda mounted from the host
+     * (Docker). Null when the process cannot write there, so the directory is not its own.
+     */
+    private static function processOwner(string $directory): ?int
+    {
+        $probe = $directory . '/.owner-' . bin2hex(random_bytes(4));
+        set_error_handler(static fn (): bool => true);
+
+        try {
+            $written = file_put_contents($probe, '');
+        } finally {
+            restore_error_handler();
+        }
+
+        if ($written === false) {
+            return null;
+        }
+
+        $owner = new SplFileInfo($probe)->getOwner();
+        unlink($probe);
+
+        return $owner;
     }
 }
