@@ -4,7 +4,8 @@
 # Usage, from the root of the measured project:
 #   DB_DATABASE=<private database> tools/compare-with-xdebug.sh <output directory> [runner arguments...]
 #
-# Variables: PROCESSES (ParaTest workers or batch queues, default 3), XDEBUG_SO (path of xdebug.so)
+# Variables: PROCESSES (ParaTest workers or batch queues, default 3), XDEBUG_SO (path of xdebug.so,
+# default xdebug.so in PHP's extension_dir; not needed when PHP already loads Xdebug)
 # and BATCH (tests per batch; with it the Xdebug side runs in batches, see below; in batches only
 # the tests directory, the first runner argument when it is a directory, is considered).
 # Output: sonda.cov, xdebug.cov, compare.txt and summary.txt in the given directory.
@@ -22,18 +23,27 @@ ROOT=$(pwd)
 SONDA=$(cd "$(dirname "$0")/.." && pwd)
 PROCESSES=${PROCESSES:-3}
 BATCH=${BATCH:-0}
-XDEBUG_SO=${XDEBUG_SO:-/opt/homebrew/opt/xdebug@8.5/xdebug.so}
 CAFFEINATE=$(command -v caffeinate >/dev/null && echo "caffeinate -i" || echo "")
 
 [ -f "$ROOT/phpunit.xml" ] || { echo "Rode na raiz de um projeto com phpunit.xml." >&2; exit 1; }
 [ -f "$ROOT/vendor/autoload.php" ] || { echo "Falta vendor/autoload.php: composer install." >&2; exit 1; }
-[ -f "$XDEBUG_SO" ] || { echo "Xdebug not found at $XDEBUG_SO (XDEBUG_SO=...)." >&2; exit 1; }
+# Xdebug in the workers: the one PHP already loads from its conf.d, or XDEBUG_SO. Loading it twice
+# would fail, so the zend_extension line goes in only when PHP does not load Xdebug yet.
+XDEBUG_LOAD=""
+if php -m 2>/dev/null | grep -qix xdebug; then
+    [ -n "$XDEBUG_SO" ] && echo "PHP already loads Xdebug: XDEBUG_SO=$XDEBUG_SO is not used." >&2
+else
+    XDEBUG_SO=${XDEBUG_SO:-$(php -r 'echo ini_get("extension_dir");')/xdebug.so}
+    [ -f "$XDEBUG_SO" ] || { echo "Xdebug not found at $XDEBUG_SO (XDEBUG_SO=... or --xdebug=...)." >&2; exit 1; }
+    XDEBUG_LOAD="zend_extension=$XDEBUG_SO"
+fi
 RUNNER=vendor/bin/pest; [ -x "$RUNNER" ] || RUNNER=vendor/bin/paratest
 [ -x "$RUNNER" ] || { echo "Falta vendor/bin/pest ou vendor/bin/paratest." >&2; exit 1; }
 
 mkdir -p "$OUT/ini"
 OUT=$(cd "$OUT" && pwd)
-printf 'zend_extension=%s\nxdebug.mode=coverage\nmemory_limit=-1\n' "$XDEBUG_SO" > "$OUT/ini/xdebug.ini"
+# pcov.enabled=0: PCOV, when PHP loads it, would compete with Xdebug for the coverage.
+printf '%s\nxdebug.mode=coverage\npcov.enabled=0\nmemory_limit=-1\n' "$XDEBUG_LOAD" > "$OUT/ini/xdebug.ini"
 
 step() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$OUT/summary.txt"; }
 tests_line() { sed 's/\x1b\[[0-9;]*m//g' "$1" | grep -E 'Tests:' | tail -1 | sed 's/^ *//'; }
@@ -133,10 +143,11 @@ elif ! grep -q 'pathCoverage=' "$OUT/phpunit.xdebug.xml"; then
     sed 's#<coverage#<coverage pathCoverage="true"#' "$OUT/phpunit.xdebug.xml" > "$OUT/phpunit.tmp" && mv "$OUT/phpunit.tmp" "$OUT/phpunit.xdebug.xml"
 fi
 
-# 3. Xdebug in the workers via PHP_INI_SCAN_DIR (the -d option does not reach child processes). Only
-#    this script's directory is read, without the default conf.d: an Xdebug already loaded there would
-#    be loaded twice, and PCOV, when present, would compete with it for the coverage.
-export PHP_INI_SCAN_DIR="$OUT/ini" XDEBUG_MODE=coverage LARAVEL_PARALLEL_TESTING=1
+# 3. Xdebug in the workers via PHP_INI_SCAN_DIR (the -d option does not reach child processes). The
+#    leading ":" keeps PHP's own scan directory, so the extensions of its conf.d still load (Debian,
+#    Alpine and Docker builds load dom, tokenizer and pdo_* from there); this script's directory only
+#    adds Xdebug and turns PCOV off.
+export PHP_INI_SCAN_DIR=":$OUT/ini" XDEBUG_MODE=coverage LARAVEL_PARALLEL_TESTING=1
 if [ "$BATCH" -gt 0 ]; then
     # The tests directory is the first runner argument when it is a directory; the others do not reach the batches.
     tests_root=tests; [ $# -gt 0 ] && [ -d "$1" ] && tests_root=$1

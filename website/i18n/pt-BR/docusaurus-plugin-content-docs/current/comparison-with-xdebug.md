@@ -65,7 +65,7 @@ vão para o runner: `sonda compare output tests/Feature/Orders` mede só essa pa
 |---|---|
 | `--processes=<n>` | workers do ParaTest, ou filas de lotes (padrão 3) |
 | `--batch=<n>` | testes por lote do lado Xdebug, que numa suíte grande não termina de uma vez |
-| `--xdebug=<so>` | o `xdebug.so` a carregar |
+| `--xdebug=<so>` | o `xdebug.so` a carregar quando o PHP ainda não carrega o Xdebug (padrão: `xdebug.so` no `extension_dir` do PHP) |
 
 Ele gera o próprio `phpunit.xml` com `pathCoverage="true"`, porque o ParaTest não aceita
 `--path-coverage`, e com caminhos absolutos. O `--coverage-filter` do PHPUnit não restringe nada:

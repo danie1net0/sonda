@@ -68,7 +68,7 @@ Mede o projeto com o Sonda e com o Xdebug (path coverage) e compara os dois, gra
 |---|---|
 | `--processes=<n>` | workers do ParaTest, ou filas de lotes (padrão 3) |
 | `--batch=<n>` | testes por lote do lado Xdebug, que numa suíte grande não termina de uma vez |
-| `--xdebug=<so>` | o `xdebug.so` a carregar |
+| `--xdebug=<so>` | o `xdebug.so` a carregar quando o PHP ainda não carrega o Xdebug (padrão: `xdebug.so` no `extension_dir` do PHP) |
 
 Argumentos extras vão para o runner: `sonda compare output tests/Feature/Orders` mede só essa pasta.
 

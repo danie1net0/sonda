@@ -66,7 +66,7 @@ directory.
 |---|---|
 | `--processes=<n>` | ParaTest workers, or batch queues (default 3) |
 | `--batch=<n>` | tests per batch on the Xdebug side, which in a large suite does not finish in one go |
-| `--xdebug=<so>` | the `xdebug.so` to load |
+| `--xdebug=<so>` | the `xdebug.so` to load when PHP does not load Xdebug yet (default: `xdebug.so` in PHP's `extension_dir`) |
 
 It generates its own `phpunit.xml` with `pathCoverage="true"`, because ParaTest does not accept
 `--path-coverage`, and with absolute paths. PHPUnit's `--coverage-filter` does not restrict

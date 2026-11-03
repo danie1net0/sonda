@@ -59,7 +59,7 @@ final readonly class Application
     Options:
       --processes=<n>   ParaTest workers, or batch queues (default 3)
       --batch=<n>       tests per batch on the Xdebug side, which in a large suite does not finish in one go
-      --xdebug=<so>     the xdebug.so to load
+      --xdebug=<so>     the xdebug.so to load, when PHP does not load Xdebug (default: extension_dir)
     TEXT;
 
     public function __construct(private TestCommand $testCommand, private CompareCommand $compareCommand, private string $version)
