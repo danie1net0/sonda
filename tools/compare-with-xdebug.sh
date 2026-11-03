@@ -156,7 +156,9 @@ if [ "$BATCH" -gt 0 ]; then
 else
     step "xdebug: start, $PROCESSES workers"
     start=$(date +%s)
-    $CAFFEINATE php "$RUNNER" --parallel --processes="$PROCESSES" -c "$OUT/phpunit.xdebug.xml" --coverage-php="$OUT/xdebug.cov" "$@" > "$OUT/xdebug.log" 2>&1
+    # Pest needs --parallel to hand the run to ParaTest; ParaTest itself does not know the option.
+    PARALLEL=""; [ "$RUNNER" = vendor/bin/pest ] && PARALLEL="--parallel"
+    $CAFFEINATE php "$RUNNER" $PARALLEL --processes="$PROCESSES" -c "$OUT/phpunit.xdebug.xml" --coverage-php="$OUT/xdebug.cov" "$@" > "$OUT/xdebug.log" 2>&1
     step "xdebug: exit=$? $(( $(date +%s) - start ))s | $(tests_line "$OUT/xdebug.log")"
 fi
 unset PHP_INI_SCAN_DIR XDEBUG_MODE LARAVEL_PARALLEL_TESTING
