@@ -8,7 +8,7 @@ use RuntimeException;
 use SimpleXMLElement;
 use Sonda\Filesystem;
 
-use function dirname, str_starts_with, trim;
+use function dirname, str_starts_with, substr, trim;
 
 /** What sonda needs from the project's phpunit.xml: the bootstrap and the `<source>` directories. */
 final readonly class TestConfiguration
@@ -90,6 +90,10 @@ final readonly class TestConfiguration
             return $path;
         }
 
-        return $base . '/' . ltrim($path, './');
+        if (str_starts_with($path, './')) {
+            return $base . '/' . substr($path, 2);
+        }
+
+        return $base . '/' . $path;
     }
 }

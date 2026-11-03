@@ -88,6 +88,38 @@ it('reads the directories and files of every test suite, relative to the file', 
         ->toBe([$directory . '/tests/Unit', $directory . '/tests/Smoke.php', $directory . '/tests/Feature']);
 });
 
+it('keeps the parent folders of a relative path, as PHPUnit does', function (): void {
+    $directory = TemporaryDirectory::create();
+    $path = writeConfiguration($directory, <<<'XML'
+    <phpunit bootstrap="../../vendor/autoload.php">
+        <testsuites>
+            <testsuite name="Platform">
+                <directory>../../packages/acme/tests</directory>
+                <file>./../Smoke.php</file>
+            </testsuite>
+        </testsuites>
+        <source>
+            <include>
+                <directory>app</directory>
+                <directory>../../packages/acme/src</directory>
+                <directory>.hidden</directory>
+            </include>
+            <exclude>
+                <directory>../../packages/acme/src/Generated</directory>
+            </exclude>
+        </source>
+    </phpunit>
+    XML);
+
+    expect(TestConfiguration::load($path))->toEqual(new TestConfiguration(
+        $path,
+        $directory . '/../../vendor/autoload.php',
+        [$directory . '/app', $directory . '/../../packages/acme/src', $directory . '/.hidden'],
+        [$directory . '/../../packages/acme/src/Generated'],
+        [$directory . '/../../packages/acme/tests', $directory . '/../Smoke.php'],
+    ));
+});
+
 it('fails without source directories', function (): void {
     $directory = TemporaryDirectory::create();
     $path = writeConfiguration($directory, '<phpunit><source><include/></source></phpunit>');
