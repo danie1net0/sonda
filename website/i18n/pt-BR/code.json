@@ -120,7 +120,7 @@
     "message": "Dois comandos até o primeiro relatório"
   },
   "home.cta2.lead": {
-    "message": "Composer, depois sonda test na raiz do projeto. PHP 8.4+, PHPUnit 12 ou Pest 4."
+    "message": "Composer, depois sonda test na raiz do projeto. PHP 8.4+, PHPUnit 11.5 a 13 ou Pest 3 a 5."
   },
   "home.cta2.button": {
     "message": "Ler o guia de início"

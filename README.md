@@ -13,7 +13,7 @@ in an hour. The numbers were validated against Xdebug path coverage on that whol
 
 ## Install
 
-PHP 8.4+, PHPUnit 12 or Pest 4.
+PHP 8.4+, PHPUnit 11.5 to 13 or Pest 3 to 5.
 
 ```bash
 composer require --dev ddr/sonda

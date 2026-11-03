@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Sonda\Report;
 
-use ReflectionProperty;
+use Closure;
 use Sonda\Run;
 use Sonda\Report\Compat\{CoverageApi, CoverageApis};
 use SebastianBergmann\CodeCoverage\{CodeCoverage, Filter};
@@ -29,7 +29,8 @@ final class CoverageBuilder
     {
         $api = CoverageApis::current();
         $views = self::views($run, $sourceFiles);
-        $appended = self::coverage($api, [...$sourceFiles, ...array_column($views, 0)]);
+        $analyser = $api->analyser([]);
+        $appended = self::coverage($api, [...$sourceFiles, ...array_column($views, 0)], $analyser);
         $appended->append(RawCoverageBuilder::build($run, $sourceFiles), 'sonda');
 
         $data = $appended->getData(true);
@@ -39,24 +40,25 @@ final class CoverageBuilder
 
         if ($coveredBy) {
             $attribution = TestAttribution::of($run, $sourceFiles);
-            /** @var object $analyser the one coverage() gave it */
-            $analyser = new ReflectionProperty(CodeCoverage::class, 'analyser')->getValue($appended);
-            $lines = self::attributedLines($lines, $attribution, $api, $analyser);
-            $functions = self::attributedFunctions($functions, $attribution, $api);
+            $hits = $api->testHits($data, array_keys($attribution->tests));
+            $lines = self::attributedLines($lines, $attribution, $api, $analyser, $hits);
+            $functions = self::attributedFunctions($functions, $attribution, $api, $hits);
             $tests = $attribution->tests;
         }
 
         foreach ($views as $viewPath => [$analysisPath, $lineMap]) {
-            $lines[$viewPath] = self::mapped($lines[$analysisPath] ?? [], $lineMap);
+            $lines[$viewPath] = self::mapped($lines[$analysisPath] ?? [], $lineMap, $api);
             $functions[$viewPath] = self::mappedFunctions($functions[$analysisPath] ?? [], $lineMap, $api);
             unset($lines[$analysisPath], $functions[$analysisPath]);
         }
 
+        /** @phpstan-ignore argument.type (the tests of each line, of the kind the installed version keeps) */
         $data->setLineCoverage($lines);
         $api->setFunctionCoverage($data, $functions);
 
-        $coverage = self::coverage($api, self::reported($sourceFiles, $views), array_map(static fn (array $view): string => $view[0], $views));
+        $coverage = self::coverage($api, self::reported($sourceFiles, $views), $api->analyser(array_map(static fn (array $view): string => $view[0], $views)));
         $coverage->setData($data);
+        /** @var array<non-empty-string, array{size: string, status: string, time: float}> $tests a test always has an id */
         $coverage->setTests($tests);
 
         return $coverage;
@@ -65,18 +67,21 @@ final class CoverageBuilder
     /** A report of nothing: what the reports are written from when there was nothing to measure. */
     public static function empty(): CodeCoverage
     {
-        return self::coverage(CoverageApis::current(), []);
+        $api = CoverageApis::current();
+
+        return self::coverage($api, [], $api->analyser([]));
     }
 
     /**
      * php-code-coverage marks every executable line of a block executed when one line of it ran:
      * such a line was run by the tests of the lines of its block that hold probes.
      *
-     * @param array<string, array<int, list<string>|null>> $lines
+     * @param array<string, array<int, array<mixed>|null>> $lines the tests of each line, of the kind php-code-coverage keeps
+     * @param Closure(list<string>): array<mixed>         $hits  the tests of a line from their ids
      *
-     * @return array<string, array<int, list<string>|null>>
+     * @return array<string, array<int, array<mixed>|null>>
      */
-    private static function attributedLines(array $lines, TestAttribution $attribution, CoverageApi $api, object $analyser): array
+    private static function attributedLines(array $lines, TestAttribution $attribution, CoverageApi $api, object $analyser, Closure $hits): array
     {
         // Every file with tests to name has data: php-code-coverage keeps each file of its filter.
         /** @var non-empty-string $file the path of a loaded source file, or of the analysis copy of a view */
@@ -93,7 +98,7 @@ final class CoverageBuilder
             // A line here is never null: sonda's raw data marks each line executed or not, never not executable.
             foreach ($lines[$file] as $line => $tests) {
                 if ($tests !== []) {
-                    $lines[$file][$line] = array_keys($blockTests[$blocks[$line]]);
+                    $lines[$file][$line] = $hits(array_keys($blockTests[$blocks[$line]]));
                 }
             }
         }
@@ -103,17 +108,18 @@ final class CoverageBuilder
 
     /**
      * @param array<string, array<string, mixed>> $functions the processed data of each function, by file
+     * @param Closure(list<string>): array<mixed> $hits      the tests of a branch from their ids
      *
      * @return array<string, array<string, mixed>>
      */
-    private static function attributedFunctions(array $functions, TestAttribution $attribution, CoverageApi $api): array
+    private static function attributedFunctions(array $functions, TestAttribution $attribution, CoverageApi $api, Closure $hits): array
     {
         foreach ($functions as $file => $fileFunctions) {
             foreach ($fileFunctions as $name => $function) {
                 $branches = $api->branches($function);
 
                 foreach ($branches as $id => $branch) {
-                    $branches[$id]['hit'] = $branch['hit'] === [] ? [] : $attribution->branches[$file][$branch['op_start']];
+                    $branches[$id]['hit'] = $branch['hit'] === [] ? [] : $hits($attribution->branches[$file][$branch['op_start']]);
                 }
 
                 $functions[$file][$name] = $api->withBranches($function, $branches);
@@ -169,18 +175,18 @@ final class CoverageBuilder
     }
 
     /**
-     * @param list<string>          $files
-     * @param array<string, string> $copies view path => analysis copy, read in place of the template
+     * @param list<string> $files
+     * @param object       $analyser what analyser() gave: the views need their own
      */
-    private static function coverage(CoverageApi $api, array $files, array $copies = []): CodeCoverage
+    private static function coverage(CoverageApi $api, array $files, object $analyser): CodeCoverage
     {
         $filter = new Filter();
         $filter->includeFiles($files);
 
-        $coverage = new CodeCoverage(new CoverageDriver(), $filter);
-        $coverage->enableBranchAndPathCoverage();
-        // php-code-coverage builds its analyser itself, with these same two settings: the views need their own.
-        new ReflectionProperty(CodeCoverage::class, 'analyser')->setValue($coverage, $api->analyser($copies));
+        $driver = new CoverageDriver();
+        $coverage = new CodeCoverage($driver, $filter);
+        $api->enableBranches($coverage, $driver);
+        $api->useAnalyser($coverage, $analyser);
 
         return $coverage;
     }
@@ -190,18 +196,18 @@ final class CoverageBuilder
      * executed by the tests of all its compiled lines, each test once. php-code-coverage
      * never marks a line fed by sonda as not executable, so none comes as null here.
      *
-     * @param array<int, list<string>|null> $compiledLines
+     * @param array<int, array<mixed>|null> $compiledLines the tests of each line, of the kind php-code-coverage keeps
      * @param array<int, int>               $lineMap
      *
-     * @return array<int, list<string>|null>
+     * @return array<int, array<mixed>>
      */
-    private static function mapped(array $compiledLines, array $lineMap): array
+    private static function mapped(array $compiledLines, array $lineMap, CoverageApi $api): array
     {
         $lines = [];
 
         foreach ($compiledLines as $compiledLine => $tests) {
             $templateLine = $lineMap[$compiledLine] ?? $compiledLine;
-            $lines[$templateLine] = array_values(array_unique([...($lines[$templateLine] ?? []), ...($tests ?? [])]));
+            $lines[$templateLine] = $api->mergedHits($lines[$templateLine] ?? [], $tests ?? []);
         }
 
         ksort($lines);

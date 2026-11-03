@@ -29,6 +29,7 @@ final class RawCoverageBuilder
             $coverage[$key] = self::fileCoverage($run->probesOf($run->files[$fileId][1]), $run->hits[$fileId] ?? []);
         }
 
+        /** @var array<non-empty-string, array{lines: array<positive-int, int>, functions: array<non-empty-string, FunctionCoverage>}> $coverage paths, lines from 1 and named functions */
         return RawCodeCoverageData::fromXdebugWithPathCoverage($coverage);
     }
 

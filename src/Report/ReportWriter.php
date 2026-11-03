@@ -6,7 +6,7 @@ namespace Sonda\Report;
 
 use InvalidArgumentException;
 use Sonda\Run;
-use SebastianBergmann\CodeCoverage\Report\PHP;
+use Sonda\Report\Compat\CoverageApis;
 
 /** Writes a run as a php-code-coverage `.cov` file, which every report format can read. */
 final class ReportWriter
@@ -23,6 +23,6 @@ final class ReportWriter
 
         $sourceFiles = SourceFiles::findAll($sourceDirectories, $excludedDirectories);
 
-        new PHP()->process(CoverageBuilder::build($run, $sourceFiles), $outputFile);
+        CoverageApis::current()->writeCov(CoverageBuilder::build($run, $sourceFiles), $outputFile);
     }
 }

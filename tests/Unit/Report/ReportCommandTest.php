@@ -21,12 +21,12 @@ it('builds the report of a run directory, leaving out the excluded directories',
 
     $message = ReportCommand::run([$directory . '/runs', $directory . '/app', $directory . '/coverage.cov', $directory . '/app/Providers']);
 
-    $coverage = require $directory . '/coverage.cov';
+    [$data] = covFile($directory . '/coverage.cov');
     preg_match('/^report built in (\d+\.\d\d)s$/', $message, $duration);
 
     expect($duration)->toHaveCount(2)
         ->and((float) $duration[1])->toBeLessThan(60.0)
-        ->and(array_keys($coverage->getData()->lineCoverage()))->toBe([$order]);
+        ->and(array_keys($data->lineCoverage()))->toBe([$order]);
 });
 
 it('builds the report with the three required arguments only', function (): void {
@@ -40,7 +40,7 @@ it('builds the report with the three required arguments only', function (): void
 
     ReportCommand::run([$directory . '/runs', $directory . '/app', $directory . '/coverage.cov']);
 
-    $coverage = require $directory . '/coverage.cov';
+    [$data] = covFile($directory . '/coverage.cov');
 
-    expect(array_keys($coverage->getData()->lineCoverage()))->toEqualCanonicalizing([$order, $provider]);
+    expect(array_keys($data->lineCoverage()))->toEqualCanonicalizing([$order, $provider]);
 });

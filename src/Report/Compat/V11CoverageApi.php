@@ -14,6 +14,8 @@ use SebastianBergmann\CodeCoverage\Node\File;
  */
 final class V11CoverageApi implements CoverageApi
 {
+    use Coverage12AndOlder;
+
     public function analyser(array $copies): V11ViewFileAnalyser
     {
         return new V11ViewFileAnalyser($copies);

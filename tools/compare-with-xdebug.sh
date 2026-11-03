@@ -111,8 +111,18 @@ PY
     done
     wait
     step "xdebug in batches: done, $(( $(date +%s) - start ))s | $(grep -c '^BATCH' "$OUT/queues/progress.txt") batches, $(grep -c 'exit=0' "$OUT/queues/progress.txt") with exit 0, $(grep -oE '[0-9]+ failed' "$OUT/queues/progress.txt" | awk '{s+=$1} END {print s+0}') failed tests"
+    # php-code-coverage 14 (PHPUnit 13) merges serialized .cov files with its Merger and writes the
+    # result in its own format; older versions load each .cov as a CodeCoverage and merge objects.
     php -d memory_limit=-1 -r '
         require "vendor/autoload.php";
+        if (class_exists(SebastianBergmann\CodeCoverage\Serialization\Merger::class)) {
+            $files = glob($argv[1] . "/batches/*.cov");
+            if ($files === []) { fwrite(STDERR, "no batch .cov\n"); exit(1); }
+            $merged = new SebastianBergmann\CodeCoverage\Serialization\Merger()->merge($files, false, false, false);
+            file_put_contents($argv[1] . "/xdebug.cov", "<?php // phpunit/php-code-coverage serialization format " . SebastianBergmann\CodeCoverage\Serialization\Serializer::SERIALIZATION_FORMAT . PHP_EOL . "return \\unserialize(<<<'"'"'END_OF_COVERAGE_SERIALIZATION'"'"'" . PHP_EOL . serialize($merged) . PHP_EOL . "END_OF_COVERAGE_SERIALIZATION" . PHP_EOL . ");");
+            echo "merge: " . count($files) . " batches\n";
+            exit(0);
+        }
         $merged = null; $n = 0;
         foreach (glob($argv[1] . "/batches/*.cov") as $file) { $coverage = require $file; $n++; if ($merged === null) { $merged = $coverage; continue; } $merged->merge($coverage); unset($coverage); }
         if ($merged === null) { fwrite(STDERR, "no batch .cov\n"); exit(1); }

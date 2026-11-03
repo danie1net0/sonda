@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run};
 use Sonda\Report\ReportWriter;
-use SebastianBergmann\CodeCoverage\CodeCoverage;
 
 it('writes a php-code-coverage file with the lines and branches of the run', function (): void {
     $directory = TemporaryDirectory::create();
@@ -39,13 +38,11 @@ it('writes a php-code-coverage file with the lines and branches of the run', fun
 
     ReportWriter::write($run, [$directory . '/app'], [$directory . '/app/Providers'], $output);
 
-    $coverage = require $output;
-    $data = $coverage->getData();
+    [$data] = covFile($output);
     $lines = array_map(static fn (?array $tests): ?bool => $tests === null ? null : $tests !== [], $data->lineCoverage()[$order]);
     $branches = branchesOf($data->functionCoverage()[$order]['Order->total']);
 
-    expect($coverage)->toBeInstanceOf(CodeCoverage::class)
-        ->and(array_keys($data->lineCoverage()))->toEqualCanonicalizing([$order, $unused])
+    expect(array_keys($data->lineCoverage()))->toEqualCanonicalizing([$order, $unused])
         ->and($data->lineCoverage()[$unused])->toBe([5 => []])
         ->and($lines)->toBe([7 => true, 8 => false, 11 => true])
         ->and(array_map(static fn (array $branch): bool => $branch['hit'] !== [], $branches))->toBe([true, false]);

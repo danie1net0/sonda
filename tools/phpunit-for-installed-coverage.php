@@ -8,14 +8,11 @@ declare(strict_types=1);
 //
 // php tools/phpunit-for-installed-coverage.php
 
-use SebastianBergmann\CodeCoverage\StaticAnalysis\SourceAnalyser;
-
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 $root = dirname(__DIR__);
-$otherVersion = interface_exists(SourceAnalyser::class)
-    ? ['src/Report/Compat/V11CoverageApi.php', 'src/Report/Compat/V11ViewFileAnalyser.php']
-    : ['src/Report/Compat/V12CoverageApi.php', 'src/Report/ViewSourceAnalyser.php'];
+/** @var list<string> $otherVersion */
+$otherVersion = require __DIR__ . '/files-of-other-coverage-versions.php';
 
 $document = new DOMDocument();
 $document->preserveWhiteSpace = false;

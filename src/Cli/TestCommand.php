@@ -9,9 +9,10 @@ use RuntimeException;
 use Sonda\{ComposerFiles, Filesystem, Run, Scope};
 use Sonda\Git\{ChangedLines, ChangedPaths, Git};
 use Sonda\Project\{AffectedTests, DirectRequires, IncludedFiles, Runner, SuiteConfiguration, TestConfiguration, TestMap, TestSelection, ViewFolders};
+use Sonda\Report\Compat\CoverageApis;
 use Sonda\Report\{ChangeCoverage, CodeQuality, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura, PHP};
+use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura};
 use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
 
 use function dirname, implode, str_starts_with, substr, trim;
@@ -258,27 +259,33 @@ final readonly class TestCommand
     /** @param resource $output */
     private function writeReports(TestOptions $options, CodeCoverage $coverage, string $projectRoot, $output): void
     {
+        $api = CoverageApis::current();
+        $report = $api->reportInput($coverage);
+
         if ($options->html !== null) {
             $directory = $this->absolute($options->html, $projectRoot);
-            new HtmlReport()->process($coverage, $directory);
+            /** @phpstan-ignore argument.type (the input of the installed version) */
+            new HtmlReport()->process($report, $directory);
             fwrite($output, "HTML report in {$directory}\n");
         }
 
         if ($options->clover !== null) {
             $file = $this->reportPath($options->clover, $projectRoot);
-            new Clover()->process($coverage, $file);
+            /** @phpstan-ignore argument.type (the input of the installed version) */
+            new Clover()->process($report, $file);
             fwrite($output, "Clover report in {$file}\n");
         }
 
         if ($options->cov !== null) {
             $file = $this->reportPath($options->cov, $projectRoot);
-            new PHP()->process($coverage, $file);
+            $api->writeCov($coverage, $file);
             fwrite($output, ".cov report in {$file}\n");
         }
 
         if ($options->cobertura !== null) {
             $file = $this->reportPath($options->cobertura, $projectRoot);
-            new Cobertura()->process($coverage, $file);
+            /** @phpstan-ignore argument.type (the input of the installed version) */
+            new Cobertura()->process($report, $file);
             fwrite($output, "Cobertura report in {$file}\n");
         }
     }

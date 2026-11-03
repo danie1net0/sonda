@@ -10,10 +10,10 @@ do projeto que mede.
 ## Requisitos
 
 - PHP 8.4 ou mais novo, com `git` no PATH para o `--changed`.
-- No projeto medido: PHPUnit 11.5 (Pest 3) ou 12 (Pest 4), com o php-code-coverage da mesma
-  versão, que trazem o `nikic/php-parser` que a instrumentação usa. O Sonda usa a fachada de eventos
-  do PHPUnit, que é interna, e o CI roda a suíte nas duas versões, na mais baixa e na mais recente
-  de cada uma.
+- No projeto medido: PHPUnit 11.5 (Pest 3), 12 (Pest 4) ou 13 (Pest 5), com o php-code-coverage
+  da mesma versão, que trazem o `nikic/php-parser` que a instrumentação usa. O Sonda usa a fachada
+  de eventos do PHPUnit, que é interna, e o CI roda a suíte nas três versões, na mais baixa e na
+  mais recente de cada uma.
 
 ## Instalação
 

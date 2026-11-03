@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use SebastianBergmann\CodeCoverage\CodeCoverage;
-
 /**
  * @param list<string>          $command
  * @param array<string, string> $environment
@@ -22,17 +20,6 @@ function runCommand(array $command, array $environment = []): string
     expect($status)->toBe(0, $output);
 
     return $output;
-}
-
-function loadCoverage(string $path): CodeCoverage
-{
-    $coverage = require $path;
-
-    if (! $coverage instanceof CodeCoverage) {
-        throw new RuntimeException("The file {$path} does not hold a report.");
-    }
-
-    return $coverage;
 }
 
 /**
@@ -61,17 +48,17 @@ function measureFixtureProject(array $runner): array
     );
     $report = runCommand([PHP_BINARY, 'report.php', $directory . '/runs', $project . '/src', $directory . '/coverage.cov', $project . '/src/Ignored']);
 
-    $coverage = loadCoverage($directory . '/coverage.cov');
+    [$data] = covFile($directory . '/coverage.cov');
     $lines = [];
     $branches = [];
 
-    foreach ($coverage->getData()->lineCoverage() as $file => $fileLines) {
+    foreach ($data->lineCoverage() as $file => $fileLines) {
         $statuses = array_map(static fn (?array $tests): bool => $tests !== [] && $tests !== null, $fileLines);
         ksort($statuses);
         $lines[basename($file)] = $statuses;
     }
 
-    foreach ($coverage->getData()->functionCoverage() as $functions) {
+    foreach ($data->functionCoverage() as $functions) {
         foreach ($functions as $name => $function) {
             $branches[$name] = array_map(
                 static fn (array $branch): bool => $branch['hit'] !== [],

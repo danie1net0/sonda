@@ -48,7 +48,7 @@ function sondaProject(): string
     symlink($sonda . '/vendor/bin/paratest', $root . '/vendor/bin/paratest');
     file_put_contents($root . '/phpunit.xml', <<<'XML'
     <?xml version="1.0" encoding="UTF-8"?>
-    <phpunit bootstrap="vendor/autoload.php" cacheResult="false">
+    <phpunit bootstrap="vendor/autoload.php">
         <testsuites>
             <testsuite name="Project"><directory>tests</directory></testsuite>
         </testsuites>
@@ -364,10 +364,10 @@ it('names the tests that ran each covered line when asked, in parallel and in se
     $root = sondaProject();
 
     [$status, $output] = sonda($root, 'test', '--covered-by', '--cov=coverage.cov', ...$runner);
-    $coverage = require $root . '/coverage.cov';
+    [$data, $tests] = covFile($root . '/coverage.cov');
     $coveredBy = [];
 
-    foreach ($coverage->getData()->lineCoverage() as $file => $lines) {
+    foreach (lineTestsOf($data) as $file => $lines) {
         $coveredBy[basename($file)] = array_filter($lines, static fn (?array $tests): bool => $tests !== null && $tests !== []);
     }
 
@@ -379,18 +379,18 @@ it('names the tests that ran each covered line when asked, in parallel and in se
             'Discount.php' => [11 => [$discount], 12 => [$discount]],
             'Shipping.php' => [11 => [$shipping]],
         ])
-        ->and(array_keys($coverage->getTests()))->toEqualCanonicalizing([$discount, $shipping])
-        ->and($coverage->getTests()[$discount]['status'])->toBe('success');
+        ->and(array_keys($tests))->toEqualCanonicalizing([$discount, $shipping])
+        ->and($tests[$discount]['status'])->toBe('success');
 })->with([
     'in parallel' => [],
     'in series' => ['--no-parallel'],
 ]);
 
-/** The fixture project committed, with Sonda's cache, kept inside it by the tests, ignored. */
+/** The fixture project committed, with Sonda's cache, kept inside it by the tests, and PHPUnit's, ignored. */
 function committedSondaProject(): string
 {
     $root = sondaProject();
-    file_put_contents($root . '/.gitignore', ".cache/\n");
+    file_put_contents($root . '/.gitignore', ".cache/\n.phpunit.result.cache\n");
     commitEverything($root);
 
     return $root;

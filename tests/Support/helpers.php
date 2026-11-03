@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-use SebastianBergmann\CodeCoverage\StaticAnalysis\SourceAnalyser;
+use SebastianBergmann\CodeCoverage\CodeCoverage;
+use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
+use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
+use SebastianBergmann\CodeCoverage\StaticAnalysis\{Registry, SourceAnalyser};
 use Sonda\Report\Compat\CoverageApis;
 use Sonda\{Filesystem, Hits, InstrumentingVisitor, Probe, SourceEditor};
 use PhpParser\{NodeTraverser, ParserFactory};
@@ -104,18 +107,101 @@ function testEvent(string $eventClass, Test $test): object
     return $event;
 }
 
-/** Whether the installed php-code-coverage is 12 (PHPUnit 12, Pest 4), not 11 (PHPUnit 11, Pest 3). */
+/**
+ * Whether the installed php-code-coverage is 12 (PHPUnit 12, Pest 4) or later, which keeps its data
+ * in objects, not 11 (PHPUnit 11, Pest 3).
+ */
 function onCoverage12(): bool
 {
     return interface_exists(SourceAnalyser::class);
 }
 
+/** Whether the installed php-code-coverage is 14 (PHPUnit 13, Pest 5). */
+function onCoverage14(): bool
+{
+    return class_exists(Registry::class);
+}
+
 /**
- * The branches of the processed data of a function, whatever php-code-coverage keeps it in.
+ * The branches of the processed data of a function, whatever php-code-coverage keeps it in, each
+ * with the ids of the tests that took it: php-code-coverage 14 keeps their indexes in the data.
  *
  * @return list<array{op_start: int, op_end: int, line_start: int, line_end: int, hit: list<string>, out: array<int, int>, out_hit: array<int, int>}>
  */
-function branchesOf(mixed $function): array
+function branchesOf(mixed $function, ?ProcessedCodeCoverageData $data = null): array
 {
-    return array_values(CoverageApis::current()->branches($function));
+    $branches = [];
+
+    foreach (CoverageApis::current()->branches($function) as $branch) {
+        $branch['hit'] = testIdsOf($branch['hit'], $data);
+        $branches[] = $branch;
+    }
+
+    return $branches;
+}
+
+/**
+ * The line data of a report, each executed line with the ids of the tests that ran it.
+ *
+ * @return array<string, array<int, list<string>|null>>
+ */
+function lineTestsOf(ProcessedCodeCoverageData $data): array
+{
+    $lines = [];
+
+    foreach ($data->lineCoverage() as $file => $fileLines) {
+        foreach ($fileLines as $line => $tests) {
+            $lines[$file][$line] = $tests === null ? null : testIdsOf($tests, $data);
+        }
+    }
+
+    return $lines;
+}
+
+/**
+ * The ids of the tests of a line or a branch: php-code-coverage 11 and 12 keep the ids, 14 a map
+ * of test index to hits.
+ *
+ * @param array<mixed> $tests
+ *
+ * @return list<string>
+ */
+function testIdsOf(array $tests, ?ProcessedCodeCoverageData $data): array
+{
+    if (! $data instanceof ProcessedCodeCoverageData || ! method_exists($data, 'testIds')) {
+        /** @var list<string> $tests */
+        return $tests;
+    }
+
+    $ids = $data->testIds();
+
+    return array_map(static fn (int|string $index): string => $ids[$index], array_keys($tests));
+}
+
+/**
+ * The data and the tests of a `.cov` file, whatever php-code-coverage wrote it.
+ *
+ * @return array{0: ProcessedCodeCoverageData, 1: array<string, array{size: string, status: string, time: float}>}
+ */
+function covFile(string $path): array
+{
+    if (class_exists(Unserializer::class)) {
+        $serialized = new Unserializer()->unserialize($path);
+        $data = $serialized['codeCoverage'];
+
+        // The serializer keeps the paths relative to the directory they share.
+        foreach ($data->coveredFiles() as $file) {
+            $data->renameFile($file, rtrim($serialized['basePath'], '/') . '/' . $file);
+        }
+
+        return [$data, $serialized['testResults']];
+    }
+
+    $coverage = require $path;
+
+    if (! $coverage instanceof CodeCoverage) {
+        throw new RuntimeException("The file {$path} does not hold a report.");
+    }
+
+    return [$coverage->getData(), $coverage->getTests()];
 }

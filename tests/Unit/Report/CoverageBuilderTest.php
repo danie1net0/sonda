@@ -24,7 +24,7 @@ it('builds a coverage object with the branch data of the run and the source file
     $report = $coverage->getReport();
 
     expect($coverage->collectsBranchAndPathCoverage())->toBeTrue()
-        ->and(array_keys($coverage->getData()->lineCoverage()))->toEqualCanonicalizing([$order, $unused])
+        ->and(array_keys(lineTestsOf($coverage->getData())))->toEqualCanonicalizing([$order, $unused])
         ->and($report->numberOfExecutableLines())->toBe(2)
         ->and($report->numberOfExecutedLines())->toBe(1)
         ->and($report->numberOfExecutableBranches())->toBe(1)
@@ -51,7 +51,7 @@ it('reports a view on the lines of its template, from the coverage of its compil
     $coverage = CoverageBuilder::build($run, [$view]);
     $report = $coverage->getReport();
 
-    expect($coverage->getData()->lineCoverage())->toBe([$view => [1 => [], 2 => ['sonda'], 4 => ['sonda']]])
+    expect(lineTestsOf($coverage->getData()))->toBe([$view => [1 => [], 2 => ['sonda'], 4 => ['sonda']]])
         ->and($coverage->getData()->functionCoverage())->toBe([$view => []])
         ->and($coverage->filter()->files())->toBe([$view])
         ->and($coverage->getTests())->toHaveKey('sonda')
@@ -79,7 +79,7 @@ it('reports the branches of a view on the lines of its template, as the function
     $coverage = CoverageBuilder::build(new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => $hits]), [$view]);
     $report = $coverage->getReport();
     $file = array_values(array_filter(iterator_to_array($report, false), static fn (AbstractNode $node): bool => $node instanceof File))[0];
-    $branches = branchesOf($coverage->getData()->functionCoverage()[$view][ViewInstrumenter::FUNCTION]);
+    $branches = branchesOf($coverage->getData()->functionCoverage()[$view][ViewInstrumenter::FUNCTION], $coverage->getData());
 
     expect(array_keys($coverage->getData()->functionCoverage()[$view]))->toBe([ViewInstrumenter::FUNCTION])
         ->and(array_map(static fn (array $branch): array => [$branch['line_start'], $branch['line_end'], $branch['hit'] !== []], $branches))->toBe([[3, 3, false], [4, 4, true]])
@@ -104,8 +104,8 @@ it('keeps a view without run data out of the report, which cannot tell its execu
 
     $coverage = CoverageBuilder::build($run, [$other, $view]);
 
-    expect(array_keys($coverage->getData()->lineCoverage()))->toBe([$other])
-        ->and($coverage->getData()->lineCoverage()[$other][5])->toBe(['sonda'])
+    expect(array_keys(lineTestsOf($coverage->getData())))->toBe([$other])
+        ->and(lineTestsOf($coverage->getData())[$other][5])->toBe(['sonda'])
         ->and($coverage->filter()->files())->toBe([$other]);
 });
 
@@ -124,8 +124,8 @@ it('maps the lines php-code-coverage marks as not executable, and keeps the sour
 
     $coverage = CoverageBuilder::build($run, [$other, $view]);
 
-    expect($coverage->getData()->lineCoverage()[$view])->toBe([1 => ['sonda'], 2 => [], 3 => ['sonda']])
-        ->and(array_keys($coverage->getData()->lineCoverage()))->toEqualCanonicalizing([$other, $view])
+    expect(lineTestsOf($coverage->getData())[$view])->toBe([1 => ['sonda'], 2 => [], 3 => ['sonda']])
+        ->and(array_keys(lineTestsOf($coverage->getData())))->toEqualCanonicalizing([$other, $view])
         ->and($coverage->filter()->files())->toBe([$other, $view]);
 });
 
@@ -137,7 +137,7 @@ it('keeps a view out of the report when it is not a source file', function (): v
     new InstrumentationCache($root . '/cache')->store('view', new InstrumentationResult('<?php', [0 => new Probe(1, false, '{main}', 0, 0)], [1 => 1], "<?php \$a = 1;"));
     $run = new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => [0 => 1]]);
 
-    expect(array_keys(CoverageBuilder::build($run, [$other])->getData()->lineCoverage()))->toBe([$other]);
+    expect(array_keys(lineTestsOf(CoverageBuilder::build($run, [$other])->getData())))->toBe([$other]);
 });
 
 it('leaves out the annotated code of a file the run never loaded, and keeps its deprecated code, as php-code-coverage does', function (): void {
@@ -147,7 +147,7 @@ it('leaves out the annotated code of a file the run never loaded, and keeps its 
 
     $coverage = CoverageBuilder::build(new Run($root . '/cache', [], []), [$never]);
 
-    expect($coverage->getData()->lineCoverage()[$never])->toBe([14 => []]);
+    expect(lineTestsOf($coverage->getData())[$never])->toBe([14 => []]);
 });
 
 it('reports a view and a source file side by side, each with its own data', function (): void {
@@ -165,7 +165,7 @@ it('reports a view and a source file side by side, each with its own data', func
 
     $coverage = CoverageBuilder::build($run, [$other, $view]);
 
-    expect($coverage->getData()->lineCoverage())->toBe([$other => [5 => ['sonda']], $view => [1 => ['sonda']]])
+    expect(lineTestsOf($coverage->getData()))->toBe([$other => [5 => ['sonda']], $view => [1 => ['sonda']]])
         ->and($coverage->getReport()->numberOfExecutedLines())->toBe(2);
 });
 
@@ -177,16 +177,20 @@ it('names the tests that ran each covered line and branch, and describes them', 
     new InstrumentationCache($root . '/cache')->store('key', new InstrumentationResult('<?php', [
         0 => new Probe(8, true, 'Order->total', 7, 9),
         1 => new Probe(11, true, 'Order->total', 11, 11),
+        2 => new Probe(7, false, 'Order->total', 0, 0),
     ]));
-    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1]], [
-        'OrderTest::test_large' => ['/tests/OrderTest.php', 'small', false, 0.25, ['o' => pack('V', 0)]],
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1, 2 => 1]], [
+        'OrderTest::test_large' => ['/tests/OrderTest.php', 'small', false, 0.25, ['o' => pack('V*', 0, 2)]],
         'OrderTest::test_none' => ['/tests/OrderTest.php', 'unknown', true, 0.0, []],
     ]);
 
     $coverage = CoverageBuilder::build($run, [$order], coveredBy: true);
-    $branches = branchesOf($coverage->getData()->functionCoverage()[$order]['Order->total']);
+    $branches = branchesOf($coverage->getData()->functionCoverage()[$order]['Order->total'], $coverage->getData());
 
-    expect($coverage->getData()->lineCoverage()[$order])->toBe([8 => ['OrderTest::test_large'], 11 => []])
+    $lines = lineTestsOf($coverage->getData())[$order];
+    ksort($lines);
+
+    expect($lines)->toBe([7 => ['OrderTest::test_large'], 8 => ['OrderTest::test_large'], 11 => []])
         ->and(array_column($branches, 'hit'))->toBe([['OrderTest::test_large'], []])
         ->and($branches[0]['line_start'])->toBe(7)
         ->and($branches[0]['line_end'])->toBe(9)
@@ -211,7 +215,7 @@ it('names the tests of a view on the lines of its template', function (): void {
         'C::c' => ['/tests/C.php', 'unknown', true, 0.0, ['v' => pack('V', 1)]],
     ]);
 
-    expect(CoverageBuilder::build($run, [$view], coveredBy: true)->getData()->lineCoverage())->toBe([$view => [2 => ['A::a', 'B::b', 'C::c'], 4 => []]]);
+    expect(lineTestsOf(CoverageBuilder::build($run, [$view], coveredBy: true)->getData()))->toBe([$view => [2 => ['A::a', 'B::b', 'C::c'], 4 => []]]);
 });
 
 it('names the tests of a probed line on the other lines of its block, which php-code-coverage marks executed with it', function (): void {
@@ -234,7 +238,7 @@ it('names the tests of a probed line on the other lines of its block, which php-
         'C::c' => ['/tests/C.php', 'unknown', true, 0.0, ['o' => pack('V', 3)]],
     ]);
 
-    $lines = CoverageBuilder::build($run, [$order, $unused], coveredBy: true)->getData()->lineCoverage();
+    $lines = lineTestsOf(CoverageBuilder::build($run, [$order, $unused], coveredBy: true)->getData());
     ksort($lines[$order]);
 
     expect($lines[$order])->toBe([5 => ['A::a', 'B::b', 'C::c'], 6 => ['A::a', 'B::b', 'C::c'], 7 => ['A::a', 'B::b', 'C::c'], 8 => ['A::a', 'B::b', 'C::c'], 10 => ['B::b']])
@@ -250,6 +254,6 @@ it('credits every covered line to the single test sonda unless asked to name the
 
     $coverage = CoverageBuilder::build($run, [$order]);
 
-    expect($coverage->getData()->lineCoverage()[$order])->toBe([5 => ['sonda']])
+    expect(lineTestsOf($coverage->getData())[$order])->toBe([5 => ['sonda']])
         ->and(array_keys($coverage->getTests()))->toBe(['sonda']);
 });

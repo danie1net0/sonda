@@ -15,3 +15,5 @@
 /tools/inspect.php  export-ignore
 /tools/lint-corpus.php export-ignore
 /tools/phpunit-for-installed-coverage.php export-ignore
+/tools/phpstan-for-installed-coverage.php export-ignore
+/tools/files-of-other-coverage-versions.php export-ignore

@@ -321,7 +321,7 @@ function Cta() {
         </Heading>
         <p>
           <Translate id="home.cta2.lead">
-            Composer, then sonda test from the project root. PHP 8.4+, PHPUnit 12 or Pest 4.
+            Composer, then sonda test from the project root. PHP 8.4+, PHPUnit 11.5 to 13 or Pest 3 to 5.
           </Translate>
         </p>
         <Link className="button button--primary button--lg" to="/docs/getting-started">

@@ -21,7 +21,7 @@ jobs:
       matrix:
         php: [ 8.4, 8.5 ]
         stability: [ prefer-lowest, prefer-stable ]
-        phpunit: [ '^11.5', '^12.0' ]
+        phpunit: [ '^11.5', '^12.0', '^13.0' ]
 
     name: PHP ${{ matrix.php }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }}
 
@@ -41,9 +41,10 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      # PHPUnit 11 (Pest 3) and 12 (Pest 4), each at its lowest and its latest: the event facade
-      # used by the collection window is internal to PHPUnit, and php-code-coverage 11 keeps its
-      # data in arrays where 12 has objects, so every supported version runs the suite.
+      # PHPUnit 11 (Pest 3), 12 (Pest 4) and 13 (Pest 5), each at its lowest and its latest: the
+      # event facade used by the collection window is internal to PHPUnit, php-code-coverage 11
+      # keeps its data in arrays where 12 and 14 have objects, and 14 keeps the tests of a line as
+      # indexes, so every supported version runs the suite.
       - name: Install dependencies
         run: |
           composer require --no-update --no-interaction "phpunit/phpunit:${{ matrix.phpunit }}"
