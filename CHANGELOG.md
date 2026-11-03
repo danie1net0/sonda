@@ -1,3 +1,10 @@
+## [1.16.2](https://github.com/danie1net0/sonda/compare/v1.16.1...v1.16.2) (2026-11-03)
+
+
+### Bug Fixes
+
+* **compare:** o --parallel só vai para o Pest, o ParaTest não conhece a opção ([28a619d](https://github.com/danie1net0/sonda/commit/28a619de47ad5e78c894432af0da1a4d0a777731)), closes [#10](https://github.com/danie1net0/sonda/issues/10)
+
 ## [1.16.1](https://github.com/danie1net0/sonda/compare/v1.16.0...v1.16.1) (2026-11-03)
 
 
