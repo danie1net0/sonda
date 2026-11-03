@@ -25,8 +25,8 @@ PROCESSES=${PROCESSES:-3}
 BATCH=${BATCH:-0}
 CAFFEINATE=$(command -v caffeinate >/dev/null && echo "caffeinate -i" || echo "")
 
-[ -f "$ROOT/phpunit.xml" ] || { echo "Rode na raiz de um projeto com phpunit.xml." >&2; exit 1; }
-[ -f "$ROOT/vendor/autoload.php" ] || { echo "Falta vendor/autoload.php: composer install." >&2; exit 1; }
+[ -f "$ROOT/phpunit.xml" ] || { echo "Run from the root of a project with phpunit.xml." >&2; exit 1; }
+[ -f "$ROOT/vendor/autoload.php" ] || { echo "Missing vendor/autoload.php: run composer install." >&2; exit 1; }
 # Xdebug in the workers: the one PHP already loads from its conf.d, or XDEBUG_SO. Loading it twice
 # would fail, so the zend_extension line goes in only when PHP does not load Xdebug yet.
 XDEBUG_LOAD=""
@@ -38,7 +38,7 @@ else
     XDEBUG_LOAD="zend_extension=$XDEBUG_SO"
 fi
 RUNNER=vendor/bin/pest; [ -x "$RUNNER" ] || RUNNER=vendor/bin/paratest
-[ -x "$RUNNER" ] || { echo "Falta vendor/bin/pest ou vendor/bin/paratest." >&2; exit 1; }
+[ -x "$RUNNER" ] || { echo "Missing vendor/bin/pest or vendor/bin/paratest." >&2; exit 1; }
 
 mkdir -p "$OUT/ini"
 OUT=$(cd "$OUT" && pwd)
@@ -75,7 +75,7 @@ lists = [[] for _ in range(queues)]
 for number, (count, paths) in enumerate(batches, start=1):
     i = loads.index(min(loads))
     loads[i] += count
-    lists[i].append(f"lote-{number:03d} " + " ".join(paths))
+    lists[i].append(f"batch-{number:03d} " + " ".join(paths))
 for i, items in enumerate(lists, start=1):
     open(f"{out}/queue-{i}.txt", "w").write("\n".join(items) + "\n")
 PY
@@ -105,19 +105,19 @@ PY
                         DB_DATABASE=$db php vendor/bin/phpunit -c "$OUT/phpunit.xdebug.xml" --do-not-cache-result --coverage-php="$OUT/batches/$name-$index.cov" "$file" >> "$OUT/batches/$name.log" 2>&1 || status=$?
                     done
                 fi
-                echo "LOTE fila $queue $name exit=$status $(( $(date +%s) - s ))s | $(tests_line "$OUT/batches/$name.log")" >> "$OUT/queues/progress.txt"
+                echo "BATCH queue $queue $name exit=$status $(( $(date +%s) - s ))s | $(tests_line "$OUT/batches/$name.log")" >> "$OUT/queues/progress.txt"
             done < "$OUT/queues/queue-$queue.txt"
         ) &
     done
     wait
-    step "xdebug em lotes: fim, $(( $(date +%s) - start ))s | $(grep -c '^LOTE' "$OUT/queues/progress.txt") lotes, $(grep -c 'exit=0' "$OUT/queues/progress.txt") com exit 0, $(grep -oE '[0-9]+ failed' "$OUT/queues/progress.txt" | awk '{s+=$1} END {print s+0}') testes falhos"
+    step "xdebug in batches: done, $(( $(date +%s) - start ))s | $(grep -c '^BATCH' "$OUT/queues/progress.txt") batches, $(grep -c 'exit=0' "$OUT/queues/progress.txt") with exit 0, $(grep -oE '[0-9]+ failed' "$OUT/queues/progress.txt" | awk '{s+=$1} END {print s+0}') failed tests"
     php -d memory_limit=-1 -r '
         require "vendor/autoload.php";
         $merged = null; $n = 0;
         foreach (glob($argv[1] . "/batches/*.cov") as $file) { $coverage = require $file; $n++; if ($merged === null) { $merged = $coverage; continue; } $merged->merge($coverage); unset($coverage); }
-        if ($merged === null) { fwrite(STDERR, "nenhum .cov de lote\n"); exit(1); }
+        if ($merged === null) { fwrite(STDERR, "no batch .cov\n"); exit(1); }
         new SebastianBergmann\CodeCoverage\Report\PHP()->process($merged, $argv[1] . "/xdebug.cov");
-        echo "merge: $n lotes\n";
+        echo "merge: $n batches\n";
     ' "$OUT" > "$OUT/merge.log" 2>&1
     step "merge exit=$? | $(tail -1 "$OUT/merge.log")"
 }
@@ -128,7 +128,8 @@ step "project $ROOT, tree: $(git -C "$ROOT" status --short 2>/dev/null | wc -l |
 # 1. Sonda, with the <source> of the project's phpunit.xml.
 step "sonda: start"
 start=$(date +%s)
-$CAFFEINATE "$SONDA/bin/sonda" test --cov="$OUT/sonda.cov" "$@" > "$OUT/sonda.log" 2>&1
+# XDEBUG_MODE=off: an Xdebug that PHP loads from its conf.d would slow the Sonda side for nothing.
+XDEBUG_MODE=off $CAFFEINATE "$SONDA/bin/sonda" test --cov="$OUT/sonda.cov" "$@" > "$OUT/sonda.log" 2>&1
 step "sonda: exit=$? $(( $(date +%s) - start ))s | $(tests_line "$OUT/sonda.log") | $(sed 's/\x1b\[[0-9;]*m//g' "$OUT/sonda.log" | grep -E '^Cobertura' | tail -1)"
 
 # 2. phpunit.xml with absolute paths and pathCoverage on: --path-coverage does not go through ParaTest,
@@ -165,4 +166,4 @@ unset PHP_INI_SCAN_DIR XDEBUG_MODE LARAVEL_PARALLEL_TESTING
 php -d memory_limit=-1 "$SONDA/tools/compare.php" "$OUT/xdebug.cov" "$OUT/sonda.cov" -v > "$OUT/compare.txt" 2>&1
 step "compare: exit=$?"
 grep -E 'LINES|only|hit,|BRANCH|METHOD|SOUNDNESS' "$OUT/compare.txt" | tee -a "$OUT/summary.txt"
-step "fim"
+step "done"
