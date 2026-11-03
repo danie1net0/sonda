@@ -21,6 +21,10 @@ The limits found so far; an issue is welcome for any other.
   type passed through shows as uncovered (Xdebug counts it as executed).
 - **Reflection on the class file.** Tests that read the class file through reflection see the
   instrumented copy.
+- **Memory of the report.** After the suite, the `sonda` process merges the runs of every worker
+  and builds the report, and a large suite needs memory there too. It takes the `memory_limit` of
+  `<php><ini>` in `phpunit.xml` when that is higher than its own. Without one, a suite of
+  thousands of tests may need `php -d memory_limit=-1 vendor/bin/sonda test`.
 - **Requirements.** PHP 8.4 or newer; PHPUnit 11.5 (Pest 3) or 12 (Pest 4) in the measured project.
   Sonda uses PHPUnit's event facade, which is internal, and CI runs the suite on both versions, on
   the lowest and on the latest of each.

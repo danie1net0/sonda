@@ -127,6 +127,22 @@ it('runs the project tests instrumented and reports the coverage of its source',
         ->and($output)->toBe("\nCoverage: lines 3/3 (100.00%), branches 2/2 (100.00%)\n");
 });
 
+it('merges the runs with the memory_limit the project gives its tests', function (): void {
+    $root = fakeProject('<phpunit><php><ini name="memory_limit" value="3G"/></php><source><include><directory>app</directory></include></source></phpunit>');
+    $before = ini_get('memory_limit');
+    ini_set('memory_limit', '2G');
+
+    try {
+        [$status] = runTestCommand(new FakeRunner(), $root, TestOptions::parse([]), TemporaryDirectory::create());
+        $limit = ini_get('memory_limit');
+    } finally {
+        ini_set('memory_limit', $before);
+    }
+
+    expect($status)->toBe(0)
+        ->and($limit)->toBe('3G');
+});
+
 it('chains the project bootstrap when it is not the autoload, and honours the flags', function (): void {
     $root = fakeProject('<phpunit bootstrap="tests/bootstrap.php"><source><include><directory>app</directory></include></source></phpunit>');
     mkdir($root . '/tests');

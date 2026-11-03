@@ -17,6 +17,7 @@ final readonly class TestConfiguration
      * @param list<string> $sourceDirectories
      * @param list<string> $excludedDirectories
      * @param list<string> $testPaths           the directories and files of the test suites
+     * @param string|null  $memoryLimit         the memory_limit of `<php><ini>`, what the tests may use
      */
     public function __construct(
         public string $path,
@@ -24,6 +25,7 @@ final readonly class TestConfiguration
         public array $sourceDirectories,
         public array $excludedDirectories,
         public array $testPaths = [],
+        public ?string $memoryLimit = null,
     ) {
     }
 
@@ -69,7 +71,15 @@ final readonly class TestConfiguration
             $sources,
             self::directories($xml, '/phpunit/source/exclude/directory', $base),
             self::directories($xml, '/phpunit/testsuites/testsuite/directory | /phpunit/testsuites/testsuite/file', $base),
+            self::memoryLimit($xml),
         );
+    }
+
+    private static function memoryLimit(SimpleXMLElement $xml): ?string
+    {
+        $values = $xml->xpath('/phpunit/php/ini[@name="memory_limit"]/@value') ?: [];
+
+        return $values === [] ? null : trim((string) $values[0]);
     }
 
     /** @return list<string> */

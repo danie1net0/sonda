@@ -40,7 +40,10 @@ final readonly class Run
         return $run;
     }
 
-    /** All the runs saved in a directory, merged into one. */
+    /**
+     * All the runs saved in a directory, merged into one. Each run is folded in as it is read, so
+     * only the merge and one run are in memory at a time, not every worker's run at once.
+     */
     public static function loadDirectory(string $directory): self
     {
         $files = glob($directory . '/run-*.ser') ?: [];
@@ -49,7 +52,13 @@ final readonly class Run
             throw new RuntimeException("The directory {$directory} has no sonda runs.");
         }
 
-        return self::merge(array_map(self::load(...), $files));
+        $merged = self::load(array_shift($files));
+
+        foreach ($files as $file) {
+            $merged = self::merge([$merged, self::load($file)]);
+        }
+
+        return $merged;
     }
 
     /** @param non-empty-list<self> $runs every run of one test suite, sharing the cache */

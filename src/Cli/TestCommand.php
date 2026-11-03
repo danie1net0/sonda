@@ -103,6 +103,7 @@ final readonly class TestCommand
         }
 
         try {
+            MemoryLimit::raiseTo($configuration->memoryLimit);
             $run = Run::loadDirectory($runsDirectory);
             $coverage = CoverageBuilder::build($run, $sourceFiles, $options->coveredBy);
             TestMap::load($mapPath, $projectRoot)->updatedWith($run, $sourceFiles)->save($mapPath, $projectRoot);

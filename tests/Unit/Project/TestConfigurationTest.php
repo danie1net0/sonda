@@ -120,6 +120,15 @@ it('keeps the parent folders of a relative path, as PHPUnit does', function (): 
     ));
 });
 
+it('reads the memory_limit the tests get, and none without it', function (): void {
+    $directory = TemporaryDirectory::create();
+    $limited = writeConfiguration($directory, '<phpunit><php><ini name="error_reporting" value="-1"/><ini name="memory_limit" value=" 1G "/></php><source><include><directory>src</directory></include></source></phpunit>');
+    $unlimited = writeConfiguration($directory, '<phpunit><php><ini name="error_reporting" value="-1"/></php><source><include><directory>src</directory></include></source></phpunit>', 'other.xml');
+
+    expect(TestConfiguration::load($limited)->memoryLimit)->toBe('1G')
+        ->and(TestConfiguration::load($unlimited)->memoryLimit)->toBeNull();
+});
+
 it('fails without source directories', function (): void {
     $directory = TemporaryDirectory::create();
     $path = writeConfiguration($directory, '<phpunit><source><include/></source></phpunit>');

@@ -21,6 +21,10 @@ As limitações achadas até agora; uma issue é bem-vinda para qualquer outra.
   atravessou aparece como descoberta (o Xdebug a conta como executada).
 - **Reflexão sobre o arquivo da classe.** Testes que leem o arquivo da classe por reflexão veem a
   cópia instrumentada.
+- **Memória do relatório.** Depois da suíte, o processo do `sonda` junta as execuções de todos os
+  workers e monta o relatório, e uma suíte grande precisa de memória ali também. Ele usa o
+  `memory_limit` do `<php><ini>` do `phpunit.xml` quando esse é maior que o dele. Sem um, uma
+  suíte de milhares de testes pode precisar de `php -d memory_limit=-1 vendor/bin/sonda test`.
 - **Requisitos.** PHP 8.4 ou mais novo; PHPUnit 11.5 (Pest 3) ou 12 (Pest 4) no projeto medido. O
   Sonda usa a fachada de eventos do PHPUnit, que é interna, e o CI roda a suíte nas duas versões, na
   mais baixa e na mais recente de cada uma.
