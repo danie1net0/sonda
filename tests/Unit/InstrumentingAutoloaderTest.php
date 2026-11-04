@@ -58,7 +58,8 @@ it('loads a class of the target directory from its instrumented copy', function 
     $run = $autoloader->run();
     $fileId = array_key_first($run->files);
 
-    expect($fileId)->toBe(substr(sha1($directory . '/app/Order.php'), 0, 12))
+    // A hash prefix made only of digits comes back from the array as an int key.
+    expect((string) $fileId)->toBe(substr(sha1($directory . '/app/Order.php'), 0, 12))
         ->and($total)->toBe(6)
         ->and($filePath)->toBe($directory . '/app/Order.php')
         ->and($run->files)->toBe([$fileId => [$directory . '/app/Order.php', $run->files[$fileId][1]]])
