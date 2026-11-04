@@ -1,3 +1,15 @@
+# [1.17.0](https://github.com/danie1net0/sonda/compare/v1.16.2...v1.17.0) (2026-11-04)
+
+
+### Bug Fixes
+
+* **report:** exige o php-code-coverage 14.3, o primeiro com o registro de analisadores por configuração ([1f5365f](https://github.com/danie1net0/sonda/commit/1f5365fd2976dfda0a268b83a8c41426e5f41f5d)), closes [#9](https://github.com/danie1net0/sonda/issues/9)
+
+
+### Features
+
+* **report:** suporte ao PHPUnit 13 e ao php-code-coverage 14 ([b585e85](https://github.com/danie1net0/sonda/commit/b585e855ded528c64057e5d5f4695db672f0fcdc)), closes [#9](https://github.com/danie1net0/sonda/issues/9)
+
 ## [1.16.2](https://github.com/danie1net0/sonda/compare/v1.16.1...v1.16.2) (2026-11-03)
 
 
