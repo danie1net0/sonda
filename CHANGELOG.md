@@ -1,3 +1,15 @@
+# [1.18.0](https://github.com/danie1net0/sonda/compare/v1.17.0...v1.18.0) (2026-11-05)
+
+
+### Bug Fixes
+
+* **cli:** não confunde o valor de uma opção do runner com um caminho de teste ([f70e387](https://github.com/danie1net0/sonda/commit/f70e387f2e902e59f552b39ad8d5f97ee9d94a57))
+
+
+### Features
+
+* respeita os arquivos excluídos com <exclude><file> no phpunit.xml ([04fee40](https://github.com/danie1net0/sonda/commit/04fee408a8b0ff4251d1d59f6e36056c3fda0285))
+
 # [1.17.0](https://github.com/danie1net0/sonda/compare/v1.16.2...v1.17.0) (2026-11-04)
 
 
