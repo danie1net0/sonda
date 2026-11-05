@@ -1,7 +1,14 @@
 name: run-tests
 
 on:
+  pull_request:
+    paths:
+      - '**.php'
+      - '.github/workflows/run-tests.yml'
+      - 'phpunit.xml.dist'
+      - 'composer.json'
   push:
+    branches: [master]
     paths:
       - '**.php'
       - '.github/workflows/run-tests.yml'
@@ -34,7 +41,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: dom, mbstring, tokenizer, xml
-          coverage: xdebug
+          coverage: none
 
       - name: Setup problem matchers
         run: |
@@ -57,7 +64,33 @@ jobs:
       - name: List installed dependencies
         run: composer show -D
 
-      - name: Execute tests with line and branch coverage
-        run: vendor/bin/pest --ci --path-coverage --coverage-text --min=100
+      - name: Execute tests
+        run: vendor/bin/pest --ci --no-coverage
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      - uses: ramsey/composer-install@v4
+
+      - name: Configure source for the installed coverage API
+        run: php tools/phpunit-for-installed-coverage.php
+
+      - name: Require full line and branch coverage of changed code
         env:
-          XDEBUG_MODE: coverage
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$BASE_SHA"
+          if ! git rev-parse --verify "$base^{commit}" >/dev/null 2>&1; then
+            base=HEAD^
+          fi
+          php tools/self-coverage.php --changed="$base" --affected -- --ci

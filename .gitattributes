@@ -17,3 +17,4 @@
 /tools/phpunit-for-installed-coverage.php export-ignore
 /tools/phpstan-for-installed-coverage.php export-ignore
 /tools/files-of-other-coverage-versions.php export-ignore
+/tools/self-coverage.php export-ignore

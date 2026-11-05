@@ -48,7 +48,7 @@
   "scripts": {
     "prepare-husky": "npx husky install",
     "test": "pest",
-    "test:coverage": "pest --coverage",
+    "test:coverage": "@php tools/self-coverage.php --changed=origin/master --affected",
     "lint": "pint --test",
     "lint:fix": "pint",
     "analyse": "phpstan analyse --memory-limit=-1",
