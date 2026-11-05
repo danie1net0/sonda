@@ -384,6 +384,23 @@ it('runs several test paths in parallel through a configuration generated beside
         ->and(array_slice($series->command, -2))->toBe(['tests/Unit', 'tests/Feature']);
 });
 
+it('recognizes Pest flags while building a suite for several paths', function (): void {
+    $root = fakeProject();
+    touch($root . '/vendor/bin/pest');
+    touch($root . '/vendor/bin/paratest');
+    mkdir($root . '/tests/Unit', 0777, true);
+    mkdir($root . '/tests/Feature');
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, TestOptions::parse(['-p', 'tests/Unit', '--filter', 'orders edits', 'tests/Feature']), TemporaryDirectory::create());
+
+    expect($runner->command[1])->toBe('vendor/bin/pest')
+        ->and($runner->command)->toContain('-p', '--filter', 'orders edits')
+        ->and($runner->generatedConfiguration)->toContain('<directory suffix="Test.php">' . $root . '/tests/Unit</directory>')
+        ->toContain('<directory suffix="Test.php">' . $root . '/tests/Feature</directory>')
+        ->and(glob($root . '/.sonda-*'))->toBe([]);
+});
+
 /** The fake project as a Laravel one: an artisan file and Blade views. */
 function laravelProject(): string
 {
@@ -623,6 +640,17 @@ it('runs only the test files the map says run what changed', function (): void {
         ->and($output)->toStartWith("Running only the affected tests: tests/OrderTest.php\n")
         ->and(array_slice($runner->command, -1))->toBe([$root . '/tests/OrderTest.php'])
         ->and($runner->environment['SONDA_ONLY'])->toBe($root . '/app/Order.php');
+});
+
+it('recognizes explicit test paths after Pest flags when deciding whether to use affected tests', function (): void {
+    $root = affectedFakeProject();
+    touch($root . '/vendor/bin/pest');
+    $runner = new FakeRunner();
+
+    [, $output] = runTestCommand($runner, $root, TestOptions::parse(['--changed=master', '--affected', '--retry', 'tests/OrderTest.php']), TemporaryDirectory::create());
+
+    expect($output)->toStartWith("--affected ignored: the tests to run were given.\n")
+        ->and(array_slice($runner->command, -2))->toBe(['--retry', 'tests/OrderTest.php']);
 });
 
 it('runs the whole suite and measures the whole project when the map cannot tell, and saves what the run learned', function (): void {

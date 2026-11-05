@@ -207,6 +207,20 @@ it('runs several test paths in parallel, through a configuration generated for t
         ->and(glob($root . '/.sonda-*'))->toBe([]);
 });
 
+it('passes separate option values to the parallel runner with one or several test paths', function (array $paths): void {
+    $root = sondaProject();
+
+    [$status, $output] = sonda($root, 'test', '--', '--filter', 'testLargeOrders', '--processes', '2', ...$paths);
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('Processes:')
+        ->toContain('OK (1 test, 2 assertions)')
+        ->and(glob($root . '/.sonda-*'))->toBe([]);
+})->with([
+    'one path' => [['tests/DiscountTest.php']],
+    'several paths' => [['tests/DiscountTest.php', 'tests/ShippingTest.php']],
+]);
+
 it('measures a project with plain PHPUnit when asked not to run in parallel', function (): void {
     [$status, $output] = sonda(sondaProject(), 'test', '--no-parallel', '--html=build/html');
 
@@ -432,6 +446,18 @@ it('runs only the tests of the changed code once a run has mapped them', functio
         ->and($thirdStatus)->toBe(1, $third)
         ->and($third)->toStartWith("Running only the affected tests: tests/ShippingTest.php\n")
         ->toContain('OK (1 test, 1 assertion)');
+});
+
+it('keeps affected selection enabled when runner options have separate values', function (): void {
+    $root = committedSondaProject();
+    sonda($root, 'test');
+    file_put_contents($root . '/src/Discount.php', str_replace('final class', "/** changed */\nfinal class", (string) file_get_contents($root . '/src/Discount.php')));
+
+    [$status, $output] = sonda($root, 'test', '--changed=master', '--affected', '--', '--filter', 'testLargeOrders', '--processes', '2');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toStartWith("Running only the affected tests: tests/DiscountTest.php\n")
+        ->toContain('OK (1 test, 2 assertions)');
 });
 
 it('runs the whole suite when a change reaches beyond the source and the tests', function (): void {

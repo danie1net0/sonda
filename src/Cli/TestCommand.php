@@ -348,7 +348,7 @@ final readonly class TestCommand
     private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $affectedTests): RunnerInvocation
     {
         $arguments = [...$options->runnerArguments, ...$affectedTests];
-        $selection = TestSelection::of($arguments);
+        $selection = TestSelection::of($arguments, is_file($projectRoot . '/vendor/bin/pest'));
 
         if (! $options->parallel || count($selection->paths) <= 1) {
             return new RunnerInvocation($arguments);
@@ -395,7 +395,7 @@ final readonly class TestCommand
             return [];
         }
 
-        if (TestSelection::of($options->runnerArguments)->paths !== []) {
+        if (TestSelection::of($options->runnerArguments, is_file($projectRoot . '/vendor/bin/pest'))->paths !== []) {
             fwrite($output, "--affected ignored: the tests to run were given.\n");
 
             return [];
