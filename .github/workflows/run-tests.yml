@@ -70,6 +70,11 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        phpunit: [ '^11.5', '^12.0', '^13.0' ]
+    name: Coverage - PHPUnit ${{ matrix.phpunit }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -80,7 +85,11 @@ jobs:
           php-version: '8.5'
           coverage: none
 
-      - uses: ramsey/composer-install@v4
+      # Each version measures its own compatibility classes; the other adapters are excluded.
+      - name: Install dependencies for this PHPUnit version
+        run: |
+          composer require --no-update --no-interaction "phpunit/phpunit:${{ matrix.phpunit }}"
+          composer update --prefer-stable --prefer-dist --no-interaction --with-all-dependencies
 
       - name: Configure source for the installed coverage API
         run: php tools/phpunit-for-installed-coverage.php
