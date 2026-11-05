@@ -171,7 +171,11 @@ function sonda(string $root, string ...$arguments): array
 
     $output = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
 
-    return [proc_close($process), $output];
+    $result = [];
+    $result[] = proc_close($process);
+    $result[] = $output;
+
+    return $result;
 }
 
 function commitEverything(string $root): void

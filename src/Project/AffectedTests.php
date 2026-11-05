@@ -41,19 +41,23 @@ final readonly class AffectedTests
         $tests = [];
 
         foreach ($changed as $path) {
-            if (isset($isSource[$path])) {
-                if (! $map->knows($path)) {
-                    return new self(null, "no known test runs {$path}");
-                }
+            if (isset($isSource[$path]) && ! $map->knows($path)) {
+                return new self(null, "no known test runs {$path}");
+            }
 
+            if (isset($isSource[$path])) {
                 $changedSources[] = $path;
-            } elseif (isset($map->sources[$path]) || (self::isUnder($path, $testPaths) && str_ends_with($path, 'Test.php'))) {
-                // A test file deleted since has nothing left to run.
-                if (is_file($path)) {
-                    $tests[$path] = $path;
-                }
-            } else {
+
+                continue;
+            }
+
+            if (! isset($map->sources[$path]) && (! self::isUnder($path, $testPaths) || ! str_ends_with($path, 'Test.php'))) {
                 return new self(null, "{$path} changed and is neither a <source> file nor a test");
+            }
+
+            // A test file deleted since has nothing left to run.
+            if (is_file($path)) {
+                $tests[$path] = $path;
             }
         }
 

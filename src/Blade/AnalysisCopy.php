@@ -33,17 +33,26 @@ final class AnalysisCopy
         for ($index = 0, $count = count($tokens); $index < $count; $index++) {
             $token = $tokens[$index];
 
-            if ($token->is(T_INLINE_HTML)) {
+            if ($token->is(T_INLINE_HTML) && self::trailingNewline($token->text) !== '') {
                 $newline = self::trailingNewline($token->text);
+                $edits[] = Edit::opening($token->pos + strlen($token->text) - strlen($newline), '<?php ?>');
 
-                if ($newline !== '') {
-                    $edits[] = Edit::opening($token->pos + strlen($token->text) - strlen($newline), '<?php ?>');
-                }
-            } elseif ($token->is(T_USE) && $depth === 0 && ! self::closesOver($tokens, $index)) {
+                continue;
+            }
+
+            if ($token->is(T_USE) && $depth === 0 && ! self::closesOver($tokens, $index)) {
                 $index = self::blank($compiled, $tokens, $index, $edits);
-            } elseif ($token->is(['{', T_DOLLAR_OPEN_CURLY_BRACES])) {
+
+                continue;
+            }
+
+            if ($token->is(['{', T_DOLLAR_OPEN_CURLY_BRACES])) {
                 $depth++;
-            } elseif ($token->is('}')) {
+
+                continue;
+            }
+
+            if ($token->is('}')) {
                 $depth--;
             }
         }

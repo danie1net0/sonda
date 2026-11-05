@@ -69,12 +69,13 @@ function measureFixtureProject(array $runner): array
 
     expect($report)->toContain('report built in');
 
-    return [
-        'output' => $output,
-        'runFiles' => count(glob($directory . '/runs/run-*.ser') ?: []),
-        'lines' => $lines,
-        'branches' => $branches,
-    ];
+    $result = [];
+    $result['output'] = $output;
+    $result['runFiles'] = count(glob($directory . '/runs/run-*.ser') ?: []);
+    $result['lines'] = $lines;
+    $result['branches'] = $branches;
+
+    return $result;
 }
 
 /**

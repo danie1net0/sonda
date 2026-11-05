@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Sonda\Git;
 
-use function str_starts_with, substr, trim;
+use function preg_match, str_starts_with, substr, trim;
 
 /**
  * The PHP files changed since a reference and, in each, the lines the change added or replaced:

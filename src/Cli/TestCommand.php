@@ -59,16 +59,16 @@ final readonly class TestCommand
         $checkedFiles = $narrowed->narrowsToFiles() ? $this->sourceFiles($narrowed, $viewDirectories) : null;
         $hasFloor = $options->minLines !== null || $options->minBranches !== null;
 
+        if ($checkedFiles === [] && ! $hasFloor) {
+            fwrite($output, "No changed file inside <source>: nothing to measure.\n");
+            // The reports asked for still exist, empty, for whatever reads them after the job.
+            $this->writeReports($options, CoverageBuilder::empty(), $projectRoot, $output);
+            $this->writeCodeQuality($options, [], $projectRoot, $output);
+
+            return 0;
+        }
+
         if ($checkedFiles === []) {
-            if (! $hasFloor) {
-                fwrite($output, "No changed file inside <source>: nothing to measure.\n");
-                // The reports asked for still exist, empty, for whatever reads them after the job.
-                $this->writeReports($options, CoverageBuilder::empty(), $projectRoot, $output);
-                $this->writeCodeQuality($options, [], $projectRoot, $output);
-
-                return 0;
-            }
-
             fwrite($output, "No changed file inside <source>: with a coverage floor, the whole project is measured.\n");
             $checkedFiles = null;
         }

@@ -33,13 +33,21 @@ final readonly class TestSelection
 
             if ($argument === '-c' || $argument === '--configuration') {
                 $skipNext = true;
-            } elseif (str_starts_with($argument, '--configuration=')) {
+
                 continue;
-            } elseif (str_starts_with($argument, '-')) {
-                $options[] = $argument;
-            } else {
-                $paths[] = $argument;
             }
+
+            if (str_starts_with($argument, '--configuration=')) {
+                continue;
+            }
+
+            if (str_starts_with($argument, '-')) {
+                $options[] = $argument;
+
+                continue;
+            }
+
+            $paths[] = $argument;
         }
 
         return new self($options, $paths);

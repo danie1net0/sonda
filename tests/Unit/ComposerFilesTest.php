@@ -27,7 +27,11 @@ function vendorWithFiles(): array
     );
     LISTING);
 
-    return ['root' => $root, 'autoload' => $root . '/vendor/autoload.php'];
+    $result = [];
+    $result['root'] = $root;
+    $result['autoload'] = $root . '/vendor/autoload.php';
+
+    return $result;
 }
 
 /** Composer marks its own files in the test process: the tests put that back as it was. */

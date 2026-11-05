@@ -32,7 +32,13 @@ function application(): array
         throw new RuntimeException('No memory for the output.');
     }
 
-    return [new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda'), new CompareCommand($processes, '/sonda'), '1.2.3'), $output, $error, $processes];
+    $result = [];
+    $result[] = new Application(new TestCommand($processes, '/sonda', TemporaryDirectory::create() . '/sonda'), new CompareCommand($processes, '/sonda'), '1.2.3');
+    $result[] = $output;
+    $result[] = $error;
+    $result[] = $processes;
+
+    return $result;
 }
 
 /** @param resource $stream */

@@ -17,12 +17,15 @@ function short(string $path): string
 
 function load(string $f): array
 {
+    $base = '';
+
     if (class_exists(Unserializer::class)) {
         $d = (new Unserializer())->unserialize($f);
         $base = rtrim($d['basePath'], '/') . '/';
-    } else {
+    }
+
+    if (! class_exists(Unserializer::class)) {
         $d = ['codeCoverage' => (include $f)->getData()];
-        $base = '';
     }
     $lines = $fns = [];
 
@@ -83,7 +86,11 @@ function load(string $f): array
         }
     }
 
-    return [$lines, $fns];
+    $result = [];
+    $result[] = $lines;
+    $result[] = $fns;
+
+    return $result;
 }
 
 [$xl, $xf] = load($argv[1]);
@@ -98,7 +105,11 @@ $count = static function (array $lines): array {
         $c += count(array_filter($ls));
     }
 
-    return [$c, $e];
+    $result = [];
+    $result[] = $c;
+    $result[] = $e;
+
+    return $result;
 };
 [$xc, $xe] = $count($xl);
 [$pc, $pe] = $count($pl);
@@ -164,14 +175,19 @@ foreach ($xf as $k => [$h, $t, $xmiss, $xfile]) {
 
     if ($xFull === $pFull) {
         $agree++;
-    } elseif ($xFull) {
-        $pOnlyFull += 0;
+
+        continue;
+    }
+
+    if ($xFull) {
         $xOnlyFull++;
         $list['xdebug 100%, sonda <100%'][] = $k;
-    } else {
-        $pOnlyFull++;
-        $list['sonda 100%, xdebug <100%'][] = $k;
+
+        continue;
     }
+
+    $pOnlyFull++;
+    $list['sonda 100%, xdebug <100%'][] = $k;
 }
 
 foreach ($pf as [$h, $t]) {

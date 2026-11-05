@@ -15,3 +15,8 @@ it('finds no paths in options alone', function (): void {
     expect(TestSelection::of(['--filter=x']))->toEqual(new TestSelection(['--filter=x'], []))
         ->and(TestSelection::of([]))->toEqual(new TestSelection([], []));
 });
+
+it('keeps paths and options after an inline configuration', function (): void {
+    expect(TestSelection::of(['--configuration=phpunit.xml', 'tests/Unit', '--stop-on-failure']))
+        ->toEqual(new TestSelection(['--stop-on-failure'], ['tests/Unit']));
+});

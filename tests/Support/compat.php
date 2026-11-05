@@ -33,5 +33,14 @@ function compatFileNode(): File
 /** A branch as the compatibility layer hands it out. @return array{op_start: int, op_end: int, line_start: int, line_end: int, hit: list<string>, out: array<int, int>, out_hit: array<int, int>} */
 function compatBranch(int $id, int $line, array $hit): array
 {
-    return ['op_start' => $id, 'op_end' => $id, 'line_start' => $line, 'line_end' => $line, 'hit' => $hit, 'out' => [], 'out_hit' => []];
+    $result = [];
+    $result['op_start'] = $id;
+    $result['op_end'] = $id;
+    $result['line_start'] = $line;
+    $result['line_end'] = $line;
+    $result['hit'] = $hit;
+    $result['out'] = [];
+    $result['out_hit'] = [];
+
+    return $result;
 }

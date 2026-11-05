@@ -31,14 +31,15 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, File
     file_put_contents($out, $r->code);
     $res = shell_exec('php -l ' . escapeshellarg($out) . ' 2>&1');
 
-    if (str_contains($res, 'No syntax errors')) {
-        $ok++;
-    } else {
-        $bad++;
+    $valid = str_contains($res, 'No syntax errors');
+    $ok += (int) $valid;
 
-        if ($bad <= 10) {
-            echo "BAD {$path}\n   ", trim(strtok($res, "\n")), "\n";
-        }
+    if (! $valid) {
+        $bad++;
+    }
+
+    if (! $valid && $bad <= 10) {
+        echo "BAD {$path}\n   ", trim(strtok($res, "\n")), "\n";
     }
 
     if (substr_count($r->code, "\n") !== substr_count(file_get_contents($path), "\n")) {

@@ -92,7 +92,11 @@ function runTestCommand(FakeRunner $runner, string $root, TestOptions $options, 
     $status = new TestCommand($runner, '/opt/sonda', $temporaryRoot . '/sonda')->run($options, $root, $output);
     rewind($output);
 
-    return [$status, (string) stream_get_contents($output)];
+    $result = [];
+    $result[] = $status;
+    $result[] = (string) stream_get_contents($output);
+
+    return $result;
 }
 
 it('runs the project tests instrumented and reports the coverage of its source', function (): void {

@@ -1802,14 +1802,15 @@ it('keeps as decisions the view conditions that only resemble what Blade writes'
         . "\$z ??= new Order();\n"
         . "if (\$component->{\$method}()) { a(); }\n"
         . "if (isset(\$items['component'])) { a(); }\n"
-        . "if (in_array(\$__key, \$order)) { a(); }\n";
+        . "if (in_array(\$__key, \$order)) { a(); }\n"
+        . "\$order->attributes ??= new Order();\n";
 
     [, $probes] = instrumentCode($source, strict: true, mainScope: 'view');
 
     $branchLines = array_values(array_unique(array_map(static fn (Probe $probe): int => $probe->lineStart, array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))));
     sort($branchLines);
 
-    expect($branchLines)->toBe([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+    expect($branchLines)->toBe([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]);
 });
 
 it('closes an if left without an else before the synthetic else: of the alternative-syntax if around it', function (): void {

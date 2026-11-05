@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Sonda;
 
-use PhpParser\Node\Arg;
+use PhpParser\Node\{Arg, Const_ as NodeConstant};
 use PhpParser\{Node, NodeFinder, NodeVisitor, NodeVisitorAbstract, Token};
 use SplObjectStorage;
 use PhpParser\Node\{AttributeGroup, Expr, Identifier, Name, Param, PropertyHook, PropertyItem, Scalar, StaticVar, Stmt};
 use PhpParser\Node\Expr\{ArrayDimFetch, ArrowFunction, BinaryOp, ClassConstFetch, Closure, ConstFetch, Empty_, FuncCall, Instanceof_, Isset_, Match_, MethodCall, New_, NullsafeMethodCall, NullsafePropertyFetch, StaticCall, Ternary, Variable};
 use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, Declare_, Do_, ElseIf_, Else_, EnumCase, Finally_, For_, Foreach_, Function_, GroupUse, HaltCompiler, If_, InlineHTML, Namespace_, Nop, TryCatch, Use_, While_};
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
+use PhpParser\Node\Expr\AssignOp\Coalesce as CoalesceAssignment;
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
 use function implode, in_array, preg_match, str_starts_with, substr, trim, dirname;
@@ -143,7 +144,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $node instanceof NullsafePropertyFetch => $this->enterNullsafe($node),
             $node instanceof Isset_ => $this->silence($node->vars),
             $node instanceof Empty_ => $this->silence([$node->expr]),
-            $node instanceof Expr\AssignOp\Coalesce => $this->wrapExpression($node->expr, true),
+            $node instanceof CoalesceAssignment => $this->wrapExpression($node->expr, true),
             $node instanceof Ternary => $this->enterTernary($node),
             $node instanceof Match_ => $this->enterMatch($node),
             $node instanceof File => $this->replace($node, var_export($this->path, true)),
@@ -325,16 +326,26 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
         if (is_array($node->body)) {
             $this->statementList($node->body, true);
-        } elseif ($node->body instanceof Expr && $node->byRef) {
+
+            return;
+        }
+
+        if (! $node->body instanceof Expr) {
+            return;
+        }
+
+        if ($node->byRef) {
             // `&get => expr;` must return a reference: it becomes `&get { probe; return expr; }`.
             $arrow = $this->nextTokenOfKind($node->getStartTokenPos(), T_DOUBLE_ARROW);
             $line = $node->body->getStartLine();
             $id = $this->probe(new Probe($line, true, $this->currentFunction(), $line, $node->body->getEndLine(), $this->ownLines($node->body)));
             $this->edits[] = Edit::opening($arrow->pos, '{ ' . $this->probeCode($id) . '; return', 2);
             $this->close($node->getEndFilePos() + 1, ' }');
-        } elseif ($node->body instanceof Expr) {
-            $this->wrapExpression($node->body, true, $this->ownLines($node->body));
+
+            return;
         }
+
+        $this->wrapExpression($node->body, true, $this->ownLines($node->body));
     }
 
     private function enterScope(Node $function, string $name, bool $local): void
@@ -345,13 +356,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function enterIf(If_ $node): void
     {
-        if ($node->elseifs === [] && $this->isBladeCondition($node->cond)) {
+        $isBladeCondition = $node->elseifs === [] && $this->isBladeCondition($node->cond);
+
+        if ($isBladeCondition && $node->else instanceof Else_) {
+            $this->plainBodies[$node->else] = true;
+        }
+
+        if ($isBladeCondition) {
             $this->bookkeeping[$node->cond] = true;
             $this->body($node, $node->stmts, false);
-
-            if ($node->else instanceof Else_) {
-                $this->plainBodies[$node->else] = true;
-            }
 
             return;
         }
@@ -535,11 +548,11 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
      */
     private function body(Node $owner, array $statements, bool $isOutcome = true): void
     {
-        if ($statements === []) {
-            if ($isOutcome) {
-                $this->emptyBody($owner);
-            }
+        if ($statements === [] && $isOutcome) {
+            $this->emptyBody($owner);
+        }
 
+        if ($statements === []) {
             return;
         }
 
@@ -919,7 +932,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             return $this->isBladeVariable($node->left);
         }
 
-        if ($node instanceof Expr\AssignOp\Coalesce) {
+        if ($node instanceof CoalesceAssignment) {
             return $this->isBladeVariable($node->var) || ($node->var instanceof Variable && $node->var->name === 'attributes' && $node->expr instanceof New_);
         }
 
@@ -935,11 +948,11 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function isConstantContext(Node $node): bool
     {
-        return $node instanceof Param || $node instanceof PropertyItem || $node instanceof Node\Const_
+        return $node instanceof Param || $node instanceof PropertyItem || $node instanceof NodeConstant
             || $node instanceof AttributeGroup || $node instanceof EnumCase || $node instanceof StaticVar;
     }
 
-    /** @phpstan-assert-if-true Expr\BinaryOp $node */
+    /** @phpstan-assert-if-true BinaryOp $node */
     private function isShortCircuit(Node $node): bool
     {
         return $node instanceof BooleanAnd || $node instanceof BooleanOr

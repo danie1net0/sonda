@@ -6,7 +6,7 @@ namespace Sonda\Blade;
 
 use Throwable;
 
-use function substr, trim;
+use function preg_match, substr, trim;
 
 /**
  * Which line of a Blade template each line of its compiled PHP comes from.
@@ -53,7 +53,12 @@ final class LineMap
             if (preg_match(self::MARKER_PATTERN, $markedLines[$index], $match) === 1) {
                 $templateLine = (int) $match[1];
                 $floor = $templateLine + 1;
-            } elseif (($found = self::sameTextFrom($templateLines, $floor, trim($line))) !== null) {
+                $map[$number] = $templateLine;
+
+                continue;
+            }
+
+            if (($found = self::sameTextFrom($templateLines, $floor, trim($line))) !== null) {
                 $templateLine = $found;
                 $floor = $found + 1;
             }

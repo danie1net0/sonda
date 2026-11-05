@@ -42,7 +42,12 @@ function fixtureProject(): array
     $loader->addPsr4($namespace . '\\App\\', $directory . '/app');
     $loader->addPsr4($namespace . '\\Lib\\', $directory . '/lib');
 
-    return ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader];
+    $result = [];
+    $result['directory'] = $directory;
+    $result['namespace'] = $namespace;
+    $result['loader'] = $loader;
+
+    return $result;
 }
 
 it('loads a class of the target directory from its instrumented copy', function (): void {

@@ -19,15 +19,16 @@ function affectedProject(): array
         touch($root . '/' . $file);
     }
 
-    return [
-        'root' => $root,
-        'map' => new TestMap([
-            $root . '/tests/Unit/CartTest.php' => [$root . '/app/Cart.php', $root . '/app/Money.php'],
-            $root . '/tests/Unit/OrderTest.php' => [$root . '/app/Money.php', $root . '/app/Order.php'],
-        ]),
-        'sources' => [$root . '/app/Cart.php', $root . '/app/Money.php', $root . '/app/Order.php', $root . '/app/Fresh.php', $root . '/resources/views/home.blade.php'],
-        'testPaths' => [$root . '/tests/Unit', $root . '/tests/smoke.php'],
-    ];
+    $result = [];
+    $result['root'] = $root;
+    $result['map'] = new TestMap([
+        $root . '/tests/Unit/CartTest.php' => [$root . '/app/Cart.php', $root . '/app/Money.php'],
+        $root . '/tests/Unit/OrderTest.php' => [$root . '/app/Money.php', $root . '/app/Order.php'],
+    ]);
+    $result['sources'] = [$root . '/app/Cart.php', $root . '/app/Money.php', $root . '/app/Order.php', $root . '/app/Fresh.php', $root . '/resources/views/home.blade.php'];
+    $result['testPaths'] = [$root . '/tests/Unit', $root . '/tests/smoke.php'];
+
+    return $result;
 }
 
 it('runs the test files whose tests ran a changed source file, once each, sorted', function (): void {

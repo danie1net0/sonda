@@ -25,7 +25,13 @@ function viewsProject(): array
     file_put_contents($root . '/resources/views/plain.php', "<?php echo 'not a blade view';\n");
     $settings = new Settings($root . '/vendor/autoload.php', [$root . '/resources/views'], [], [], $root . '/cache', $root . '/runs', true, true, null, [$root . '/resources/views']);
 
-    return ['root' => $root, 'views' => $root . '/resources/views', 'settings' => $settings, 'compiled' => $root . '/runs/views-' . getmypid()];
+    $result = [];
+    $result['root'] = $root;
+    $result['views'] = $root . '/resources/views';
+    $result['settings'] = $settings;
+    $result['compiled'] = $root . '/runs/views-' . getmypid();
+
+    return $result;
 }
 
 /** The Blade compiler Laravel would build after reading VIEW_COMPILED_PATH, inside a container. */

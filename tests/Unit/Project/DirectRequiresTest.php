@@ -30,7 +30,11 @@ function requiringProject(): array
     file_put_contents($root . '/app/Plain.php', "<?php\n\nfinal class Plain\n{\n}\n");
     $files = [$root . '/app/Boot.php', $root . '/app/Inc.php', $root . '/app/Plain.php', $root . '/app/Support/Deep.php', $root . '/app/Support/strings.php', $root . '/app/helpers.php'];
 
-    return ['root' => (string) realpath($root), 'files' => array_map(static fn (string $file): string => (string) realpath($file), $files)];
+    $result = [];
+    $result['root'] = (string) realpath($root);
+    $result['files'] = array_map(static fn (string $file): string => (string) realpath($file), $files);
+
+    return $result;
 }
 
 it('finds the files of the scope required directly by other files of the scope, resolving __DIR__, __FILE__ and dirname()', function (): void {

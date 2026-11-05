@@ -14,7 +14,11 @@ function configuredProject(string $testsuites = '<testsuites><testsuite name="Un
     file_put_contents($root . '/tests/Feature/ATest.php', '<?php');
     file_put_contents($root . '/phpunit.xml', "<?xml version=\"1.0\"?>\n<phpunit bootstrap=\"vendor/autoload.php\" colors=\"true\">\n    {$testsuites}\n    <source><include><directory>src</directory></include></source>\n    <php><env name=\"APP_ENV\" value=\"testing\"/></php>\n</phpunit>\n");
 
-    return ['root' => $root, 'configuration' => $root . '/phpunit.xml'];
+    $result = [];
+    $result['root'] = $root;
+    $result['configuration'] = $root . '/phpunit.xml';
+
+    return $result;
 }
 
 it('writes a configuration beside the project one with the paths given as its only suite, directories with the project suffix', function (): void {

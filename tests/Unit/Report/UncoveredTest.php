@@ -53,7 +53,13 @@ function partlyCoveredProject(): array
 
     $run = new Run($root . '/cache', ['o' => [$order, 'order'], 'p' => [$paid, 'paid']], ['o' => [0 => 1, 2 => 1, 5 => 1, 6 => 1], 'p' => [0 => 1]]);
 
-    return ['root' => $root, 'order' => $order, 'paid' => $paid, 'run' => $run];
+    $result = [];
+    $result['root'] = $root;
+    $result['order'] = $order;
+    $result['paid'] = $paid;
+    $result['run'] = $run;
+
+    return $result;
 }
 
 it('lists the lines and branches a report leaves uncovered, per file', function (): void {

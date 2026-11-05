@@ -55,7 +55,11 @@ function instrumentCode(string $code, bool $strict = false, bool $fast = false, 
     $visitor->instrumentTopLevel($ast);
     new NodeTraverser($visitor)->traverse($ast);
 
-    return [SourceEditor::apply($code, $visitor->edits()), $visitor->probes()];
+    $result = [];
+    $result[] = SourceEditor::apply($code, $visitor->edits());
+    $result[] = $visitor->probes();
+
+    return $result;
 }
 
 /**
@@ -194,7 +198,11 @@ function covFile(string $path): array
             $data->renameFile($file, rtrim($serialized['basePath'], '/') . '/' . $file);
         }
 
-        return [$data, $serialized['testResults']];
+        $result = [];
+        $result[] = $data;
+        $result[] = $serialized['testResults'];
+
+        return $result;
     }
 
     $coverage = require $path;
@@ -203,5 +211,9 @@ function covFile(string $path): array
         throw new RuntimeException("The file {$path} does not hold a report.");
     }
 
-    return [$coverage->getData(), $coverage->getTests()];
+    $result = [];
+    $result[] = $coverage->getData();
+    $result[] = $coverage->getTests();
+
+    return $result;
 }

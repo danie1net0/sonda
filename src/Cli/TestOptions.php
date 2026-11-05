@@ -85,53 +85,135 @@ final readonly class TestOptions
 
             if ($argument === '--no-strict') {
                 $strict = false;
-            } elseif ($argument === '--no-fast') {
+
+                continue;
+            }
+
+            if ($argument === '--no-fast') {
                 $fast = false;
-            } elseif ($argument === '--no-parallel') {
+
+                continue;
+            }
+
+            if ($argument === '--no-parallel') {
                 $parallel = false;
-            } elseif ($argument === '--no-blade') {
+
+                continue;
+            }
+
+            if ($argument === '--no-blade') {
                 $blade = false;
-            } elseif ($argument === '--text') {
+
+                continue;
+            }
+
+            if ($argument === '--text') {
                 $text = true;
-            } elseif ($argument === '--covered-by') {
+
+                continue;
+            }
+
+            if ($argument === '--covered-by') {
                 $coveredBy = true;
-            } elseif ($argument === '--affected') {
+
+                continue;
+            }
+
+            if ($argument === '--affected') {
                 $affected = true;
-            } elseif ($argument === '--includes' || $argument === '--no-includes') {
+
+                continue;
+            }
+
+            if ($argument === '--includes' || $argument === '--no-includes') {
                 $includes = $argument === '--includes';
-            } elseif (self::valueOf($argument, '--min-lines') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--min-lines') !== null) {
                 $minLines = self::percentage(self::valueOf($argument, '--min-lines'), '--min-lines');
-            } elseif (self::valueOf($argument, '--min-branches') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--min-branches') !== null) {
                 $minBranches = self::percentage(self::valueOf($argument, '--min-branches'), '--min-branches');
-            } elseif (self::valueOf($argument, '--changed') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--changed') !== null) {
                 $changed = self::valueOf($argument, '--changed');
-            } elseif (self::valueOf($argument, '--files') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--files') !== null) {
                 $files = [...$files, ...array_filter(explode(',', self::valueOf($argument, '--files')))];
-            } elseif (self::valueOf($argument, '--views') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--views') !== null) {
                 $views = [...$views, ...array_filter(explode(',', self::valueOf($argument, '--views')))];
-            } elseif (self::valueOf($argument, '--html') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--html') !== null) {
                 $html = self::valueOf($argument, '--html');
-            } elseif (self::valueOf($argument, '--clover') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--clover') !== null) {
                 $clover = self::valueOf($argument, '--clover');
-            } elseif (self::valueOf($argument, '--cov') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--cov') !== null) {
                 $cov = self::valueOf($argument, '--cov');
-            } elseif (self::valueOf($argument, '--cobertura') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--cobertura') !== null) {
                 $cobertura = self::valueOf($argument, '--cobertura');
-            } elseif (self::valueOf($argument, '--code-quality') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--code-quality') !== null) {
                 $codeQuality = self::valueOf($argument, '--code-quality');
-            } elseif (self::valueOf($argument, '--map') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--map') !== null) {
                 $map = self::valueOf($argument, '--map');
-            } elseif ($argument === '-c' || $argument === '--configuration') {
+
+                continue;
+            }
+
+            if ($argument === '-c' || $argument === '--configuration') {
                 $configuration = $arguments[$index + 1] ?? throw new InvalidArgumentException("The option {$argument} needs a file.");
                 $runnerArguments[] = $argument;
                 $runnerArguments[] = $configuration;
                 $index++;
-            } elseif (self::valueOf($argument, '--configuration') !== null) {
+
+                continue;
+            }
+
+            if (self::valueOf($argument, '--configuration') !== null) {
                 $configuration = self::valueOf($argument, '--configuration');
                 $runnerArguments[] = $argument;
-            } else {
-                $runnerArguments[] = $argument;
+
+                continue;
             }
+
+            $runnerArguments[] = $argument;
         }
 
         if ($affected && $changed === null && $files === []) {

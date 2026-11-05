@@ -13,25 +13,35 @@ function analysed(string $copy): array
     $analyser = CoverageApis::current()->analyser([]);
     $functions = [];
 
-    if (onCoverage12()) {
-        $result = $analyser->analyse($path);
-
-        foreach ($result->functions() as $name => $function) {
-            $functions[$name] = [$function->startLine(), $function->endLine()];
-        }
-
-        $executable = array_keys($result->executableLines());
-    } else {
+    if (! onCoverage12()) {
         foreach ($analyser->functionsIn($path) as $name => $function) {
             $functions[$name] = [$function['startLine'], $function['endLine']];
         }
 
         $executable = array_keys($analyser->executableLinesIn($path));
+        sort($executable);
+        $result = [];
+        $result['functions'] = $functions;
+        $result['executable'] = $executable;
+
+        return $result;
     }
+
+    $result = $analyser->analyse($path);
+
+    foreach ($result->functions() as $name => $function) {
+        $functions[$name] = [$function->startLine(), $function->endLine()];
+    }
+
+    $executable = array_keys($result->executableLines());
 
     sort($executable);
 
-    return ['functions' => $functions, 'executable' => $executable];
+    $result = [];
+    $result['functions'] = $functions;
+    $result['executable'] = $executable;
+
+    return $result;
 }
 
 it('declares the whole view as the function view, on the same lines', function (): void {

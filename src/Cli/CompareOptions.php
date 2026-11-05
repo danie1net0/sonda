@@ -33,15 +33,29 @@ final readonly class CompareOptions
         foreach ($arguments as $argument) {
             if (str_starts_with($argument, '--processes=')) {
                 $processes = self::count($argument, '--processes');
-            } elseif (str_starts_with($argument, '--batch=')) {
-                $batch = self::count($argument, '--batch');
-            } elseif (str_starts_with($argument, '--xdebug=')) {
-                $xdebug = substr($argument, strlen('--xdebug='));
-            } elseif ($outputDirectory === null && ! str_starts_with($argument, '-')) {
-                $outputDirectory = $argument;
-            } else {
-                $runnerArguments[] = $argument;
+
+                continue;
             }
+
+            if (str_starts_with($argument, '--batch=')) {
+                $batch = self::count($argument, '--batch');
+
+                continue;
+            }
+
+            if (str_starts_with($argument, '--xdebug=')) {
+                $xdebug = substr($argument, strlen('--xdebug='));
+
+                continue;
+            }
+
+            if ($outputDirectory === null && ! str_starts_with($argument, '-')) {
+                $outputDirectory = $argument;
+
+                continue;
+            }
+
+            $runnerArguments[] = $argument;
         }
 
         if ($outputDirectory === null) {
