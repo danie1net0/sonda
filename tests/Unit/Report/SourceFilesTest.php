@@ -39,6 +39,18 @@ it('leaves out the excluded directories', function (): void {
     ]);
 });
 
+it('excludes individual files without excluding files that share their prefix', function (): void {
+    $directory = sourceTree();
+    $file = $directory . '/Models/Order.php';
+    file_put_contents($file . '.php', '<?php');
+
+    expect(SourceFiles::find($directory, [$file, $directory . '/Providers']))->toBe([
+        $directory . '/Actions/Deep/Refund.php',
+        $directory . '/Actions/Pay.php',
+        $file . '.php',
+    ]);
+});
+
 it('ignores excluded directories that do not exist', function (): void {
     $directory = sourceTree();
 

@@ -14,7 +14,7 @@ final readonly class Scope
     /** @var list<string> real paths, with a trailing slash */
     private array $targetDirectories;
 
-    /** @var list<string> real paths, with a trailing slash */
+    /** @var list<string> real paths; directories have a trailing slash, files do not */
     private array $excludedDirectories;
 
     /** @var array<string, string> real paths, as keys and values */
@@ -22,7 +22,7 @@ final readonly class Scope
 
     /**
      * @param list<string> $targetDirectories   must exist
-     * @param list<string> $excludedDirectories a missing one excludes nothing
+     * @param list<string> $excludedDirectories directories or individual files; a missing one excludes nothing
      * @param list<string> $onlyFiles           when not empty, only these files are in scope
      */
     public function __construct(array $targetDirectories, array $excludedDirectories = [], array $onlyFiles = [])
@@ -45,7 +45,7 @@ final readonly class Scope
             $realDirectory = realpath($directory);
 
             if ($realDirectory !== false) {
-                $excluded[] = $realDirectory . '/';
+                $excluded[] = is_dir($realDirectory) ? $realDirectory . '/' : $realDirectory;
             }
         }
 
@@ -97,6 +97,6 @@ final readonly class Scope
     /** @param list<string> $directories */
     private function isUnder(string $path, array $directories): bool
     {
-        return array_any($directories, fn (string $directory): bool => str_starts_with($path, $directory));
+        return array_any($directories, fn (string $directory): bool => $path === $directory || (str_ends_with($directory, '/') && str_starts_with($path, $directory)));
     }
 }

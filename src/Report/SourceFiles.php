@@ -14,7 +14,7 @@ use function str_starts_with;
 final class SourceFiles
 {
     /**
-     * PHP files under a directory, minus the excluded directories, as sorted real paths.
+     * PHP files under a directory, minus the excluded directories and files, as sorted real paths.
      *
      * @param list<string> $excludedDirectories
      *
@@ -29,7 +29,7 @@ final class SourceFiles
 
             // A missing directory excludes nothing (an empty path would exclude everything).
             if ($realExcludedDirectory !== false) {
-                $excluded[] = $realExcludedDirectory . '/';
+                $excluded[] = $realExcludedDirectory;
             }
         }
 
@@ -75,6 +75,6 @@ final class SourceFiles
     /** @param list<string> $excluded */
     private static function isExcluded(string $path, array $excluded): bool
     {
-        return array_any($excluded, static fn (string $directory): bool => str_starts_with($path, $directory));
+        return array_any($excluded, static fn (string $directory): bool => $path === $directory || str_starts_with($path, $directory . '/'));
     }
 }

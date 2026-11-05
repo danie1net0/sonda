@@ -215,6 +215,21 @@ it('measures a project with plain PHPUnit when asked not to run in parallel', fu
         ->toContain('HTML report in ');
 });
 
+it('keeps explicitly excluded source files out of instrumentation and reports', function (): void {
+    $root = sondaProject();
+    $configuration = $root . '/phpunit.xml';
+    $xml = (string) file_get_contents($configuration);
+    file_put_contents($configuration, str_replace('</exclude>', '<file>src/Discount.php</file></exclude>', $xml));
+
+    [$status, $output] = sonda($root, 'test', '--no-parallel', '--cov=build/report.cov');
+    [$data] = covFile($root . '/build/report.cov');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (2 tests, 3 assertions)')
+        ->toContain('Coverage: lines 1/1 (100.00%), branches 2/3 (66.67%)')
+        ->and(array_keys($data->lineCoverage()))->toBe([$root . '/src/Shipping.php']);
+});
+
 it('measures the Blade views of a Laravel project, in the subdirectory per worker of its parallel testing', function (): void {
     [$status, $output] = sonda(laravelLikeProject(), 'test');
 

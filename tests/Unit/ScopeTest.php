@@ -36,6 +36,17 @@ it('leaves out the excluded directories', function (): void {
         ->and($scope->excludedDirectories())->toBe([$directory . '/app/Providers/']);
 });
 
+it('excludes an individual file without excluding files that share its prefix', function (): void {
+    $directory = scopeTree();
+    $file = $directory . '/app/Models/Order.php';
+    $scope = new Scope([$directory . '/app'], [$file]);
+
+    expect($scope->includes($file))->toBeFalse()
+        ->and($scope->includes($file . '.php'))->toBeTrue()
+        ->and($scope->includes($directory . '/app/Providers/AppProvider.php'))->toBeTrue()
+        ->and($scope->excludedDirectories())->toBe([$file]);
+});
+
 it('narrows to the given files when there are any', function (): void {
     $directory = scopeTree();
     $scope = new Scope([$directory . '/app'], [], [$directory . '/app/Models/Order.php', $directory . '/missing.php']);

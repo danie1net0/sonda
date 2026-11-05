@@ -43,6 +43,7 @@ it('reads the bootstrap and the source directories, relative to the file', funct
             </include>
             <exclude>
                 <directory>app/Providers</directory>
+                <file>src/Legacy.php</file>
             </exclude>
         </source>
     </phpunit>
@@ -52,7 +53,7 @@ it('reads the bootstrap and the source directories, relative to the file', funct
         $path,
         $directory . '/tests/bootstrap.php',
         [$directory . '/app', $directory . '/src', '/absolute/lib'],
-        [$directory . '/app/Providers'],
+        [$directory . '/app/Providers', $directory . '/src/Legacy.php'],
     ));
 });
 

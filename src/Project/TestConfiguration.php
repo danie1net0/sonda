@@ -15,7 +15,7 @@ final readonly class TestConfiguration
 {
     /**
      * @param list<string> $sourceDirectories
-     * @param list<string> $excludedDirectories
+     * @param list<string> $excludedDirectories directories and individual files excluded from the source
      * @param list<string> $testPaths           the directories and files of the test suites
      * @param string|null  $memoryLimit         the memory_limit of `<php><ini>`, what the tests may use
      */
@@ -69,7 +69,7 @@ final readonly class TestConfiguration
             $path,
             $bootstrap,
             $sources,
-            self::directories($xml, '/phpunit/source/exclude/directory', $base),
+            self::directories($xml, '/phpunit/source/exclude/directory | /phpunit/source/exclude/file', $base),
             self::directories($xml, '/phpunit/testsuites/testsuite/directory | /phpunit/testsuites/testsuite/file', $base),
             self::memoryLimit($xml),
         );
