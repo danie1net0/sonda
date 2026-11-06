@@ -9,7 +9,7 @@ use PhpParser\{Node, NodeFinder, NodeVisitor, NodeVisitorAbstract, Token};
 use SplObjectStorage;
 use PhpParser\Node\{AttributeGroup, Expr, Identifier, Name, Param, PropertyHook, PropertyItem, Scalar, StaticVar, Stmt};
 use PhpParser\Node\Expr\{ArrayDimFetch, ArrowFunction, BinaryOp, ClassConstFetch, Closure, ConstFetch, Empty_, FuncCall, Instanceof_, Isset_, Match_, MethodCall, New_, NullsafeMethodCall, NullsafePropertyFetch, StaticCall, Ternary, Variable};
-use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, Declare_, Do_, ElseIf_, Else_, EnumCase, Finally_, For_, Foreach_, Function_, GroupUse, HaltCompiler, If_, InlineHTML, Namespace_, Nop, TryCatch, Use_, While_};
+use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, Declare_, Do_, ElseIf_, Else_, EnumCase, Finally_, For_, Foreach_, Function_, GroupUse, HaltCompiler, If_, InlineHTML, Namespace_, Nop, TryCatch, Unset_, Use_, While_};
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Expr\AssignOp\Coalesce as CoalesceAssignment;
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
@@ -356,7 +356,7 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     private function enterIf(If_ $node): void
     {
-        $isBladeCondition = $node->elseifs === [] && $this->isBladeCondition($node->cond);
+        $isBladeCondition = ($node->elseifs === [] && $this->isBladeCondition($node->cond)) || $this->isLivewireSlotCleanup($node);
 
         if ($isBladeCondition && $node->else instanceof Else_) {
             $this->plainBodies[$node->else] = true;
@@ -895,6 +895,18 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $condition instanceof FuncCall => $condition->args !== [] && array_all($condition->getArgs(), fn (Arg $argument): bool => $this->isBladeVariable($argument->value)),
             default => false,
         };
+    }
+
+    /** Livewire's compiled component tag clears its temporary slots after mounting. */
+    private function isLivewireSlotCleanup(If_ $node): bool
+    {
+        return $this->view
+            && $node->elseifs === [] && ! $node->else instanceof Else_
+            && $node->cond instanceof Isset_ && count($node->cond->vars) === 1
+            && $node->cond->vars[0] instanceof Variable && $node->cond->vars[0]->name === '__slots'
+            && count($node->stmts) === 1 && $node->stmts[0] instanceof Unset_
+            && count($node->stmts[0]->vars) === 1
+            && $node->stmts[0]->vars[0] instanceof Variable && $node->stmts[0]->vars[0]->name === '__slots';
     }
 
     /** `$component`, `$attributes` and `$message`, which Blade saves and restores, and their saved copies. */

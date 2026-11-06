@@ -1827,3 +1827,47 @@ it('closes an if left without an else before the synthetic else: of the alternat
         ->and(substr_count($code, '; else: '))->toBe(2)
         ->and(substr_count($code, 'else: '))->toBe(3);
 });
+
+it('does not count generated Livewire slot cleanup as a template decision', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+    <?php
+    if (isset($__slots)) unset($__slots);
+    if ($accepted) { echo 'received'; }
+    PHP, strict: true, mainScope: 'view');
+
+    $branches = array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch);
+
+    expect($branches)->toHaveCount(2)
+        ->and(array_values(array_unique(array_map(static fn (Probe $probe): int => $probe->lineStart, $branches))))->toBe([3])
+        ->and($code)->toContain('unset($__slots)')
+        ->and(array_filter($probes, static fn (Probe $probe): bool => ! $probe->isBranch && $probe->line === 2))->not->toBeEmpty();
+});
+
+it('keeps decisions that only resemble generated Livewire slot cleanup', function (string $source, string $scope): void {
+    [, $probes] = instrumentCode('<?php ' . $source, strict: true, mainScope: $scope);
+
+    expect(array_filter($probes, static fn (Probe $probe): bool => $probe->isBranch))->not->toBeEmpty();
+})->with([
+    ['if (isset($__slots)) unset($__slots);', '{main}'],
+    ['if (isset($__slots)) unset($__slots); elseif ($other) echo "other";', 'view'],
+    ['if (isset($__slots)) unset($__slots); else echo "empty";', 'view'],
+    ['if ($__slots) unset($__slots);', 'view'],
+    ['if (isset($__slots, $other)) unset($__slots);', 'view'],
+    ['if (isset($__slots[0])) unset($__slots);', 'view'],
+    ['if (isset($slots)) unset($__slots);', 'view'],
+    ['if (isset($__slots)) {}', 'view'],
+    ['if (isset($__slots)) { unset($__slots); echo "side effect"; }', 'view'],
+    ['if (isset($__slots)) echo "side effect";', 'view'],
+    ['if (isset($__slots)) unset($__slots, $other);', 'view'],
+    ['if (isset($__slots)) unset($__slots[0]);', 'view'],
+    ['if (isset($__slots)) unset($slots);', 'view'],
+]);
+
+it('preserves the behavior of compiled Livewire slot cleanup', function (bool $hasSlots): void {
+    $source = '<?php ' . ($hasSlots ? '$__slots = ["content"]; ' : '')
+        . 'if (isset($__slots)) unset($__slots); return get_defined_vars();';
+    [$code] = instrumentCode($source, strict: true, mainScope: 'view');
+    $variables = (static fn (): array => eval('?>' . $code))();
+
+    expect(array_key_exists('__slots', $variables))->toBeFalse();
+})->with([true, false]);
