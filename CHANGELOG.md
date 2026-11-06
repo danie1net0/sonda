@@ -1,3 +1,10 @@
+## [1.18.3](https://github.com/danie1net0/sonda/compare/v1.18.2...v1.18.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* **cli:** preserva a configuração do runner e os valores opcionais ([60f99d8](https://github.com/danie1net0/sonda/commit/60f99d853859ddc673c1db6c632817f50961a738))
+
 ## [1.18.2](https://github.com/danie1net0/sonda/compare/v1.18.1...v1.18.2) (2026-11-06)
 
 
