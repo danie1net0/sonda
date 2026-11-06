@@ -1,3 +1,10 @@
+## [1.18.2](https://github.com/danie1net0/sonda/compare/v1.18.1...v1.18.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **blade:** marca a tag de componente só no início e alinha as compilações pelo texto ([1383998](https://github.com/danie1net0/sonda/commit/13839981804001c5d2466b0aa6db631e19727f1d))
+
 ## [1.18.1](https://github.com/danie1net0/sonda/compare/v1.18.0...v1.18.1) (2026-11-06)
 
 
