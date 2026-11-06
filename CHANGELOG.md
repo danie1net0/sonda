@@ -1,3 +1,10 @@
+## [1.18.1](https://github.com/danie1net0/sonda/compare/v1.18.0...v1.18.1) (2026-11-06)
+
+
+### Bug Fixes
+
+* recognize generated Livewire slot cleanup ([2b93786](https://github.com/danie1net0/sonda/commit/2b937867dc10f097fabdc4cb352fd48f315b87b0))
+
 # [1.18.0](https://github.com/danie1net0/sonda/compare/v1.17.0...v1.18.0) (2026-11-05)
 
 
