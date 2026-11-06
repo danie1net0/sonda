@@ -1,3 +1,10 @@
+## [1.18.4](https://github.com/danie1net0/sonda/compare/v1.18.3...v1.18.4) (2026-11-06)
+
+
+### Performance Improvements
+
+* **run:** compartilha strings e hit sets repetidos ao carregar as runs ([42ccb0a](https://github.com/danie1net0/sonda/commit/42ccb0afcb4afa4df4c022d4001b6a823ad2d965))
+
 ## [1.18.3](https://github.com/danie1net0/sonda/compare/v1.18.2...v1.18.3) (2026-11-06)
 
 
