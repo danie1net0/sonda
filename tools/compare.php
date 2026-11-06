@@ -10,46 +10,48 @@ require dirname(__DIR__) . '/autoload.php';
 
 function short(string $path): string
 {
-    $cwd = getcwd() . '/';
+    $workingDirectory = getcwd() . '/';
 
-    return str_starts_with($path, $cwd) ? substr($path, strlen($cwd)) : ltrim($path, '/');
+    return str_starts_with($path, $workingDirectory) ? substr($path, strlen($workingDirectory)) : ltrim($path, '/');
 }
 
-function load(string $f): array
+function load(string $report): array
 {
     $base = '';
 
     if (class_exists(Unserializer::class)) {
-        $d = (new Unserializer())->unserialize($f);
-        $base = rtrim($d['basePath'], '/') . '/';
+        $data = (new Unserializer())->unserialize($report);
+        $base = rtrim($data['basePath'], '/') . '/';
     }
 
     if (! class_exists(Unserializer::class)) {
-        $d = ['codeCoverage' => (include $f)->getData()];
+        $data = ['codeCoverage' => (include $report)->getData()];
     }
-    $lines = $fns = [];
 
-    foreach ($d['codeCoverage']->lineCoverage() as $file => $ls) {
-        foreach ($ls as $line => $tests) {
+    $lines = $functions = [];
+
+    foreach ($data['codeCoverage']->lineCoverage() as $file => $fileLines) {
+        foreach ($fileLines as $line => $tests) {
             if ($tests !== null) {
                 $lines[$base . $file][$line] = $tests !== [];
             }
         }
     }
 
-    foreach ($d['codeCoverage']->functionCoverage() as $file => $functions) {
+    foreach ($data['codeCoverage']->functionCoverage() as $file => $fileFunctions) {
         $raw = [];
 
-        foreach ($functions as $name => $data) {
+        foreach ($fileFunctions as $name => $function) {
             if (str_starts_with($name, '{') || str_contains($name, 'class@anonymous')) {
                 continue;
             }
-            $branches = is_array($data) ? $data['branches'] : $data->branches;
 
-            foreach ($branches as $id => $b) {
-                $raw[$name][$id] = is_array($b)
-                    ? [$b['hit'] !== [], $b['line_start'], $b['line_end']]
-                    : [$b->hit !== [], $b->line_start, $b->line_end];
+            $branches = is_array($function) ? $function['branches'] : $function->branches;
+
+            foreach ($branches as $id => $branch) {
+                $raw[$name][$id] = is_array($branch)
+                    ? [$branch['hit'] !== [], $branch['line_start'], $branch['line_end']]
+                    : [$branch->hit !== [], $branch->line_start, $branch->line_end];
             }
         }
 
@@ -59,184 +61,191 @@ function load(string $f): array
             if (str_contains($name, '->') || str_contains($name, '::')) {
                 continue;
             }
-            $qualified = array_filter(array_keys($raw), fn ($q) => str_ends_with($q, '->' . $name) || str_ends_with($q, '::' . $name));
 
-            if (count($qualified) !== 1) {
+            $qualifiedNames = array_filter(array_keys($raw), fn ($qualifiedName) => str_ends_with($qualifiedName, '->' . $name) || str_ends_with($qualifiedName, '::' . $name));
+
+            if (count($qualifiedNames) !== 1) {
                 continue;
             }
-            $q = reset($qualified);
+
+            $qualifiedName = reset($qualifiedNames);
 
             foreach ($raw[$name] as $id => [$hit]) {
-                if (isset($raw[$q][$id])) {
-                    $raw[$q][$id][0] = $raw[$q][$id][0] || $hit;
+                if (isset($raw[$qualifiedName][$id])) {
+                    $raw[$qualifiedName][$id][0] = $raw[$qualifiedName][$id][0] || $hit;
                 }
             }
+
             unset($raw[$name]);
         }
 
         foreach ($raw as $name => $branches) {
-            $miss = [];
+            $missed = [];
 
-            foreach ($branches as [$hit, $ls, $le]) {
+            foreach ($branches as [$hit, $lineStart, $lineEnd]) {
                 if (! $hit) {
-                    $miss[] = [$ls, $le];
+                    $missed[] = [$lineStart, $lineEnd];
                 }
             }
-            $fns[$base . $file . '::' . $name] = [count($branches) - count($miss), count($branches), $miss, $base . $file];
+
+            $functions[$base . $file . '::' . $name] = [count($branches) - count($missed), count($branches), $missed, $base . $file];
         }
     }
 
     $result = [];
     $result[] = $lines;
-    $result[] = $fns;
+    $result[] = $functions;
 
     return $result;
 }
 
-[$xl, $xf] = load($argv[1]);
-[$pl, $pf] = load($argv[2]);
+[$xdebugLines, $xdebugFunctions] = load($argv[1]);
+[$sondaLines, $sondaFunctions] = load($argv[2]);
 $verbose = ($argv[3] ?? '') === '-v';
 
 $count = static function (array $lines): array {
-    $e = $c = 0;
+    $executable = $covered = 0;
 
-    foreach ($lines as $ls) {
-        $e += count($ls);
-        $c += count(array_filter($ls));
+    foreach ($lines as $fileLines) {
+        $executable += count($fileLines);
+        $covered += count(array_filter($fileLines));
     }
 
     $result = [];
-    $result[] = $c;
-    $result[] = $e;
+    $result[] = $covered;
+    $result[] = $executable;
 
     return $result;
 };
-[$xc, $xe] = $count($xl);
-[$pc, $pe] = $count($pl);
-printf("LINES   xdebug: %d/%d (%.2f%%)   sonda: %d/%d (%.2f%%)\n", $xc, $xe, 100 * $xc / $xe, $pc, $pe, 100 * $pc / $pe);
+[$xdebugCovered, $xdebugExecutable] = $count($xdebugLines);
+[$sondaCovered, $sondaExecutable] = $count($sondaLines);
+printf("LINES   xdebug: %d/%d (%.2f%%)   sonda: %d/%d (%.2f%%)\n", $xdebugCovered, $xdebugExecutable, 100 * $xdebugCovered / $xdebugExecutable, $sondaCovered, $sondaExecutable, 100 * $sondaCovered / $sondaExecutable);
 
-$diff = ['only xdebug executable' => [], 'only sonda executable' => [], 'xdebug hit, sonda miss' => [], 'sonda hit, xdebug miss' => []];
+$differences = ['only xdebug executable' => [], 'only sonda executable' => [], 'xdebug hit, sonda miss' => [], 'sonda hit, xdebug miss' => []];
 
-foreach (array_unique([...array_keys($xl), ...array_keys($pl)]) as $file) {
-    $x = $xl[$file] ?? [];
-    $p = $pl[$file] ?? [];
+foreach (array_unique([...array_keys($xdebugLines), ...array_keys($sondaLines)]) as $file) {
+    $xdebugFileLines = $xdebugLines[$file] ?? [];
+    $sondaFileLines = $sondaLines[$file] ?? [];
 
-    foreach ($x + $p as $line => $_) {
-        $short = short($file) . ':' . $line;
+    foreach (array_keys($xdebugFileLines + $sondaFileLines) as $line) {
+        $location = short($file) . ':' . $line;
 
-        if (! isset($p[$line])) {
-            $diff['only xdebug executable'][] = $short;
-
-            continue;
-        }
-
-        if (! isset($x[$line])) {
-            $diff['only sonda executable'][] = $short;
+        if (! isset($sondaFileLines[$line])) {
+            $differences['only xdebug executable'][] = $location;
 
             continue;
         }
 
-        if ($x[$line] && ! $p[$line]) {
-            $diff['xdebug hit, sonda miss'][] = $short;
+        if (! isset($xdebugFileLines[$line])) {
+            $differences['only sonda executable'][] = $location;
+
+            continue;
         }
 
-        if (! $x[$line] && $p[$line]) {
-            $diff['sonda hit, xdebug miss'][] = $short;
+        if ($xdebugFileLines[$line] && ! $sondaFileLines[$line]) {
+            $differences['xdebug hit, sonda miss'][] = $location;
+        }
+
+        if (! $xdebugFileLines[$line] && $sondaFileLines[$line]) {
+            $differences['sonda hit, xdebug miss'][] = $location;
         }
     }
 }
 
-foreach ($diff as $k => $v) {
-    printf("  %-26s %d\n", $k, count($v));
+foreach ($differences as $kind => $locations) {
+    printf("  %-26s %d\n", $kind, count($locations));
 
     if ($verbose) {
-        foreach (array_slice($v, 0, 15) as $s) {
-            echo "      {$s}\n";
+        foreach (array_slice($locations, 0, 15) as $location) {
+            echo "      {$location}\n";
         }
     }
 }
 
 // branch verdicts per method: is it 100%?
-$agree = $xOnlyFull = $pOnlyFull = $missing = 0;
-$xbh = $xbt = $pbh = $pbt = 0;
-$list = [];
+$agreeing = $xdebugOnlyFull = $sondaOnlyFull = $missing = 0;
+$xdebugBranchesHit = $xdebugBranches = $sondaBranchesHit = $sondaBranches = 0;
+$disagreements = [];
 
-foreach ($xf as $k => [$h, $t, $xmiss, $xfile]) {
-    $xbh += $h;
-    $xbt += $t;
+foreach ($xdebugFunctions as $function => [$hits, $total]) {
+    $xdebugBranchesHit += $hits;
+    $xdebugBranches += $total;
 
-    if (! isset($pf[$k])) {
+    if (! isset($sondaFunctions[$function])) {
         $missing++;
 
         continue;
     }
-    $xFull = $h === $t;
-    $pFull = $pf[$k][0] === $pf[$k][1];
 
-    if ($xFull === $pFull) {
-        $agree++;
+    $xdebugFull = $hits === $total;
+    $sondaFull = $sondaFunctions[$function][0] === $sondaFunctions[$function][1];
 
-        continue;
-    }
-
-    if ($xFull) {
-        $xOnlyFull++;
-        $list['xdebug 100%, sonda <100%'][] = $k;
+    if ($xdebugFull === $sondaFull) {
+        $agreeing++;
 
         continue;
     }
 
-    $pOnlyFull++;
-    $list['sonda 100%, xdebug <100%'][] = $k;
+    if ($xdebugFull) {
+        $xdebugOnlyFull++;
+        $disagreements['xdebug 100%, sonda <100%'][] = $function;
+
+        continue;
+    }
+
+    $sondaOnlyFull++;
+    $disagreements['sonda 100%, xdebug <100%'][] = $function;
 }
 
-foreach ($pf as [$h, $t]) {
-    $pbh += $h;
-    $pbt += $t;
+foreach ($sondaFunctions as [$hits, $total]) {
+    $sondaBranchesHit += $hits;
+    $sondaBranches += $total;
 }
-printf("BRANCH  xdebug: %d/%d (%.2f%%)   sonda: %d/%d (%.2f%%)\n", $xbh, $xbt, 100 * $xbh / max(1, $xbt), $pbh, $pbt, 100 * $pbh / max(1, $pbt));
-printf("METHOD 100%%-branch verdict: agree %d, xdebug-only-100%% %d, sonda-only-100%% %d, missing-in-sonda %d\n", $agree, $xOnlyFull, $pOnlyFull, $missing);
+
+printf("BRANCH  xdebug: %d/%d (%.2f%%)   sonda: %d/%d (%.2f%%)\n", $xdebugBranchesHit, $xdebugBranches, 100 * $xdebugBranchesHit / max(1, $xdebugBranches), $sondaBranchesHit, $sondaBranches, 100 * $sondaBranchesHit / max(1, $sondaBranches));
+printf("METHOD 100%%-branch verdict: agree %d, xdebug-only-100%% %d, sonda-only-100%% %d, missing-in-sonda %d\n", $agreeing, $xdebugOnlyFull, $sondaOnlyFull, $missing);
 // soundness: a block Xdebug says was missed, in a method sonda reports as 100%, is a sonda blind spot
 // (a method sonda already reports as incomplete is not: its missed branch may sit on another line)
 $unsound = [];
 
-foreach ($xf as $k => [$h, $t, $xmiss, $file]) {
-    if (! isset($pf[$k]) || $pf[$k][2] !== []) {
+foreach ($xdebugFunctions as $function => [, , $xdebugMissed, $file]) {
+    if (! isset($sondaFunctions[$function]) || $sondaFunctions[$function][2] !== []) {
         continue;
     }
 
-    foreach ($xmiss as [$ls, $le]) {
-        [$ls, $le] = [min($ls, $le), max($ls, $le)];
+    foreach ($xdebugMissed as [$lineStart, $lineEnd]) {
+        [$lineStart, $lineEnd] = [min($lineStart, $lineEnd), max($lineStart, $lineEnd)];
         $found = false;
 
-        foreach ($pf[$k][2] ?? [] as [$pls, $ple]) {
-            if ($pls <= $le && $ple >= $ls) {
+        foreach ($sondaFunctions[$function][2] ?? [] as [$sondaLineStart, $sondaLineEnd]) {
+            if ($sondaLineStart <= $lineEnd && $sondaLineEnd >= $lineStart) {
                 $found = true;
                 break;
             }
         }
 
-        for ($l = $ls; ! $found && $l <= $le; $l++) {
-            if (isset($pl[$file][$l]) && $pl[$file][$l] === false) {
+        for ($line = $lineStart; ! $found && $line <= $lineEnd; $line++) {
+            if (isset($sondaLines[$file][$line]) && $sondaLines[$file][$line] === false) {
                 $found = true;
             }
         }
 
         if (! $found) {
-            $unsound[] = short($k) . " lines {$ls}-{$le}";
+            $unsound[] = short($function) . " lines {$lineStart}-{$lineEnd}";
         }
     }
 }
+
 printf("SOUNDNESS: xdebug-missed blocks not flagged by sonda: %d\n", count($unsound));
 
-foreach (array_slice($unsound, 0, $verbose ? 40 : 10) as $u) {
-    echo "      {$u}\n";
+foreach (array_slice($unsound, 0, $verbose ? 40 : 10) as $block) {
+    echo "      {$block}\n";
 }
 
-foreach ($list as $k => $v) {
-    echo "  {$k}:\n";
+foreach ($disagreements as $kind => $functions) {
+    echo "  {$kind}:\n";
 
-    foreach (array_slice($v, 0, $verbose ? 40 : 8) as $s) {
-        echo '      ', short($s), "\n";
+    foreach (array_slice($functions, 0, $verbose ? 40 : 8) as $function) {
+        echo '      ', short($function), "\n";
     }
 }
