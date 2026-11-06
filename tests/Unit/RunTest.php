@@ -24,6 +24,31 @@ it('merges the problems of every process of a suite, each once', function (): vo
     expect($merged->problems)->toBe(['a', 'b', 'c']);
 });
 
+it('takes the cache directory of the first run in name order when loading a directory', function (): void {
+    $directory = TemporaryDirectory::create();
+    new Run('/first-cache', [], [])->save($directory . '/run-a.ser');
+    new Run('/second-cache', [], [])->save($directory . '/run-b.ser');
+
+    expect(Run::loadDirectory($directory)->cacheDirectory)->toBe('/first-cache');
+});
+
+it('shares the strings that the tests of different processes repeat', function (): void {
+    $directory = TemporaryDirectory::create();
+    // Made at run time: unserialize() would reuse an interned literal instead of copying it.
+    $packed = bin2hex(random_bytes(5000));
+
+    for ($process = 0; $process < 50; $process++) {
+        new Run('/cache', [], [], ["T::t{$process}" => ['/tests/T.php', 'small', true, 0.5, ["file{$process}" => $packed]]])->saveIn($directory);
+    }
+
+    $before = memory_get_usage();
+    $run = Run::loadDirectory($directory);
+
+    // One copy of the 10 KB list per process would take 500 KB.
+    expect(memory_get_usage() - $before)->toBeLessThan(200_000)
+        ->and($run->tests)->toHaveCount(50);
+});
+
 it('merges the tests of every process of a suite', function (): void {
     $first = ['/tests/A.php', 'unknown', true, 0.1, []];
     $second = ['/tests/B.php', 'unknown', false, 0.2, []];

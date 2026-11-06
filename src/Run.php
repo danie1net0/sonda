@@ -29,7 +29,8 @@ final readonly class Run
     ) {
     }
 
-    public static function load(string $path): self
+    /** The run saved in a file, its test records sharing what the pool already holds. */
+    public static function load(string $path, TestRecordPool $pool = new TestRecordPool()): self
     {
         $run = unserialize(Filesystem::read($path), ['allowed_classes' => [self::class]]);
 
@@ -37,12 +38,19 @@ final readonly class Run
             throw new RuntimeException("The file {$path} does not hold a sonda run.");
         }
 
-        return $run;
+        $tests = [];
+
+        foreach ($run->tests as $testId => $record) {
+            $tests[$testId] = $pool->share($record);
+        }
+
+        return new self($run->cacheDirectory, $run->files, $run->hits, $tests, $run->problems);
     }
 
     /**
      * All the runs saved in a directory, merged into one. Each run is folded in as it is read, so
-     * only the merge and one run are in memory at a time, not every worker's run at once.
+     * only the merge and one run are in memory at a time, not every worker's run at once. One pool
+     * serves every run, so the workers' records share their strings too.
      */
     public static function loadDirectory(string $directory): self
     {
@@ -52,10 +60,11 @@ final readonly class Run
             throw new RuntimeException("The directory {$directory} has no sonda runs.");
         }
 
-        $merged = self::load(array_shift($files));
+        $pool = new TestRecordPool();
+        $merged = self::load(array_shift($files), $pool);
 
         foreach ($files as $file) {
-            $merged = self::merge([$merged, self::load($file)]);
+            $merged = self::merge([$merged, self::load($file, $pool)]);
         }
 
         return $merged;
