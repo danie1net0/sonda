@@ -13,7 +13,7 @@ use Sonda\Report\Compat\CoverageApis;
 use Sonda\Report\{ChangeCoverage, CodeQuality, CoverageBuilder, SourceFiles, TextSummary, Uncovered};
 use SebastianBergmann\CodeCoverage\CodeCoverage;
 use SebastianBergmann\CodeCoverage\Report\{Clover, Cobertura};
-use SebastianBergmann\CodeCoverage\Report\Html\Facade as HtmlReport;
+use SebastianBergmann\CodeCoverage\Report\Html\Facade;
 
 use function dirname, implode, str_starts_with, substr, trim;
 
@@ -267,7 +267,7 @@ final readonly class TestCommand
         if ($options->html !== null) {
             $directory = $this->absolute($options->html, $projectRoot);
             /** @phpstan-ignore argument.type (the input of the installed version) */
-            new HtmlReport()->process($report, $directory);
+            new Facade()->process($report, $directory);
             fwrite($output, "HTML report in {$directory}\n");
         }
 
@@ -278,8 +278,8 @@ final readonly class TestCommand
             fwrite($output, "Clover report in {$file}\n");
         }
 
-        if ($options->cov !== null) {
-            $file = $this->reportPath($options->cov, $projectRoot);
+        if ($options->phpReport !== null) {
+            $file = $this->reportPath($options->phpReport, $projectRoot);
             $api->writeCov($coverage, $file);
             fwrite($output, ".cov report in {$file}\n");
         }

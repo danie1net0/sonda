@@ -30,7 +30,7 @@ it('reads its own options and passes the rest to the runner', function (): void 
         minBranches: 85.5,
         html: 'build/html',
         clover: 'clover.xml',
-        cov: 'coverage.cov',
+        phpReport: 'coverage.cov',
         cobertura: 'cobertura.xml',
         codeQuality: 'gl-code-quality.json',
         map: '.sonda/tests.map',

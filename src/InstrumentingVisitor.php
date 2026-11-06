@@ -226,17 +226,17 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
      */
     private function rewriteByReferenceArrowFunction(ArrowFunction $node): void
     {
-        $fn = $this->nextTokenOfKind($node->getStartTokenPos(), T_FN);
+        $arrowKeyword = $this->nextTokenOfKind($node->getStartTokenPos(), T_FN);
         $signatureEnd = $node->returnType instanceof Node ? $node->returnType->getStartFilePos() : $node->expr->getStartFilePos();
         // From the `&` to the `=>` (or to the return type): `&(int $x) ` with its colon trimmed.
-        $parameters = trim(rtrim(rtrim($this->sourceBetween($fn->pos + 2, $signatureEnd)), '=>:'));
+        $parameters = trim(rtrim(rtrim($this->sourceBetween($arrowKeyword->pos + 2, $signatureEnd)), '=>:'));
         $returnType = $node->returnType instanceof Node ? ': ' . $this->sourceBetween($node->returnType->getStartFilePos(), $node->returnType->getEndFilePos() + 1) : '';
         $captured = $this->capturedVariables($node);
         $use = $captured === [] ? '' : ' use ($' . implode(', $', $captured) . ')';
         $line = $node->expr->getStartLine();
         $id = $this->probe(new Probe($line, true, $this->currentFunction(), $line, $node->expr->getEndLine(), $this->ownLines($node->expr)));
 
-        $this->edits[] = Edit::opening($fn->pos, 'function ' . $parameters . $use . $returnType . ' { ' . $this->probeCode($id) . '; return ', $node->expr->getStartFilePos() - $fn->pos);
+        $this->edits[] = Edit::opening($arrowKeyword->pos, 'function ' . $parameters . $use . $returnType . ' { ' . $this->probeCode($id) . '; return ', $node->expr->getStartFilePos() - $arrowKeyword->pos);
         $this->close($node->expr->getEndFilePos() + 1, '; }');
     }
 

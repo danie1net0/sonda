@@ -17,7 +17,7 @@ final readonly class TestOptions
      * @param list<string>          $views
      * @param non-empty-string|null $html
      * @param non-empty-string|null $clover
-     * @param non-empty-string|null $cov
+     * @param non-empty-string|null $phpReport
      * @param non-empty-string|null $cobertura
      * @param non-empty-string|null $codeQuality
      * @param non-empty-string|null $map
@@ -40,7 +40,7 @@ final readonly class TestOptions
         public ?string $configuration = null,
         public ?string $html = null,
         public ?string $clover = null,
-        public ?string $cov = null,
+        public ?string $phpReport = null,
         public ?string $cobertura = null,
         public ?string $codeQuality = null,
         public ?string $map = null,
@@ -67,7 +67,7 @@ final readonly class TestOptions
         $configuration = null;
         $html = null;
         $clover = null;
-        $cov = null;
+        $phpReport = null;
         $cobertura = null;
         $codeQuality = null;
         $map = null;
@@ -174,7 +174,7 @@ final readonly class TestOptions
             }
 
             if (self::valueOf($argument, '--cov') !== null) {
-                $cov = self::valueOf($argument, '--cov');
+                $phpReport = self::valueOf($argument, '--cov');
 
                 continue;
             }
@@ -220,7 +220,7 @@ final readonly class TestOptions
             throw new InvalidArgumentException('The option --affected needs --changed or --files: they say what changed.');
         }
 
-        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $affected, $includes, $minLines, $minBranches, $configuration, $html, $clover, $cov, $cobertura, $codeQuality, $map, $runnerArguments);
+        return new self($changed, $files, $strict, $fast, $parallel, $blade, $views, $text, $coveredBy, $affected, $includes, $minLines, $minBranches, $configuration, $html, $clover, $phpReport, $cobertura, $codeQuality, $map, $runnerArguments);
     }
 
     /** A percentage from 0 to 100, with comma or point. */

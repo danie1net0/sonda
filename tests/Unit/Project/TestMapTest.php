@@ -35,7 +35,10 @@ function runOfTests(array $hitsByTestFile): Run
 function existingTestFiles(): array
 {
     $directory = TemporaryDirectory::create();
-    $files = [$directory . '/ATest.php', $directory . '/BTest.php', $directory . '/CTest.php'];
+    $files = [];
+    $files[] = $directory . '/ATest.php';
+    $files[] = $directory . '/BTest.php';
+    $files[] = $directory . '/CTest.php';
 
     foreach ($files as $file) {
         touch($file);
@@ -86,46 +89,46 @@ it('reads a map holding objects as an empty one, without reviving them', functio
 });
 
 it('maps each test file of a run to the source files its tests ran, sorted', function (): void {
-    [$a, $b] = existingTestFiles();
+    [$firstTest, $secondTest] = existingTestFiles();
 
-    $map = new TestMap()->updatedWith(runOfTests([$a => ['/app/Z.php', '/app/A.php'], $b => []]), ['/app/A.php', '/app/Z.php']);
+    $map = new TestMap()->updatedWith(runOfTests([$firstTest => ['/app/Z.php', '/app/A.php'], $secondTest => []]), ['/app/A.php', '/app/Z.php']);
 
-    expect($map->sources)->toBe([$a => ['/app/A.php', '/app/Z.php'], $b => []]);
+    expect($map->sources)->toBe([$firstTest => ['/app/A.php', '/app/Z.php'], $secondTest => []]);
 });
 
 it('merges the tests of one test file, each source file once', function (): void {
-    [$a] = existingTestFiles();
+    [$firstTest] = existingTestFiles();
     $run = new Run('/cache', ['x' => ['/app/X.php', 'k'], 'y' => ['/app/Y.php', 'k'], 'z' => ['/app/Z.php', 'k']], [], [
-        $a . '::first' => [$a, 'unknown', true, 0.0, ['x' => pack('V', 0), 'z' => pack('V', 0)]],
-        $a . '::second' => [$a, 'unknown', true, 0.0, ['x' => pack('V', 1), 'y' => pack('V', 0)]],
+        $firstTest . '::first' => [$firstTest, 'unknown', true, 0.0, ['x' => pack('V', 0), 'z' => pack('V', 0)]],
+        $firstTest . '::second' => [$firstTest, 'unknown', true, 0.0, ['x' => pack('V', 1), 'y' => pack('V', 0)]],
     ]);
 
-    expect(new TestMap()->updatedWith($run, ['/app/X.php', '/app/Y.php', '/app/Z.php'])->sources)->toBe([$a => ['/app/X.php', '/app/Y.php', '/app/Z.php']]);
+    expect(new TestMap()->updatedWith($run, ['/app/X.php', '/app/Y.php', '/app/Z.php'])->sources)->toBe([$firstTest => ['/app/X.php', '/app/Y.php', '/app/Z.php']]);
 });
 
 it('replaces what a test file ran among the measured files and keeps the rest', function (): void {
-    [$a, $b] = existingTestFiles();
-    $before = new TestMap([$a => ['/app/Kept.php', '/app/Measured.php'], $b => ['/app/Other.php']]);
+    [$firstTest, $secondTest] = existingTestFiles();
+    $before = new TestMap([$firstTest => ['/app/Kept.php', '/app/Measured.php'], $secondTest => ['/app/Other.php']]);
 
-    $map = $before->updatedWith(runOfTests([$a => ['/app/New.php']]), ['/app/Measured.php', '/app/New.php']);
+    $map = $before->updatedWith(runOfTests([$firstTest => ['/app/New.php']]), ['/app/Measured.php', '/app/New.php']);
 
-    expect($map->sources)->toBe([$a => ['/app/Kept.php', '/app/New.php'], $b => ['/app/Other.php']]);
+    expect($map->sources)->toBe([$firstTest => ['/app/Kept.php', '/app/New.php'], $secondTest => ['/app/Other.php']]);
 });
 
 it('forgets the test files gone from disk', function (): void {
-    [$a] = existingTestFiles();
+    [$firstTest] = existingTestFiles();
 
-    $map = new TestMap(['/gone/GoneTest.php' => ['/app/A.php'], $a => ['/app/A.php']])->updatedWith(runOfTests([]), []);
+    $map = new TestMap(['/gone/GoneTest.php' => ['/app/A.php'], $firstTest => ['/app/A.php']])->updatedWith(runOfTests([]), []);
 
-    expect($map->sources)->toBe([$a => ['/app/A.php']]);
+    expect($map->sources)->toBe([$firstTest => ['/app/A.php']]);
 });
 
 it('sorts the test files', function (): void {
-    [$a, $b, $c] = existingTestFiles();
+    [$firstTest, $secondTest, $thirdTest] = existingTestFiles();
 
-    $map = new TestMap([$c => [], $a => []])->updatedWith(runOfTests([$b => []]), []);
+    $map = new TestMap([$thirdTest => [], $firstTest => []])->updatedWith(runOfTests([$secondTest => []]), []);
 
-    expect(array_keys($map->sources))->toBe([$a, $b, $c]);
+    expect(array_keys($map->sources))->toBe([$firstTest, $secondTest, $thirdTest]);
 });
 
 it('knows the source files some test runs', function (): void {

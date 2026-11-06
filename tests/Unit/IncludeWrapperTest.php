@@ -366,7 +366,7 @@ it('frees each wrapper PHP drops when it hands an operation to PHP, and when it 
     // if dropped without being freed: a wrapper that leaks shows up here, operation by operation.
     $before = count(get_resources('stream factory'));
 
-    for ($i = 0; $i < 100; $i++) {
+    for ($attempt = 0; $attempt < 100; $attempt++) {
         file_exists($path);
         fclose(fopen($path, 'r'));
         IncludeWrapper::unregister();

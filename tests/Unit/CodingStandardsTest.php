@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use PhpParser\{Node, NodeFinder, ParserFactory};
-use PhpParser\Node\FunctionLike;
-use PhpParser\Node\Expr\Array_;
-use PhpParser\Node\Stmt\{ElseIf_, Else_, If_, Return_, Use_};
+use PhpParser\Node\{FunctionLike, Identifier, PropertyItem, UseItem};
+use PhpParser\Node\Expr\{Array_, Variable};
+use PhpParser\Node\Stmt\{ClassLike, ElseIf_, Else_, GroupUse, If_, Return_, Use_};
 
 /** @return Generator<string, array{string}> */
 function codingStandardFiles(): Generator
@@ -126,3 +126,52 @@ it('keeps a dedicated test file for each source class', function (): void {
         expect(is_file($root . '/tests/Unit/' . $relative . 'Test.php'))->toBeTrue($relative);
     }
 });
+
+it('names variables, parameters and properties in full words', function (string $file): void {
+    $abbreviations = ['arg', 'args', 'arr', 'cb', 'cfg', 'cnt', 'conf', 'cov', 'ctx', 'cur', 'curr', 'cwd', 'def', 'dest', 'dst', 'elem', 'err', 'fn', 'func', 'idx', 'info', 'len', 'msg', 'num', 'obj', 'opt', 'opts', 'orig', 'param', 'params', 'pos', 'prev', 'req', 'res', 'resp', 'ret', 'src', 'str', 'tmp', 'val'];
+    $nodes = new ParserFactory()->createForHostVersion()->parse(file_get_contents($file));
+    $violations = [];
+
+    foreach (new NodeFinder()->find($nodes, static fn (Node $node): bool => $node instanceof Variable || $node instanceof PropertyItem) as $node) {
+        $name = $node instanceof PropertyItem ? $node->name->toString() : $node->name;
+
+        if (is_string($name) && (strlen($name) === 1 || in_array(strtolower($name), $abbreviations, true))) {
+            $violations[] = '$' . $name . ' on line ' . $node->getStartLine();
+        }
+    }
+
+    expect($violations)->toBe([], $file);
+})->with(codingStandardFiles());
+
+it('aliases an import only when its name clashes with another one', function (string $file): void {
+    $nodes = new ParserFactory()->createForHostVersion()->parse(file_get_contents($file));
+    $names = [];
+    $aliased = [];
+
+    foreach (new NodeFinder()->findInstanceOf($nodes, ClassLike::class) as $class) {
+        if ($class->name !== null) {
+            $names[] = $class->name->toString();
+        }
+    }
+
+    foreach (new NodeFinder()->find($nodes, static fn (Node $node): bool => $node instanceof Use_ || $node instanceof GroupUse) as $use) {
+        foreach ($use->uses as $import) {
+            $names[] = $import->name->getLast();
+        }
+
+        foreach (array_filter($use->uses, static fn (UseItem $import): bool => $import->alias instanceof Identifier) as $import) {
+            $aliased[$import->getStartLine()] = $import->name->getLast();
+        }
+    }
+
+    $counts = array_count_values($names);
+    $violations = [];
+
+    foreach ($aliased as $line => $name) {
+        if ($counts[$name] === 1) {
+            $violations[] = $name . ' on line ' . $line;
+        }
+    }
+
+    expect($violations)->toBe([], $file);
+})->with(codingStandardFiles());

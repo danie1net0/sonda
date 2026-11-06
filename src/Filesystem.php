@@ -32,9 +32,9 @@ final class Filesystem
     {
         self::ensureDirectory($directory);
 
-        $info = new SplFileInfo($directory);
+        $details = new SplFileInfo($directory);
 
-        if ($info->getOwner() !== self::processOwner($directory) || ($info->getPerms() & 0o077) !== 0) {
+        if ($details->getOwner() !== self::processOwner($directory) || ($details->getPerms() & 0o077) !== 0) {
             throw new RuntimeException("The directory {$directory} must belong to the current user and be private: chmod 700 on it fixes that.");
         }
     }

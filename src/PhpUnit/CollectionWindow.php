@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Sonda\PhpUnit;
 
 use Sonda\Hits;
-use PHPUnit\Event\{EventFacadeIsSealedException, Facade as EventFacade};
+use PHPUnit\Event\{EventFacadeIsSealedException, Facade};
 
 /**
  * Only counts probes hit while a test runs: the window PHPUnit gives Xdebug. Also prepares the
@@ -23,7 +23,7 @@ final class CollectionWindow
         Hits::$perTest = true;
 
         try {
-            EventFacade::instance()->registerSubscribers(new StartTestSubscriber(), new PreparedSubscriber(), new FailedTestSubscriber(), new ErroredTestSubscriber(), new FinishTestSubscriber());
+            Facade::instance()->registerSubscribers(new StartTestSubscriber(), new PreparedSubscriber(), new FailedTestSubscriber(), new ErroredTestSubscriber(), new FinishTestSubscriber());
         } catch (EventFacadeIsSealedException) {
             // The parallel orchestrator loads the bootstrap after sealing, and runs no tests:
             // with the window never opened, nothing it executes counts as covered.

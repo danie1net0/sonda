@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Sonda\Hits;
 use Sonda\PhpUnit\{CollectionWindow, ErroredTestSubscriber, FailedTestSubscriber, FinishTestSubscriber, StartTestSubscriber};
 use PHPUnit\Event\Test\{Errored, Failed, Finished, PreparationStarted};
-use PHPUnit\Event\Facade as EventFacade;
+use PHPUnit\Event\Facade;
 
 /**
  * The event facade of the running suite is sealed, so the window is opened on a fresh one,
@@ -15,9 +15,9 @@ use PHPUnit\Event\Facade as EventFacade;
  */
 function subscribersRegisteredByOpeningTheWindow(): array
 {
-    $instance = new ReflectionProperty(EventFacade::class, 'instance');
+    $instance = new ReflectionProperty(Facade::class, 'instance');
     $running = $instance->getValue();
-    $fresh = new EventFacade();
+    $fresh = new Facade();
     $instance->setValue(null, $fresh);
 
     try {
@@ -26,7 +26,7 @@ function subscribersRegisteredByOpeningTheWindow(): array
         $instance->setValue(null, $running);
     }
 
-    $deferring = new ReflectionProperty(EventFacade::class, 'deferringDispatcher')->getValue($fresh);
+    $deferring = new ReflectionProperty(Facade::class, 'deferringDispatcher')->getValue($fresh);
     $direct = new ReflectionProperty($deferring, 'dispatcher')->getValue($deferring);
 
     return new ReflectionProperty($direct, 'subscribers')->getValue($direct);

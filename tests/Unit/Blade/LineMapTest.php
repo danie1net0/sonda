@@ -148,7 +148,7 @@ it('marks a template once per construct, including escaped echos, raw echos and 
     $map = LineMap::of($template, $template, $compile);
 
     expect($map)->toBe([1 => 1, 2 => 2]);
-    expect(LineMap::of("plain\n@if (\n    \$a\n)\nx\n@endif\n", "plain\n<?php if(\n    \$a\n): ?>\nx\n<?php endif; ?>\n", static fn (string $t): string => str_replace(['@if (', '@endif'], ['<?php if(', '<?php endif; ?>'], str_replace(")\nx", "): ?>\nx", $t))))
+    expect(LineMap::of("plain\n@if (\n    \$a\n)\nx\n@endif\n", "plain\n<?php if(\n    \$a\n): ?>\nx\n<?php endif; ?>\n", static fn (string $template): string => str_replace(['@if (', '@endif'], ['<?php if(', '<?php endif; ?>'], str_replace(")\nx", "): ?>\nx", $template))))
         ->toBe([1 => 1, 2 => 2, 3 => 3, 4 => 3, 5 => 5, 6 => 6, 7 => 6]);
 });
 
