@@ -40,6 +40,7 @@ function measureFixtureProject(array $runner): array
             'SONDA_AUTOLOAD' => $project . '/autoload.php',
             'SONDA_TARGET' => $project . '/src',
             'SONDA_EXCLUDE' => $project . '/src/Ignored',
+            'SONDA_ONLY' => '',
             'SONDA_CACHE' => $directory . '/cache',
             'SONDA_OUT' => $directory . '/runs',
             'SONDA_STRICT' => '1',

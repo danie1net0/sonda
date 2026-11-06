@@ -9,7 +9,8 @@ it('tells the test paths from the options, leaving the configuration file out', 
     $selection = TestSelection::of(['--filter=x', 'tests/Unit', '-c', 'phpunit.xml', 'tests/Feature/ATest.php', '--configuration', 'a.xml', '--configuration=b.xml', '--no-progress']);
 
     expect($selection->options)->toBe(['--filter=x', '--no-progress'])
-        ->and($selection->paths)->toBe(['tests/Unit', 'tests/Feature/ATest.php']);
+        ->and($selection->paths)->toBe(['tests/Unit', 'tests/Feature/ATest.php'])
+        ->and($selection->configuration)->toBe('b.xml');
 });
 
 it('finds no paths in options alone', function (): void {
@@ -19,8 +20,29 @@ it('finds no paths in options alone', function (): void {
 
 it('keeps paths and options after an inline configuration', function (): void {
     expect(TestSelection::of(['--configuration=phpunit.xml', 'tests/Unit', '--stop-on-failure']))
-        ->toEqual(new TestSelection(['--stop-on-failure'], ['tests/Unit']));
+        ->toEqual(new TestSelection(['--stop-on-failure'], ['tests/Unit'], 'phpunit.xml'));
 });
+
+it('keeps the configuration supplied to the runner in every supported form', function (array $arguments): void {
+    expect(TestSelection::of([...$arguments, 'tests/Unit']))
+        ->toEqual(new TestSelection([], ['tests/Unit'], 'custom.xml'));
+})->with([
+    'short' => [['-c', 'custom.xml']],
+    'long' => [['--configuration', 'custom.xml']],
+    'inline long' => [['--configuration=custom.xml']],
+    'attached short' => [['-ccustom.xml']],
+]);
+
+it('rejects configurations without a file', function (array $arguments): void {
+    expect(fn (): TestSelection => TestSelection::of($arguments))
+        ->toThrow(InvalidArgumentException::class, 'The option --configuration needs a file.');
+})->with([
+    'short missing' => [['-c']],
+    'long missing' => [['--configuration']],
+    'short empty' => [['-c', '']],
+    'long empty' => [['--configuration', '']],
+    'inline empty' => [['--configuration=']],
+]);
 
 it('keeps option values together while finding paths on either side', function (): void {
     $selection = TestSelection::of(['tests/Unit', '--filter', 'orders edits', '--group', 'unit', '--processes', '2', 'tests/Feature', '--stop-on-failure']);
@@ -43,6 +65,28 @@ it('leaves missing values and inline values for the runner to validate', functio
 it('keeps paths after flags with optional inline values', function (): void {
     expect(TestSelection::of(['--colors', 'tests/Unit', '--coverage-text', 'tests/Feature', '--unknown']))
         ->toEqual(new TestSelection(['--colors', '--coverage-text', '--unknown'], ['tests/Unit', 'tests/Feature']));
+});
+
+it('keeps separate optional values accepted by the parallel runner', function (string $option): void {
+    expect(TestSelection::of([$option, 'value', 'tests/Unit'], parallel: true))
+        ->toEqual(new TestSelection([$option, 'value'], ['tests/Unit']))
+        ->and(TestSelection::of([$option, '', 'tests/Unit'], parallel: true))
+        ->toEqual(new TestSelection([$option, ''], ['tests/Unit']))
+        ->and(TestSelection::of([$option, 'value'], parallel: true))
+        ->toEqual(new TestSelection([$option, 'value'], []));
+})->with(['--colors', '--colors=', '--coverage-text', '--coverage-text=']);
+
+it('does not consume another option or the separator as an optional value', function (): void {
+    expect(TestSelection::of(['--colors', '--coverage-text'], parallel: true))
+        ->toEqual(new TestSelection(['--colors', '--coverage-text'], []))
+        ->and(TestSelection::of(['--colors', '--', 'tests/Unit'], parallel: true))
+        ->toEqual(new TestSelection(['--colors'], ['tests/Unit']))
+        ->and(TestSelection::of(['--colors=never', 'tests/Unit', '--no-progress'], parallel: true))
+        ->toEqual(new TestSelection(['--colors=never', '--no-progress'], ['tests/Unit']))
+        ->and(TestSelection::of(['--colors', '--filter', 'orders edits', 'tests/Unit'], parallel: true))
+        ->toEqual(new TestSelection(['--colors', '--filter', 'orders edits'], ['tests/Unit']))
+        ->and(TestSelection::of(['--coverage-text', 'report-', 'tests/Unit'], parallel: true))
+        ->toEqual(new TestSelection(['--coverage-text', 'report-'], ['tests/Unit']));
 });
 
 it('distinguishes Pest flags from PHPUnit and ParaTest options with values', function (string $option): void {

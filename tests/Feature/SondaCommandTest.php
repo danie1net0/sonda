@@ -229,6 +229,55 @@ it('measures a project with plain PHPUnit when asked not to run in parallel', fu
         ->toContain('HTML report in ');
 });
 
+it('uses the runner configuration after the separator for bootstrap, source and generated suites', function (array $configuration, array $paths): void {
+    $root = sondaProject();
+    $xml = (string) file_get_contents($root . '/phpunit.xml');
+    $xml = str_replace('bootstrap="vendor/autoload.php"', 'bootstrap="tests/custom-bootstrap.php"', $xml);
+    $xml = str_replace('</exclude>', '<file>src/Shipping.php</file></exclude>', $xml);
+    file_put_contents($root . '/custom.xml', $xml);
+    file_put_contents($root . '/tests/custom-bootstrap.php', '<?php require __DIR__ . "/../vendor/autoload.php"; echo "custom bootstrap ran\\n";');
+
+    [$status, $output] = sonda($root, 'test', '--cov=report.cov', '--', ...$configuration, ...$paths);
+    [$data] = covFile($root . '/report.cov');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('custom bootstrap ran')
+        ->and(array_keys($data->lineCoverage()))->toBe([$root . '/src/Discount.php'])
+        ->and(glob($root . '/.sonda-*'))->toBe([]);
+})->with([
+    'short configuration' => [['-c', 'custom.xml']],
+    'long configuration' => [['--configuration', 'custom.xml']],
+    'inline configuration' => [['--configuration=custom.xml']],
+    'attached configuration' => [['-ccustom.xml']],
+])->with([
+    'one path' => [['tests/DiscountTest.php']],
+    'several paths' => [['tests/DiscountTest.php', 'tests/ShippingTest.php']],
+]);
+
+it('rejects a missing runner configuration even when several paths are given', function (array $paths): void {
+    [$status, $output] = sonda(sondaProject(), 'test', '--', '--configuration=missing.xml', ...$paths);
+
+    expect($status)->toBe(1, $output)
+        ->and($output)->toContain('missing.xml');
+})->with([
+    'one path' => [['tests/DiscountTest.php']],
+    'several paths' => [['tests/DiscountTest.php', 'tests/ShippingTest.php']],
+]);
+
+it('passes optional values to the parallel runner without confusing them with paths', function (array $paths): void {
+    $root = sondaProject();
+
+    [$status, $output] = sonda($root, 'test', '--', '--colors', 'never', '--processes', '2', ...$paths);
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (')
+        ->toContain('Coverage: lines')
+        ->and(glob($root . '/.sonda-*'))->toBe([]);
+})->with([
+    'one path' => [['tests/DiscountTest.php']],
+    'several paths' => [['tests/DiscountTest.php', 'tests/ShippingTest.php']],
+]);
+
 it('keeps explicitly excluded source files out of instrumentation and reports', function (): void {
     $root = sondaProject();
     $configuration = $root . '/phpunit.xml';

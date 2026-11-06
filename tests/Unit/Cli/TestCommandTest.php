@@ -162,15 +162,28 @@ it('chains the project bootstrap when it is not the autoload, and honours the fl
         ->toHaveKey('SONDA_EXCLUDE', '');
 });
 
-it('uses the configuration file given, relative to the project', function (): void {
+it('uses the configuration file given, relative to the project', function (array $arguments): void {
     $root = fakeProject();
     file_put_contents($root . '/phpunit.ci.xml', '<phpunit><source><include><directory>app/Providers</directory></include></source></phpunit>');
     $runner = new FakeRunner();
 
-    runTestCommand($runner, $root, TestOptions::parse(['-c', 'phpunit.ci.xml']), TemporaryDirectory::create());
+    runTestCommand($runner, $root, TestOptions::parse($arguments), TemporaryDirectory::create());
 
     expect($runner->environment)->toHaveKey('SONDA_TARGET', $root . '/app/Providers')
         ->and($runner->command)->toContain('-c', 'phpunit.ci.xml');
+})->with([
+    'before the separator' => [['-c', 'phpunit.ci.xml']],
+    'after the separator' => [['--', '-c', 'phpunit.ci.xml']],
+]);
+
+it('uses a configuration supplied directly in the options', function (): void {
+    $root = fakeProject();
+    file_put_contents($root . '/custom.xml', '<phpunit><source><include><directory>app/Providers</directory></include></source></phpunit>');
+    $runner = new FakeRunner();
+
+    runTestCommand($runner, $root, new TestOptions(configuration: 'custom.xml'), TemporaryDirectory::create());
+
+    expect($runner->environment)->toHaveKey('SONDA_TARGET', $root . '/app/Providers');
 });
 
 it('measures only the given files and fails on what they leave uncovered', function (): void {
@@ -652,6 +665,25 @@ it('recognizes explicit test paths after Pest flags when deciding whether to use
     expect($output)->toStartWith("--affected ignored: the tests to run were given.\n")
         ->and(array_slice($runner->command, -2))->toBe(['--retry', 'tests/OrderTest.php']);
 });
+
+it('uses the selected runner syntax for optional values when deciding whether tests were specified', function (bool $parallel, bool $hasParaTest, string $value, string $expectedOutput): void {
+    $root = affectedFakeProject();
+    $temporaryRoot = TemporaryDirectory::create();
+    new TestMap([$root . '/tests/OrderTest.php' => [$root . '/app/Order.php']])->save(testMapPath($temporaryRoot, $root), $root);
+
+    if ($hasParaTest) {
+        touch($root . '/vendor/bin/paratest');
+    }
+
+    $options = new TestOptions(files: ['app/Order.php'], parallel: $parallel, affected: true, runnerArguments: ['--colors', $value]);
+    [, $output] = runTestCommand(new FakeRunner(), $root, $options, $temporaryRoot);
+
+    expect($output)->toStartWith($expectedOutput);
+})->with([
+    'parallel with ParaTest' => [true, true, 'never', "Running only the affected tests: tests/OrderTest.php\n"],
+    'serial despite ParaTest' => [false, true, 'tests/OrderTest.php', "--affected ignored: the tests to run were given.\n"],
+    'parallel without ParaTest' => [true, false, 'tests/OrderTest.php', "--affected ignored: the tests to run were given.\n"],
+]);
 
 it('runs the whole suite and measures the whole project when the map cannot tell, and saves what the run learned', function (): void {
     $root = affectedFakeProject();

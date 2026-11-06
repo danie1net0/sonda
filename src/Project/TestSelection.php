@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace Sonda\Project;
 
-use function in_array, str_starts_with;
+use InvalidArgumentException;
+
+use function in_array, str_starts_with, substr;
 
 /** The test paths among the arguments handed to the runner, apart from its options and its configuration file. */
 final readonly class TestSelection
 {
     /**
-     * Options whose next token is a value in PHPUnit, Pest or ParaTest. Optional values such
-     * as PHPUnit's --colors must use '='; a bare flag must not swallow the following path.
+     * Options whose next token is a required value in PHPUnit, Pest or ParaTest.
+     * ParaTest also accepts separate optional values, unlike PHPUnit's CLI parser.
      * Inline values and unknown options are left to the runner to interpret and validate.
      *
      * @var list<string>
@@ -37,21 +39,23 @@ final readonly class TestSelection
      * @param list<string> $options the arguments that are not paths, minus `-c`/`--configuration` and its file
      * @param list<string> $paths   test files and directories, as given
      */
-    public function __construct(public array $options, public array $paths)
+    public function __construct(public array $options, public array $paths, public ?string $configuration = null)
     {
     }
 
     /** @param list<string> $runnerArguments */
-    public static function of(array $runnerArguments, bool $pest = false): self
+    public static function of(array $runnerArguments, bool $pest = false, bool $parallel = false): self
     {
         $options = [];
         $paths = [];
         $skipNext = false;
         $keepNext = false;
         $pathsOnly = false;
+        $configuration = null;
 
-        foreach ($runnerArguments as $argument) {
+        foreach ($runnerArguments as $index => $argument) {
             if ($skipNext) {
+                $configuration = $argument;
                 $skipNext = false;
 
                 continue;
@@ -83,6 +87,21 @@ final readonly class TestSelection
             }
 
             if (str_starts_with($argument, '--configuration=')) {
+                $configuration = substr($argument, strlen('--configuration='));
+
+                continue;
+            }
+
+            if (str_starts_with($argument, '-c')) {
+                $configuration = substr($argument, 2);
+
+                continue;
+            }
+
+            if ($parallel && in_array($argument, ['--colors', '--colors=', '--coverage-text', '--coverage-text='], true)) {
+                $options[] = $argument;
+                $keepNext = isset($runnerArguments[$index + 1]) && ! str_starts_with($runnerArguments[$index + 1], '-');
+
                 continue;
             }
 
@@ -98,6 +117,10 @@ final readonly class TestSelection
             $paths[] = $argument;
         }
 
-        return new self($options, $paths);
+        if ($skipNext || $configuration === '') {
+            throw new InvalidArgumentException('The option --configuration needs a file.');
+        }
+
+        return new self($options, $paths, $configuration);
     }
 }

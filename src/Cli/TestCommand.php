@@ -41,8 +41,10 @@ final readonly class TestCommand
      */
     public function run(TestOptions $options, string $projectRoot, $output): int
     {
+        $selection = $this->testSelection($options->runnerArguments, $options, $projectRoot);
+        $configurationPath = $selection->configuration ?? $options->configuration ?? TestConfiguration::find($projectRoot);
         $configuration = TestConfiguration::load(
-            $options->configuration !== null ? $this->absolute($options->configuration, $projectRoot) : TestConfiguration::find($projectRoot),
+            $this->absolute($configurationPath, $projectRoot),
         );
         $changes = $options->changed !== null ? ChangedLines::since($projectRoot, $options->changed) : [];
         $explicitFiles = $this->explicitFiles($options, $projectRoot);
@@ -348,7 +350,7 @@ final readonly class TestCommand
     private function runnerArguments(TestOptions $options, TestConfiguration $configuration, string $projectRoot, array $affectedTests): RunnerInvocation
     {
         $arguments = [...$options->runnerArguments, ...$affectedTests];
-        $selection = TestSelection::of($arguments, is_file($projectRoot . '/vendor/bin/pest'));
+        $selection = $this->testSelection($arguments, $options, $projectRoot);
 
         if (! $options->parallel || count($selection->paths) <= 1) {
             return new RunnerInvocation($arguments);
@@ -357,6 +359,16 @@ final readonly class TestCommand
         $generated = SuiteConfiguration::write($configuration->path, $selection->paths, $projectRoot);
 
         return new RunnerInvocation([...$selection->options, '--configuration=' . $generated], $generated);
+    }
+
+    /** @param list<string> $arguments */
+    private function testSelection(array $arguments, TestOptions $options, string $projectRoot): TestSelection
+    {
+        return TestSelection::of(
+            $arguments,
+            is_file($projectRoot . '/vendor/bin/pest'),
+            $options->parallel && is_file($projectRoot . '/vendor/bin/paratest'),
+        );
     }
 
     /**
@@ -395,7 +407,7 @@ final readonly class TestCommand
             return [];
         }
 
-        if (TestSelection::of($options->runnerArguments, is_file($projectRoot . '/vendor/bin/pest'))->paths !== []) {
+        if ($this->testSelection($options->runnerArguments, $options, $projectRoot)->paths !== []) {
             fwrite($output, "--affected ignored: the tests to run were given.\n");
 
             return [];
