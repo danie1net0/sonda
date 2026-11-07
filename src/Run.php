@@ -5,52 +5,51 @@ declare(strict_types=1);
 namespace Sonda;
 
 use RuntimeException;
+use TypeError;
 
 /**
  * What one test process collected: the instrumented files it loaded and the probes they hit.
  * With --parallel, each ParaTest worker saves its own run in the same directory.
- *
- * @phpstan-import-type TestRecord from Hits
  */
 final readonly class Run
 {
     /**
      * @param array<string, array{0: string, 1: string}> $files file id => [source path, cache key]
      * @param array<string, array<int, int>>             $hits  file id => probe id => 1
-     * @param array<string, TestRecord>                  $tests    what each test hit, see Hits::$tests
+     * @param TestRecords                                $tests    what each test hit
      * @param list<string>                               $problems what kept the details of some test from being read
      */
     public function __construct(
         public string $cacheDirectory,
         public array $files,
         public array $hits,
-        public array $tests = [],
+        public TestRecords $tests = new TestRecords(),
         public array $problems = [],
     ) {
     }
 
-    /** The run saved in a file, its test records sharing what the pool already holds. */
-    public static function load(string $path, TestRecordPool $pool = new TestRecordPool()): self
+    /** The run saved in a file. */
+    public static function load(string $path): self
     {
-        $run = unserialize(Filesystem::read($path), ['allowed_classes' => [self::class]]);
+        $serialized = Filesystem::read($path);
+
+        try {
+            $run = unserialize($serialized, ['allowed_classes' => [self::class, TestRecords::class]]);
+        } catch (TypeError) {
+            // Saved by a version of sonda that kept the test records in another shape.
+            throw new RuntimeException("The file {$path} holds a run of another version of sonda; run the tests again.");
+        }
 
         if (! $run instanceof self) {
             throw new RuntimeException("The file {$path} does not hold a sonda run.");
         }
 
-        $tests = [];
-
-        foreach ($run->tests as $testId => $record) {
-            $tests[$testId] = $pool->share($record);
-        }
-
-        return new self($run->cacheDirectory, $run->files, $run->hits, $tests, $run->problems);
+        return $run;
     }
 
     /**
      * All the runs saved in a directory, merged into one. Each run is folded in as it is read, so
-     * only the merge and one run are in memory at a time, not every worker's run at once. One pool
-     * serves every run, so the workers' records share their strings too.
+     * only the merge and one run are in memory at a time, not every worker's run at once.
      */
     public static function loadDirectory(string $directory): self
     {
@@ -60,11 +59,10 @@ final readonly class Run
             throw new RuntimeException("The directory {$directory} has no sonda runs.");
         }
 
-        $pool = new TestRecordPool();
-        $merged = self::load(array_shift($files), $pool);
+        $merged = self::load(array_shift($files));
 
         foreach ($files as $file) {
-            $merged = self::merge([$merged, self::load($file, $pool)]);
+            $merged = self::merge([$merged, self::load($file)]);
         }
 
         return $merged;
@@ -80,7 +78,7 @@ final readonly class Run
 
         foreach ($runs as $run) {
             $files += $run->files;
-            $tests += $run->tests;
+            $tests[] = $run->tests;
             $problems = [...$problems, ...$run->problems];
 
             foreach ($run->hits as $fileId => $fileHits) {
@@ -88,7 +86,7 @@ final readonly class Run
             }
         }
 
-        return new self($runs[0]->cacheDirectory, $files, $hits, $tests, array_values(array_unique($problems)));
+        return new self($runs[0]->cacheDirectory, $files, $hits, TestRecords::merge($tests), array_values(array_unique($problems)));
     }
 
     public function save(string $path): void

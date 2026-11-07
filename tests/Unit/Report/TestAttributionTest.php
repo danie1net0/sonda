@@ -20,7 +20,7 @@ function attributedRun(array $tests): Run
         2 => new Probe(5, false, 'Order->total', 0, 0, [5, 6]),
     ]));
 
-    return new Run($directory, ['o' => ['/app/Order.php', 'order'], 'l' => ['/vendor/Lib.php', 'order']], [], $tests);
+    return new Run($directory, ['o' => ['/app/Order.php', 'order'], 'l' => ['/vendor/Lib.php', 'order']], [], testRecords($tests));
 }
 
 it('names the tests that ran each line and each branch', function (): void {
@@ -45,7 +45,7 @@ it('counts a line once for a test whose probes share it', function (): void {
         0 => new Probe(3, false, '{main}', 0, 0),
         1 => new Probe(3, false, '{main}', 0, 0),
     ]));
-    $run = new Run($directory, ['o' => ['/app/Order.php', 'order']], [], ['A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V*', 0, 1)]]]);
+    $run = new Run($directory, ['o' => ['/app/Order.php', 'order']], [], testRecords(['A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V*', 0, 1)]]]));
 
     expect(TestAttribution::of($run, ['/app/Order.php'])->lines)->toBe(['/app/Order.php' => [3 => ['A::a']]]);
 });

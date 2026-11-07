@@ -7,7 +7,7 @@ use SebastianBergmann\CodeCoverage\Data\ProcessedCodeCoverageData;
 use SebastianBergmann\CodeCoverage\Serialization\Unserializer;
 use SebastianBergmann\CodeCoverage\StaticAnalysis\{Registry, SourceAnalyser};
 use Sonda\Report\Compat\CoverageApis;
-use Sonda\{Filesystem, Hits, InstrumentingVisitor, Probe, SourceEditor};
+use Sonda\{Filesystem, Hits, InstrumentingVisitor, Probe, SourceEditor, TestRecords};
 use PhpParser\{NodeTraverser, ParserFactory};
 use PHPUnit\Event\Code\{Test, TestDox, TestMethod};
 use PHPUnit\Event\TestData\TestDataCollection;
@@ -216,4 +216,42 @@ function covFile(string $path): array
     $result[] = $coverage->getTests();
 
     return $result;
+}
+
+/**
+ * Test records built from what each test hit, as the tests of a suite leave them.
+ *
+ * @param array<string, array{0: string, 1: 'small'|'medium'|'large'|'unknown', 2: bool, 3: float, 4: array<string, string>}> $tests test id => [test file, size, passed, seconds, file id => probe ids packed]
+ */
+function testRecords(array $tests): TestRecords
+{
+    $records = new TestRecords();
+
+    foreach ($tests as $testId => [$testFile, $size, $passed, $seconds, $packedHits]) {
+        $records->add($testId, $testFile, $size, $passed, $seconds, $packedHits);
+    }
+
+    return $records;
+}
+
+/**
+ * What each test hit, read back from test records in the shape testRecords() takes.
+ *
+ * @return array<string, array{0: string, 1: 'small'|'medium'|'large'|'unknown', 2: bool, 3: float, 4: array<string, string>}>
+ */
+function recordsOf(TestRecords $records): array
+{
+    $tests = [];
+
+    foreach ($records->records as $testId => [$testFile, $size, $passed, $seconds, $packedPairIds]) {
+        $packedHits = [];
+
+        foreach ($records->pairsOf($packedPairIds) as [$fileId, $packed]) {
+            $packedHits[$fileId] = $packed;
+        }
+
+        $tests[$testId] = [$testFile, $size, $passed, $seconds, $packedHits];
+    }
+
+    return $tests;
 }

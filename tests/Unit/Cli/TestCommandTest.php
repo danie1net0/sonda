@@ -51,7 +51,7 @@ final class FakeRunner implements ProcessRunner
             $order = $directory . '/app/Order.php';
             $probes = [0 => new Probe(7, true, 'Order->total', 7, 11), 1 => new Probe(8, true, 'Order->total', 8, 8), 2 => new Probe(11, false, 'Order->total', 0, 0)];
             new InstrumentationCache($environment['SONDA_CACHE'])->store('order', new InstrumentationResult('<?php', $probes));
-            new Run($environment['SONDA_CACHE'], ['o' => [$order, 'order']], ['o' => $this->hits], $this->tests, $this->problems)->saveIn($environment['SONDA_OUT']);
+            new Run($environment['SONDA_CACHE'], ['o' => [$order, 'order']], ['o' => $this->hits], testRecords($this->tests), $this->problems)->saveIn($environment['SONDA_OUT']);
         }
 
         return $this->status;

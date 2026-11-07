@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run};
+use Sonda\{InstrumentationCache, InstrumentationResult, Probe, Run, TestRecords};
 
 it('saves and loads a run', function (): void {
     $path = TemporaryDirectory::create() . '/run.ser';
-    $run = new Run('/cache', ['abc' => ['/app/Order.php', 'key']], ['abc' => [0 => 1]], ['T::t' => ['/tests/T.php', 'small', true, 0.5, ['abc' => pack('V', 0)]]]);
+    $run = new Run('/cache', ['abc' => ['/app/Order.php', 'key']], ['abc' => [0 => 1]], testRecords(['T::t' => ['/tests/T.php', 'small', true, 0.5, ['abc' => pack('V', 0)]]]));
 
     $run->save($path);
 
@@ -14,12 +14,12 @@ it('saves and loads a run', function (): void {
 });
 
 it('has no tests nor problems unless given', function (): void {
-    expect(new Run('/cache', [], [])->tests)->toBe([])
+    expect(new Run('/cache', [], [])->tests)->toEqual(new TestRecords())
         ->and(new Run('/cache', [], [])->problems)->toBe([]);
 });
 
 it('merges the problems of every process of a suite, each once', function (): void {
-    $merged = Run::merge([new Run('/cache', [], [], [], ['a', 'b']), new Run('/cache', [], [], [], ['b', 'c'])]);
+    $merged = Run::merge([new Run('/cache', [], [], problems: ['a', 'b']), new Run('/cache', [], [], problems: ['b', 'c'])]);
 
     expect($merged->problems)->toBe(['a', 'b', 'c']);
 });
@@ -32,13 +32,13 @@ it('takes the cache directory of the first run in name order when loading a dire
     expect(Run::loadDirectory($directory)->cacheDirectory)->toBe('/first-cache');
 });
 
-it('shares the strings that the tests of different processes repeat', function (): void {
+it('keeps once the probes that the tests of different processes hit', function (): void {
     $directory = TemporaryDirectory::create();
     // Made at run time: unserialize() would reuse an interned literal instead of copying it.
     $packed = bin2hex(random_bytes(5000));
 
     for ($process = 0; $process < 50; $process++) {
-        new Run('/cache', [], [], ["T::t{$process}" => ['/tests/T.php', 'small', true, 0.5, ["file{$process}" => $packed]]])->saveIn($directory);
+        new Run('/cache', [], [], testRecords(["T::t{$process}" => ['/tests/T.php', 'small', true, 0.5, ['file' => $packed]]]))->saveIn($directory);
     }
 
     $before = memory_get_usage();
@@ -46,16 +46,17 @@ it('shares the strings that the tests of different processes repeat', function (
 
     // One copy of the 10 KB list per process would take 500 KB.
     expect(memory_get_usage() - $before)->toBeLessThan(200_000)
-        ->and($run->tests)->toHaveCount(50);
+        ->and($run->tests->records)->toHaveCount(50)
+        ->and($run->tests->pairs)->toBe([['file', $packed]]);
 });
 
 it('merges the tests of every process of a suite', function (): void {
-    $first = ['/tests/A.php', 'unknown', true, 0.1, []];
-    $second = ['/tests/B.php', 'unknown', false, 0.2, []];
+    $first = ['/tests/A.php', 'unknown', true, 0.1, ['a' => pack('V', 0)]];
+    $second = ['/tests/B.php', 'unknown', false, 0.2, ['b' => pack('V', 1)]];
 
-    $merged = Run::merge([new Run('/cache', [], [], ['A::a' => $first]), new Run('/cache', [], [], ['B::b' => $second])]);
+    $merged = Run::merge([new Run('/cache', [], [], testRecords(['A::a' => $first])), new Run('/cache', [], [], testRecords(['B::b' => $second]))]);
 
-    expect($merged->tests)->toBe(['A::a' => $first, 'B::b' => $second]);
+    expect(recordsOf($merged->tests))->toBe(['A::a' => $first, 'B::b' => $second]);
 });
 
 it('fails to load a file that is not a run', function (): void {
@@ -64,6 +65,14 @@ it('fails to load a file that is not a run', function (): void {
 
     expect(fn (): Run => Run::load($path))
         ->toThrow(RuntimeException::class, "The file {$path} does not hold a sonda run.");
+});
+
+it('fails to load a run that another version of sonda saved, with its test records in another shape', function (): void {
+    $path = TemporaryDirectory::create() . '/run.ser';
+    file_put_contents($path, 'O:9:"Sonda\\Run":5:{s:14:"cacheDirectory";s:6:"/cache";s:5:"files";a:0:{}s:4:"hits";a:0:{}s:5:"tests";a:0:{}s:8:"problems";a:0:{}}');
+
+    expect(fn (): Run => Run::load($path))
+        ->toThrow(RuntimeException::class, "The file {$path} holds a run of another version of sonda; run the tests again.");
 });
 
 it('fails to load a missing file', function (): void {

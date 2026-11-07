@@ -11,10 +11,9 @@ pest()
         Hits::$current = [];
         Hits::$accumulated = [];
         Hits::$perTest = false;
-        Hits::$tests = [];
         Hits::$failed = [];
         Hits::$problems = [];
-        new ReflectionProperty(Hits::class, 'packed')->setValue(null, []);
+        new ReflectionProperty(Hits::class, 'tests')->setValue(null, null);
     })
     ->afterEach(function (): void {
         foreach (TemporaryDirectory::$created as $directory) {

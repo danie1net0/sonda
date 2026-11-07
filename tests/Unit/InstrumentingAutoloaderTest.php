@@ -71,7 +71,7 @@ it('loads a class of the target directory from its instrumented copy', function 
         ->and(is_file($directory . '/cache/' . $run->files[$fileId][1] . '.php'))->toBeTrue()
         ->and(Hits::$current[$fileId])->toBe([0 => 1, 1 => 1])
         ->and($run->hits)->toBe(Hits::collected())
-        ->and($run->tests)->toBe([])
+        ->and($run->tests->records)->toBe([])
         ->and($run->cacheDirectory)->toBe($directory . '/cache');
 });
 
@@ -81,7 +81,8 @@ it('hands the tests recorded so far to the run', function (): void {
 
     $run = new InstrumentingAutoloader($loader, new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter())->run();
 
-    expect($run->tests)->toBe(Hits::$tests)->toHaveKey('Tests\\OrderTest::test_total');
+    expect($run->tests)->toBe(Hits::tests())
+        ->and($run->tests->records)->toHaveKey('Tests\\OrderTest::test_total');
 
     Hits::$problems['broken'] = true;
 

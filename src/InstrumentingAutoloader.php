@@ -79,7 +79,7 @@ final class InstrumentingAutoloader
 
     public function run(): Run
     {
-        return new Run($this->cacheDirectory, $this->loadedFiles, Hits::collected(), Hits::$tests, array_keys(Hits::$problems));
+        return new Run($this->cacheDirectory, $this->loadedFiles, Hits::collected(), Hits::tests(), array_keys(Hits::$problems));
     }
 
     /** The path of the instrumented copy of a file of the scope, which the run then counts as loaded. */

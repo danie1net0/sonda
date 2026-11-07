@@ -179,10 +179,10 @@ it('names the tests that ran each covered line and branch, and describes them', 
         1 => new Probe(11, true, 'Order->total', 11, 11),
         2 => new Probe(7, false, 'Order->total', 0, 0),
     ]));
-    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1, 2 => 1]], [
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1, 2 => 1]], testRecords([
         'OrderTest::test_large' => ['/tests/OrderTest.php', 'small', false, 0.25, ['o' => pack('V*', 0, 2)]],
         'OrderTest::test_none' => ['/tests/OrderTest.php', 'unknown', true, 0.0, []],
-    ]);
+    ]));
 
     $coverage = CoverageBuilder::build($run, [$order], coveredBy: true);
     $branches = branchesOf($coverage->getData()->functionCoverage()[$order]['Order->total'], $coverage->getData());
@@ -209,11 +209,11 @@ it('names the tests of a view on the lines of its template', function (): void {
     $probes = [new Probe(1, false, '{main}', 0, 0), new Probe(2, false, '{main}', 0, 0), new Probe(3, false, '{main}', 0, 0)];
     new InstrumentationCache($root . '/cache')->store('view', new InstrumentationResult($compiled, $probes, [1 => 2, 2 => 2, 3 => 4], $compiled));
     // Compiled line 1 ran in A and B, line 2 in A and C: template line 2 names each test once.
-    $run = new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => [0 => 1, 1 => 1]], [
+    $run = new Run($root . '/cache', ['v' => [$view, 'view']], ['v' => [0 => 1, 1 => 1]], testRecords([
         'A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['v' => pack('V*', 0, 1)]],
         'B::b' => ['/tests/B.php', 'unknown', true, 0.0, ['v' => pack('V', 0)]],
         'C::c' => ['/tests/C.php', 'unknown', true, 0.0, ['v' => pack('V', 1)]],
-    ]);
+    ]));
 
     expect(lineTestsOf(CoverageBuilder::build($run, [$view], coveredBy: true)->getData()))->toBe([$view => [2 => ['A::a', 'B::b', 'C::c'], 4 => []]]);
 });
@@ -232,11 +232,11 @@ it('names the tests of a probed line on the other lines of its block, which php-
         2 => new Probe(9, false, 'total', 0, 0),
         3 => new Probe(6, false, 'total', 0, 0),
     ]));
-    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1, 1 => 1, 2 => 1, 3 => 1]], [
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1, 1 => 1, 2 => 1, 3 => 1]], testRecords([
         'A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V*', 0, 2)]],
         'B::b' => ['/tests/B.php', 'unknown', true, 0.0, ['o' => pack('V*', 0, 1)]],
         'C::c' => ['/tests/C.php', 'unknown', true, 0.0, ['o' => pack('V', 3)]],
-    ]);
+    ]));
 
     $lines = lineTestsOf(CoverageBuilder::build($run, [$order, $unused], coveredBy: true)->getData());
     ksort($lines[$order]);
@@ -250,7 +250,7 @@ it('credits every covered line to the single test sonda unless asked to name the
     $order = $root . '/Order.php';
     file_put_contents($order, "<?php\n\nfunction total(): int\n{\n    return 1;\n}\n");
     new InstrumentationCache($root . '/cache')->store('key', new InstrumentationResult('<?php', [0 => new Probe(5, false, 'total', 0, 0)]));
-    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1]], ['A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V', 0)]]]);
+    $run = new Run($root . '/cache', ['o' => [$order, 'key']], ['o' => [0 => 1]], testRecords(['A::a' => ['/tests/A.php', 'unknown', true, 0.0, ['o' => pack('V', 0)]]]));
 
     $coverage = CoverageBuilder::build($run, [$order]);
 

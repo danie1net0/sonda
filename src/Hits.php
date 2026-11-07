@@ -9,8 +9,6 @@ namespace Sonda;
  *
  * The instrumented code writes `Hits::$current[<file id>][<probe id>] = 1`, so these
  * properties stay public and static: any other access path would cost more per probe.
- *
- * @phpstan-type TestRecord array{0: string, 1: 'small'|'medium'|'large'|'unknown', 2: bool, 3: float, 4: array<string, string>}
  */
 final class Hits
 {
@@ -23,23 +21,22 @@ final class Hits
     /** When true, only probes hit inside a test count (the window PHPUnit gives Xdebug). */
     public static bool $perTest = false;
 
-    /**
-     * What each finished test hit, for the report to say which tests cover a line.
-     *
-     * @var array<string, TestRecord> test id => [test file, size, passed, seconds, file id => probe ids packed]
-     */
-    public static array $tests = [];
-
     /** @var array<string, true> what kept the details of some test from being read, by message */
     public static array $problems = [];
 
     /** @var array<string, true> tests that failed or errored, until they finish */
     public static array $failed = [];
 
-    /** @var array<string, string> each packed list of probe ids once, shared by every test that hit the same probes */
-    private static array $packed = [];
+    /** What each finished test hit, created the first time it is asked for. */
+    private static ?TestRecords $tests = null;
 
     private static int $startedAt = 0;
+
+    /** What each finished test hit, for the report to say which tests cover a line. */
+    public static function tests(): TestRecords
+    {
+        return self::$tests ??= new TestRecords();
+    }
 
     public static function startTest(): void
     {
@@ -64,12 +61,10 @@ final class Hits
 
         foreach (self::$current as $fileId => $hits) {
             self::$accumulated[$fileId] = (self::$accumulated[$fileId] ?? []) + $hits;
-            $packed = pack('V*', ...array_keys($hits));
-            // Interned: the many tests that hit the same probes of a file share one string.
-            $packedHits[$fileId] = self::$packed[$packed] ??= $packed;
+            $packedHits[$fileId] = pack('V*', ...array_keys($hits));
         }
 
-        self::$tests[$testId] = [$testFile, $size, ! isset(self::$failed[$testId]), (hrtime(true) - self::$startedAt) / 1e9, $packedHits];
+        self::tests()->add($testId, $testFile, $size, ! isset(self::$failed[$testId]), (hrtime(true) - self::$startedAt) / 1e9, $packedHits);
         unset(self::$failed[$testId]);
         self::$current = [];
     }

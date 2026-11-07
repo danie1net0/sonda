@@ -37,21 +37,21 @@ final readonly class TestAttribution
         $branches = [];
         $tests = [];
 
-        foreach ($run->tests as $testId => [, $size, $passed, $time, $packedHits]) {
+        foreach ($run->tests->records as $testId => [, $size, $passed, $time, $packedPairIds]) {
             $test = [];
             $test['size'] = $size;
             $test['status'] = $passed ? 'success' : 'failure';
             $test['time'] = $time;
             $tests[$testId] = $test;
 
-            foreach ($packedHits as $fileId => $packed) {
+            foreach ($run->tests->pairsOf($packedPairIds) as $pairId => [$fileId, $packed]) {
                 if (! isset($keys[$fileId])) {
                     continue;
                 }
 
                 $key = $keys[$fileId];
                 $probes[$fileId] ??= $run->probesOf($run->files[$fileId][1]);
-                [$hitLines, $hitBranches] = $expanded[$fileId][$packed] ??= self::expand($probes[$fileId], $packed);
+                [$hitLines, $hitBranches] = $expanded[$pairId] ??= self::expand($probes[$fileId], $packed);
 
                 foreach ($hitLines as $line) {
                     $lines[$key][$line][] = $testId;

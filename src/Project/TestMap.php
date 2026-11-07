@@ -68,10 +68,10 @@ final readonly class TestMap
     {
         $ran = [];
 
-        foreach ($run->tests as [$testFile, , , , $packedHits]) {
+        foreach ($run->tests->records as [$testFile, , , , $packedPairIds]) {
             $ran[$testFile] ??= [];
 
-            foreach (array_keys($packedHits) as $fileId) {
+            foreach ($run->tests->pairsOf($packedPairIds) as [$fileId]) {
                 $ran[$testFile][] = $run->files[$fileId][0];
             }
         }

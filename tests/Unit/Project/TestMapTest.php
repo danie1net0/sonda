@@ -28,7 +28,7 @@ function runOfTests(array $hitsByTestFile): Run
         $tests[$testFile . '::test'] = [$testFile, 'unknown', true, 0.0, $packed];
     }
 
-    return new Run('/cache', $files, [], $tests);
+    return new Run('/cache', $files, [], testRecords($tests));
 }
 
 /** Test files that exist, for the map to keep. @return array{0: string, 1: string, 2: string} */
@@ -98,10 +98,10 @@ it('maps each test file of a run to the source files its tests ran, sorted', fun
 
 it('merges the tests of one test file, each source file once', function (): void {
     [$firstTest] = existingTestFiles();
-    $run = new Run('/cache', ['x' => ['/app/X.php', 'k'], 'y' => ['/app/Y.php', 'k'], 'z' => ['/app/Z.php', 'k']], [], [
+    $run = new Run('/cache', ['x' => ['/app/X.php', 'k'], 'y' => ['/app/Y.php', 'k'], 'z' => ['/app/Z.php', 'k']], [], testRecords([
         $firstTest . '::first' => [$firstTest, 'unknown', true, 0.0, ['x' => pack('V', 0), 'z' => pack('V', 0)]],
         $firstTest . '::second' => [$firstTest, 'unknown', true, 0.0, ['x' => pack('V', 1), 'y' => pack('V', 0)]],
-    ]);
+    ]));
 
     expect(new TestMap()->updatedWith($run, ['/app/X.php', '/app/Y.php', '/app/Z.php'])->sources)->toBe([$firstTest => ['/app/X.php', '/app/Y.php', '/app/Z.php']]);
 });
