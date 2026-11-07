@@ -1,3 +1,10 @@
+## [1.18.5](https://github.com/danie1net0/sonda/compare/v1.18.4...v1.18.5) (2026-11-07)
+
+
+### Performance Improvements
+
+* **hits:** guarda cada par de arquivo e probes uma vez, numa tabela por run ([af769a6](https://github.com/danie1net0/sonda/commit/af769a6fc88702f8bb5b58cd71043bdc207396ce))
+
 ## [1.18.4](https://github.com/danie1net0/sonda/compare/v1.18.3...v1.18.4) (2026-11-06)
 
 
