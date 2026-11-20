@@ -120,19 +120,18 @@ it('leaves out the lines that the coverage data marks as dead code', function ()
 
 it('orders the lines whatever order the probes give them', function (): void {
     $root = TemporaryDirectory::create();
-    $file = $root . '/label.php';
-    file_put_contents($file, "<?php\n\nfunction label(?string \$name): string\n{\n    return match (true) {\n        \$name === null => 'anonymous',\n        default => \$name,\n    };\n}\n");
+    $file = $root . '/sum.php';
+    file_put_contents($file, "<?php\n\nfunction sum(): int\n{\n    \$first = 1;\n    \$second = 2;\n\n    return \$first + \$second;\n}\n");
     $cache = new InstrumentationCache($root . '/cache');
-    $cache->store('label', new InstrumentationResult('<?php', [
-        0 => new Probe(5, true, 'label', 5, 8),
-        1 => new Probe(7, false, 'label', 0, 0),
-        2 => new Probe(6, false, 'label', 0, 0),
-        3 => new Probe(8, false, 'label', 0, 0),
+    $cache->store('sum', new InstrumentationResult('<?php', [
+        0 => new Probe(8, false, 'sum', 0, 0),
+        1 => new Probe(5, true, 'sum', 5, 8),
+        2 => new Probe(6, false, 'sum', 0, 0),
     ]));
 
-    $run = new Run($root . '/cache', ['l' => [$file, 'label']], []);
+    $run = new Run($root . '/cache', ['s' => [$file, 'sum']], []);
 
-    expect(Uncovered::of(CoverageBuilder::build($run, [$file]))[$file]['lines'])->toBe([5, 6, 7, 8]);
+    expect(Uncovered::of(CoverageBuilder::build($run, [$file]))[$file]['lines'])->toBe([5, 6, 8]);
 });
 
 it('describes the gaps with ranges and paths relative to the root', function (): void {
