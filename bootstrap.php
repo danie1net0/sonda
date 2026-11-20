@@ -22,6 +22,9 @@ if (! $composer instanceof ClassLoader) {
     throw new RuntimeException("O autoload {$settings->autoloadPath} não devolveu o ClassLoader do Composer.");
 }
 
+// Composer registers itself ahead of every other autoloader: sonda's own classes keep coming from this copy.
+ComposerFiles::keepOwnClassesFirst();
+
 $autoloader = InstrumentingAutoloader::shared($settings);
 // The test runner requires Composer's autoloader before it reaches this bootstrap: a helper of
 // Composer's `files` and the classes it loaded while starting are there without probes. Only a

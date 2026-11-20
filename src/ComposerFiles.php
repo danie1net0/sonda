@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Sonda;
 
 use ArrayAccess;
+use Closure;
 use Composer\Autoload\ClassLoader;
+use ReflectionFunction;
 
 use function dirname;
 
@@ -62,6 +64,23 @@ final class ComposerFiles implements ArrayAccess
         }
 
         $GLOBALS[self::LIST] = new self($settings, dirname($autoloadPath), $loaded, $pending);
+    }
+
+    /**
+     * Puts the autoloader of sonda's own classes (autoload.php) back in front of Composer's, which
+     * registers itself ahead of every other: the project may have another version of sonda
+     * installed, and its classes must not answer for the ones of this copy.
+     */
+    public static function keepOwnClassesFirst(): void
+    {
+        $ownAutoload = realpath(__DIR__ . '/../autoload.php');
+
+        foreach (spl_autoload_functions() as $autoloader) {
+            if ($autoloader instanceof Closure && new ReflectionFunction($autoloader)->getFileName() === $ownAutoload) {
+                spl_autoload_unregister($autoloader);
+                spl_autoload_register($autoloader, prepend: true);
+            }
+        }
     }
 
     /**
@@ -143,6 +162,8 @@ final class ComposerFiles implements ArrayAccess
             return false;
         }
 
+        // Before any other class of sonda loads: from here on they would come through Composer.
+        self::keepOwnClassesFirst();
         InstrumentingAutoloader::shared($this->settings)->register($composer);
 
         return true;

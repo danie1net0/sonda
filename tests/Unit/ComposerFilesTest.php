@@ -239,3 +239,34 @@ it('lists nothing without a files listing, or from one that is not a list of fil
     expect(ComposerFiles::listed($autoload))->toBe([])
         ->and(ComposerFiles::listed(TemporaryDirectory::create() . '/vendor/autoload.php'))->toBe([]);
 });
+
+it("puts the autoloader of sonda's own classes back in front of the others", function (): void {
+    $before = spl_autoload_functions();
+    require dirname(__DIR__, 2) . '/autoload.php';
+    $other = static function (string $class): void {
+    };
+    spl_autoload_register($other, prepend: true);
+
+    ComposerFiles::keepOwnClassesFirst();
+    $order = array_values(array_filter(spl_autoload_functions(), static fn (mixed $function): bool => ! in_array($function, $before, true)));
+
+    expect($order)->toHaveCount(2)
+        ->and(new ReflectionFunction($order[0])->getFileName())->toBe(dirname(__DIR__, 2) . '/autoload.php')
+        ->and($order[1])->toBe($other);
+});
+
+it("puts the autoloader of sonda's own classes in front of Composer's when the project registers it", function (): void {
+    ['root' => $root, 'settings' => $settings] = projectWithFiles();
+    require dirname(__DIR__, 2) . '/autoload.php';
+
+    ComposerFiles::intercept($settings);
+    $this->classLoaders[] = registerClassLoader($root);
+    $this->classLoaders[0]->unregister();
+    $this->classLoaders[0]->register(true);
+    requireAsComposer($root);
+    $order = spl_autoload_functions();
+
+    expect(new ReflectionFunction($order[0])->getClosureThis())->toBe(InstrumentingAutoloader::shared($settings))
+        ->and(new ReflectionFunction($order[1])->getFileName())->toBe(dirname(__DIR__, 2) . '/autoload.php')
+        ->and($order[2])->toBe([$this->classLoaders[0], 'loadClass']);
+});
