@@ -427,6 +427,60 @@ it('warns, and declares nothing twice, in a process it cannot start again', func
         ->not->toContain('Cannot redeclare');
 });
 
+it('shows the classes of the source under their own files, to reflection and to the code that reads their variables', function (): void {
+    $root = sondaProject();
+    file_put_contents($root . '/src/Located.php', <<<'LOCATED'
+    <?php
+
+    declare(strict_types=1);
+
+    namespace Fixture\Project;
+
+    final class Located
+    {
+        /** @return list<string> */
+        public function variables(int $first): array
+        {
+            $second = $first + 1;
+
+            return array_keys(get_defined_vars());
+        }
+
+        public function directory(): string
+        {
+            return dirname((string) new \ReflectionClass($this)->getFileName());
+        }
+    }
+    LOCATED);
+    file_put_contents($root . '/tests/LocatedTest.php', <<<'LOCATED'
+    <?php
+
+    declare(strict_types=1);
+
+    namespace Fixture\Project\Tests;
+
+    use Fixture\Project\Located;
+    use PHPUnit\Framework\TestCase;
+
+    final class LocatedTest extends TestCase
+    {
+        public function testReportsItsOwnFile(): void
+        {
+            self::assertSame(dirname(__DIR__) . '/src', new Located()->directory());
+            self::assertSame(['first', 'second'], new Located()->variables(1));
+        }
+    }
+    LOCATED);
+
+    [$status, $output] = sonda($root, 'test');
+    [$seriesStatus, $seriesOutput] = sonda($root, 'test', '--no-parallel');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 5 assertions)')
+        ->and($seriesStatus)->toBe(0, $seriesOutput)
+        ->and($seriesOutput)->toContain('OK (3 tests, 5 assertions)');
+});
+
 it('fails on the uncovered parts of the methods changed since a reference', function (): void {
     $root = sondaProject();
     commitEverything($root);

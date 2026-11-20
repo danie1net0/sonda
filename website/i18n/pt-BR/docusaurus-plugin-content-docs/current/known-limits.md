@@ -19,17 +19,19 @@ As limitações achadas até agora; uma issue é bem-vinda para qualquer outra.
 
 - **Um `catch` que uma exceção atravessou.** A linha de um `catch` que uma exceção de outro tipo
   atravessou aparece como descoberta (o Xdebug a conta como executada).
-- **As variáveis de uma função.** No modo rápido (o padrão), cada função tem uma referência local
-  chamada `$__sonda`, que o `get_defined_vars()` devolve junto com as outras. O `--no-fast` a tira.
-- **`__COMPILER_HALT_OFFSET__`.** Um arquivo que lê os dados depois do `__halt_compiler()` recebe o
-  offset da cópia instrumentada com o caminho do arquivo original, e lê os bytes errados.
+- **Outro stream wrapper para arquivos.** O PHP lê o código instrumentado com o nome do arquivo
+  original, então a reflexão e os stack traces mostram o arquivo do projeto. Onde outro stream
+  wrapper responde por `file://` (o do `dg/bypass-finals`, por exemplo), a cópia instrumentada é
+  incluída pelo próprio caminho: o `ReflectionClass::getFileName()` e os stack traces mostram a
+  cópia no cache.
+- **`get_defined_vars()` chamado por outro nome.** No modo rápido (o padrão), cada função tem uma
+  referência local chamada `$__sonda`. A chamada direta a `get_defined_vars()` não a vê; a que
+  chega a ela por outro caminho (`compact('__sonda')`, variável variável) vê.
 - **Carregado antes da instrumentação, num processo que não pode recomeçar.** Um arquivo do alvo
   que já está carregado quando o bootstrap roda faz o processo começar de novo (veja como
   funciona). Um teste que o PHPUnit roda em processo separado, e um worker do paralelo iniciado sem
   o `PhpExecutableFinder` do Symfony, não podem: o Sonda diz quais arquivos ficam sem medição
   naquele processo.
-- **Reflexão sobre o arquivo da classe.** Testes que leem o arquivo da classe por reflexão veem a
-  cópia instrumentada.
 - **Linhas de fechamento no PHPUnit 13.** O php-code-coverage 14 conta como executáveis algumas
   linhas de fechamento em que o Sonda não põe sonda, como o `})($valor);` de uma closure chamada
   onde é escrita. Essa linha aparece como descoberta mesmo quando rodou; é raro, um punhado de

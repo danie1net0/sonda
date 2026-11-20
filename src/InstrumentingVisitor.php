@@ -79,6 +79,9 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /** @var array<int, int> file positions where an expression interpolated in a string starts */
     private array $interpolationStarts = [];
 
+    /** Where the data after `__halt_compiler();` starts in the original file; null without one. */
+    private ?int $haltOffset = null;
+
     /**
      * @param array<Token> $tokens
      * @param string       $code      the source the tokens come from
@@ -110,6 +113,10 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /** @param array<Node> $statements the file-level statements, which no node owns */
     public function instrumentTopLevel(array $statements): void
     {
+        foreach (new NodeFinder()->findInstanceOf($statements, HaltCompiler::class) as $halt) {
+            $this->haltOffset = strlen($this->code) - strlen($halt->remaining);
+        }
+
         $this->statementList($statements, false);
     }
 
@@ -148,6 +155,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $node instanceof NullsafePropertyFetch => $this->enterNullsafe($node),
             $node instanceof InterpolatedString,
             $node instanceof ShellExec => $this->enterInterpolation($node->parts),
+            $this->isCallTo($node, 'get_defined_vars') => $this->enterDefinedVariables($node),
+            $node instanceof ConstFetch => $this->enterConstant($node),
             $node instanceof Isset_ => $this->silence($node->vars),
             $node instanceof Empty_ => $this->silence([$node->expr]),
             $node instanceof CoalesceAssignment => $this->wrapExpression($node->expr, true),
@@ -494,6 +503,35 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
         $this->edits[] = Edit::opening($node->var->getStartFilePos(), self::HITS . "::nullsafe('" . $this->fileId . "', {$nonNull}, {$null}, ");
         $this->close($node->var->getEndFilePos() + 1, $silentValue . ')');
+    }
+
+    /** A call to a function of PHP by its name, with or without the leading backslash. */
+    private function isCallTo(Node $node, string $function): bool
+    {
+        return $node instanceof FuncCall && $node->name instanceof Name && $node->name->toLowerString() === $function;
+    }
+
+    /**
+     * The fast mode keeps a reference named `$__sonda` in each function, which the function
+     * would see among its own variables: the call goes through a function that takes it out.
+     */
+    private function enterDefinedVariables(Node $node): void
+    {
+        $this->replace($node, self::HITS . '::definedVariables(\get_defined_vars())');
+    }
+
+    /**
+     * `__COMPILER_HALT_OFFSET__` is where the data after `__halt_compiler();` starts in the file
+     * PHP compiled, the instrumented code, which is longer than the file the code reads the data
+     * from: the offset in the original file takes its place.
+     */
+    private function enterConstant(ConstFetch $node): void
+    {
+        if ($this->haltOffset === null || $node->name->toString() !== '__COMPILER_HALT_OFFSET__') {
+            return;
+        }
+
+        $this->replace($node, (string) $this->haltOffset);
     }
 
     /**

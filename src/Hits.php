@@ -103,6 +103,21 @@ final class Hits
         return $value;
     }
 
+    /**
+     * The variables of a function without the reference the fast mode keeps in it:
+     * `get_defined_vars()` becomes `Hits::definedVariables(get_defined_vars())`.
+     *
+     * @param array<string, mixed> $variables
+     *
+     * @return array<string, mixed>
+     */
+    public static function definedVariables(array $variables): array
+    {
+        unset($variables['__sonda']);
+
+        return $variables;
+    }
+
     /** @return array<string, array<int, int>> */
     public static function collected(): array
     {

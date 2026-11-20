@@ -149,3 +149,13 @@ it('treats false and zero as values, not as null', function (): void {
         ->and(Hits::nullsafe('a', 3, 4, 0))->toBe(0)
         ->and(Hits::$current)->toBe(['a' => [1 => 1, 3 => 1]]);
 });
+
+it('takes the reference of the fast mode out of the variables of a function', function (): void {
+    $variables = [];
+    $variables['first'] = 1;
+    $variables['__sonda'] = [0 => 1];
+    $variables['second'] = 'two';
+
+    expect(Hits::definedVariables($variables))->toBe(['first' => 1, 'second' => 'two'])
+        ->and(Hits::definedVariables(['only' => true]))->toBe(['only' => true]);
+});

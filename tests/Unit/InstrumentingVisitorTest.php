@@ -109,6 +109,59 @@ it('stops at __halt_compiler', function (): void {
         ]);
 });
 
+it('gives __COMPILER_HALT_OFFSET__ the offset of the data in the original file', function (): void {
+    $source = <<<'PHP'
+    <?php
+    $data = substr(file_get_contents(__FILE__), __COMPILER_HALT_OFFSET__);
+    $other = OTHER_CONSTANT;
+    __halt_compiler();raw data
+    PHP;
+
+    [$code] = instrumentCode($source);
+    [$closed] = instrumentCode("<?php\necho __COMPILER_HALT_OFFSET__;\n__halt_compiler() ?>\nraw\n");
+
+    expect($code)->toBe(expected(<<<'PHP'
+    <?php
+    {p0}$data = substr(file_get_contents('/project/src/File.php'), 120);
+    {p1}$other = OTHER_CONSTANT;
+    __halt_compiler();raw data
+    PHP))
+        ->and(substr($source, 120))->toBe('raw data')
+        ->and($closed)->toBe(expected("<?php\n{p0}echo 58;\n__halt_compiler() ?>\nraw\n"));
+});
+
+it('leaves __COMPILER_HALT_OFFSET__ alone in a file without __halt_compiler', function (): void {
+    [$code] = instrumentCode("<?php\n\$offset = __COMPILER_HALT_OFFSET__;\n");
+
+    expect($code)->toBe(expected("<?php\n{p0}\$offset = __COMPILER_HALT_OFFSET__;\n"));
+});
+
+it('takes its own reference out of the variables a function asks for', function (): void {
+    [$code] = instrumentCode(<<<'PHP'
+    <?php
+    function scope(int $first): array
+    {
+        $names = array_keys(get_defined_vars());
+        $again = \Get_Defined_Vars();
+        $others = \App\get_defined_vars() + $callable() + compact('first');
+
+        return $names;
+    }
+    PHP . "\n", fast: true);
+
+    expect($code)->toBe(expected(<<<'PHP'
+    <?php
+    function scope(int $first): array
+    {
+        {ref}{l0}$names = array_keys(\Sonda\Hits::definedVariables(\get_defined_vars()));
+        {l1}$again = \Sonda\Hits::definedVariables(\get_defined_vars());
+        {l2}$others = \App\get_defined_vars() + $callable() + compact('first');
+
+        {l3}return $names;
+    }
+    PHP . "\n"));
+});
+
 it('names methods after their namespaced class and marks the entry branch', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php

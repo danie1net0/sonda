@@ -19,13 +19,14 @@ The limits found so far; an issue is welcome for any other.
 
 - **A `catch` an exception passed through.** The line of a `catch` that an exception of another
   type passed through shows as uncovered (Xdebug counts it as executed).
-- **Reflection on the class file.** Tests that read the class file through reflection see the
-  instrumented copy.
-- **The variables of a function.** In the fast mode (the default) each function has a local
-  reference named `$__sonda`, which `get_defined_vars()` returns with the others. `--no-fast`
-  leaves it out.
-- **`__COMPILER_HALT_OFFSET__`.** A file that reads the data after `__halt_compiler()` gets the
-  offset of the instrumented copy with the path of the original file, and reads the wrong bytes.
+- **Another stream wrapper for files.** PHP reads the instrumented code under the name of the
+  original file, so reflection and stack traces show the file of the project. Where another stream
+  wrapper answers for `file://` (the one of `dg/bypass-finals`, for example), the instrumented
+  copy is included by its own path instead: `ReflectionClass::getFileName()` and the stack traces
+  show the copy in the cache.
+- **`get_defined_vars()` called by another name.** In the fast mode (the default) each function
+  has a local reference named `$__sonda`. A direct call to `get_defined_vars()` does not see it;
+  a call that reaches it another way (`compact('__sonda')`, a variable variable) does.
 - **Loaded before the instrumentation, in a process that cannot start again.** A file of the
   target that is already loaded when the bootstrap runs makes the process start again (see how it
   works). A test that PHPUnit runs in a separate process, and a parallel worker started without
