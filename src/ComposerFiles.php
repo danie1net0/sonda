@@ -4,36 +4,64 @@ declare(strict_types=1);
 
 namespace Sonda;
 
+use ArrayAccess;
+use Composer\Autoload\ClassLoader;
+
 use function dirname;
 
 /**
- * The files of Composer's `files` autoload (helpers, mostly) that are in scope: claimed as
- * already loaded before Composer's autoloader runs, so it skips them, and loaded from their
- * instrumented copies right after, in Composer's order.
+ * Stands in for the list where Composer keeps which files of its `files` autoload (helpers,
+ * mostly) it has required, while Composer requires them. Composer asks the list before each file:
+ * a file of the scope is loaded right then from its instrumented copy, in Composer's own order,
+ * and answered as already required. The first question also comes right after Composer registers
+ * its class loader, which is when the instrumenting autoloader goes in front of it. With both
+ * done, the plain list goes back to its place.
+ *
+ * @implements ArrayAccess<int|string, bool>
  */
-final class ComposerFiles
+final class ComposerFiles implements ArrayAccess
 {
-    /**
-     * @param string $autoloadPath the project's vendor/autoload.php
-     *
-     * @return list<string> the real paths claimed
-     */
-    public static function claim(string $autoloadPath, Scope $scope): array
-    {
-        /** @var array<int|string, true> $loaded what Composer takes as already required */
-        $loaded = $GLOBALS['__composer_autoload_files'] ?? [];
-        $claimed = [];
+    private const string LIST = '__composer_autoload_files';
 
-        foreach (self::listed($autoloadPath) as $identifier => $path) {
-            if ($scope->includes($path)) {
-                $loaded[$identifier] = true;
-                $claimed[] = $path;
+    /**
+     * @param string                    $vendorDirectory the real path of the project's vendor directory, the key of its class loader
+     * @param array<int|string, bool>   $loaded          what Composer takes as already required
+     * @param array<int|string, string> $pending         identifier => real path of the files of the scope still to load
+     */
+    private function __construct(
+        private readonly Settings $settings,
+        private readonly string $vendorDirectory,
+        private array $loaded,
+        private array $pending,
+    ) {
+    }
+
+    /**
+     * Takes the place of Composer's list, before the project's autoloader is required. When it
+     * already was, or is not there to be, or the list is already taken (by the prepend file, before
+     * the bootstrap), there is nothing left to do.
+     */
+    public static function intercept(Settings $settings): void
+    {
+        $autoloadPath = realpath($settings->autoloadPath);
+        $loaded = $GLOBALS[self::LIST] ?? [];
+
+        if ($autoloadPath === false || $loaded instanceof self || in_array($autoloadPath, get_included_files(), true)) {
+            return;
+        }
+
+        /** @var array<int|string, bool> $loaded */
+        $scope = $settings->scope();
+        $pending = [];
+
+        foreach (self::listed($settings->autoloadPath) as $identifier => $path) {
+            // A file that Composer has required already stays as it is: again, it would declare its functions twice.
+            if ($scope->includes($path) && ! isset($loaded[$identifier])) {
+                $pending[$identifier] = $path;
             }
         }
 
-        $GLOBALS['__composer_autoload_files'] = $loaded;
-
-        return $claimed;
+        $GLOBALS[self::LIST] = new self($settings, dirname($autoloadPath), $loaded, $pending);
     }
 
     /**
@@ -63,5 +91,68 @@ final class ComposerFiles
         }
 
         return $listed;
+    }
+
+    /** Composer asks whether it has required the file: one of the scope is loaded here, instrumented. */
+    public function offsetExists(mixed $offset): bool
+    {
+        $registered = $this->registerAutoloader();
+
+        if (! isset($this->pending[$offset])) {
+            $this->leaveWhenDone($registered);
+
+            return isset($this->loaded[$offset]);
+        }
+
+        $path = $this->pending[$offset];
+        unset($this->pending[$offset]);
+        $this->loaded[$offset] = true;
+        InstrumentingAutoloader::shared($this->settings)->loadFile($path);
+        $this->leaveWhenDone($registered);
+
+        return true;
+    }
+
+    public function offsetGet(mixed $offset): bool
+    {
+        return $this->loaded[$offset] ?? false;
+    }
+
+    public function offsetSet(mixed $offset, mixed $value): void
+    {
+        if ($offset === null) {
+            $this->loaded[] = $value;
+
+            return;
+        }
+
+        $this->loaded[$offset] = $value;
+    }
+
+    public function offsetUnset(mixed $offset): void
+    {
+        unset($this->loaded[$offset]);
+    }
+
+    /** Puts the instrumenting autoloader in front of Composer's, once the project's class loader is registered. */
+    private function registerAutoloader(): bool
+    {
+        $composer = ClassLoader::getRegisteredLoaders()[$this->vendorDirectory] ?? null;
+
+        if (! $composer instanceof ClassLoader) {
+            return false;
+        }
+
+        InstrumentingAutoloader::shared($this->settings)->register($composer);
+
+        return true;
+    }
+
+    /** With the autoloader registered and no file of the scope left, the plain list takes its place back. */
+    private function leaveWhenDone(bool $registered): void
+    {
+        if ($registered && $this->pending === []) {
+            $GLOBALS[self::LIST] = $this->loaded;
+        }
     }
 }

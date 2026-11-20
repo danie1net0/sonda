@@ -26,23 +26,29 @@ function sondaProject(): string
         }
     }
 
-    // Composer's own autoload.php also requires the `files` entries it skips when already claimed.
+    // What Composer's own autoload.php does, once per process: it registers the class loader of this
+    // vendor directory and then requires the `files` entries that are not marked as required.
     file_put_contents($root . '/vendor/autoload.php', <<<PHP
     <?php
-    \$loader = require '{$sonda}/vendor/autoload.php';
-    \$loader->addPsr4('Fixture\\\\Project\\\\', __DIR__ . '/../src');
-    \$loader->addPsr4('Fixture\\\\Project\\\\Tests\\\\', __DIR__ . '/../tests');
+    require '{$sonda}/vendor/autoload.php';
 
-    if (is_file(__DIR__ . '/composer/autoload_files.php')) {
-        foreach (require __DIR__ . '/composer/autoload_files.php' as \$identifier => \$file) {
-            if (empty(\$GLOBALS['__composer_autoload_files'][\$identifier])) {
-                \$GLOBALS['__composer_autoload_files'][\$identifier] = true;
-                require \$file;
-            }
+    if (isset(\$GLOBALS['fixtureClassLoader'])) {
+        return \$GLOBALS['fixtureClassLoader'];
+    }
+
+    \$GLOBALS['fixtureClassLoader'] = new \\Composer\\Autoload\\ClassLoader(__DIR__);
+    \$GLOBALS['fixtureClassLoader']->addPsr4('Fixture\\\\Project\\\\', __DIR__ . '/../src');
+    \$GLOBALS['fixtureClassLoader']->addPsr4('Fixture\\\\Project\\\\Tests\\\\', __DIR__ . '/../tests');
+    \$GLOBALS['fixtureClassLoader']->register(true);
+
+    foreach (is_file(__DIR__ . '/composer/autoload_files.php') ? require __DIR__ . '/composer/autoload_files.php' : [] as \$identifier => \$file) {
+        if (empty(\$GLOBALS['__composer_autoload_files'][\$identifier])) {
+            \$GLOBALS['__composer_autoload_files'][\$identifier] = true;
+            require \$file;
         }
     }
 
-    return \$loader;
+    return \$GLOBALS['fixtureClassLoader'];
     PHP);
     symlink($sonda . '/vendor/bin/phpunit', $root . '/vendor/bin/phpunit');
     symlink($sonda . '/vendor/bin/paratest', $root . '/vendor/bin/paratest');
@@ -154,15 +160,51 @@ function helpersProject(): string
     return $root;
 }
 
+/**
+ * The helpers project with runners that do what the real ones do: require the project's autoloader,
+ * helpers included, and load a class of the source (as a Pest dataset does) before the bootstrap.
+ */
+function projectLoadedBeforeTheBootstrap(): string
+{
+    $root = helpersProject();
+    $sonda = dirname(__DIR__, 2);
+    $runners = [];
+    $runners['phpunit'] = $sonda . '/vendor/phpunit/phpunit/phpunit';
+    $runners['paratest'] = $sonda . '/vendor/brianium/paratest/bin/paratest';
+
+    foreach ($runners as $name => $runner) {
+        unlink($root . '/vendor/bin/' . $name);
+        file_put_contents($root . '/vendor/bin/' . $name, "<?php\n\nrequire __DIR__ . '/../autoload.php';\nclass_exists(\\Fixture\\Project\\Shipping::class);\n\nrequire '{$runner}';\n");
+    }
+
+    return $root;
+}
+
 /** @return array{0: int, 1: string} the exit code and everything the command printed */
 function sonda(string $root, string ...$arguments): array
 {
+    return sondaIn($root, [], ...$arguments);
+}
+
+/**
+ * The command in an environment of its own: this suite may run inside a parallel worker, whose
+ * token would make the command take its own processes for workers.
+ *
+ * @param array<string, string> $environment what the command finds besides the environment of the suite
+ *
+ * @return array{0: int, 1: string} the exit code and everything the command printed
+ */
+function sondaIn(string $root, array $environment, string ...$arguments): array
+{
+    $inherited = getenv();
+    unset($inherited['TEST_TOKEN']);
+
     $process = proc_open(
         [PHP_BINARY, dirname(__DIR__, 2) . '/bin/sonda', ...$arguments],
         [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
         $root,
-        [...getenv(), 'XDG_CACHE_HOME' => $root . '/.cache'],
+        [...$inherited, 'XDG_CACHE_HOME' => $root . '/.cache', ...$environment],
     );
 
     if (! is_resource($process)) {
@@ -332,6 +374,57 @@ it("measures the helpers of Composer's files autoload, in parallel and in series
         ->toContain("\nCoverage: lines 5/8 (62.50%), branches 6/10 (60.00%)\n")
         ->and($seriesStatus)->toBe(0, $seriesOutput)
         ->and($seriesOutput)->toContain('Coverage: lines 5/8 (62.50%), branches 6/10 (60.00%)');
+});
+
+it('measures what the runner loads before the bootstrap, starting the process again, in parallel and in series', function (): void {
+    [$status, $output] = sonda(projectLoadedBeforeTheBootstrap(), 'test');
+    [$seriesStatus, $seriesOutput] = sonda(projectLoadedBeforeTheBootstrap(), 'test', '--no-parallel');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain("\nCoverage: lines 5/8 (62.50%), branches 6/10 (60.00%)\n")
+        ->not->toContain('Sonda: loaded before the instrumentation')
+        ->and($seriesStatus)->toBe(0, $seriesOutput)
+        ->and($seriesOutput)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain("\nCoverage: lines 5/8 (62.50%), branches 6/10 (60.00%)\n")
+        ->not->toContain('Sonda: loaded before the instrumentation');
+});
+
+it('starts the process again without the function that replaces it, as a child with the same streams and status', function (): void {
+    $root = projectLoadedBeforeTheBootstrap();
+    $configuration = TemporaryDirectory::create();
+    file_put_contents($configuration . '/no-exec.ini', "disable_functions=pcntl_exec\n");
+    file_put_contents($root . '/tests/HelpersTest.php', str_replace('assertSame(9,', 'assertSame(8,', (string) file_get_contents($root . '/tests/HelpersTest.php')));
+
+    [$status, $output] = sondaIn($root, ['PHP_INI_SCAN_DIR' => getenv('PHP_INI_SCAN_DIR') . PATH_SEPARATOR . $configuration], 'test', '--no-parallel');
+
+    expect($status)->toBe(1, $output)
+        ->and($output)->toContain('Tests: 3, Assertions: 4, Failures: 1.')
+        ->toContain("\nCoverage: lines 5/8 (62.50%), branches 6/10 (60.00%)\n");
+});
+
+it("keeps the auto_prepend_file of the user's configuration in the process started again", function (): void {
+    $root = projectLoadedBeforeTheBootstrap();
+    $configuration = TemporaryDirectory::create();
+    file_put_contents($configuration . '/prepend.php', '<?php file_put_contents(__DIR__ . "/ran", ini_get("auto_prepend_file") . "\n", FILE_APPEND);');
+    file_put_contents($configuration . '/prepend.ini', "auto_prepend_file={$configuration}/prepend.php\n");
+
+    [$status, $output] = sondaIn($root, ['PHP_INI_SCAN_DIR' => getenv('PHP_INI_SCAN_DIR') . PATH_SEPARATOR . $configuration], 'test', '--no-parallel');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain("\nCoverage: lines 5/8 (62.50%), branches 6/10 (60.00%)\n")
+        ->and(file($configuration . '/ran', FILE_IGNORE_NEW_LINES))->toContain(dirname(__DIR__, 2) . '/prepend.php');
+});
+
+it('warns, and declares nothing twice, in a process it cannot start again', function (): void {
+    $root = projectLoadedBeforeTheBootstrap();
+
+    [$status, $output] = sondaIn($root, ['TEST_TOKEN' => '1'], 'test', '--no-parallel');
+
+    expect($status)->toBe(0, $output)
+        ->and($output)->toContain('OK (3 tests, 4 assertions)')
+        ->toContain("Sonda: loaded before the instrumentation, in a process that cannot be started again, and not measured in it:\n  {$root}/src/helpers.php\n  {$root}/src/Shipping.php\n")
+        ->not->toContain('Cannot redeclare');
 });
 
 it('fails on the uncovered parts of the methods changed since a reference', function (): void {

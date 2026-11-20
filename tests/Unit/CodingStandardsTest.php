@@ -25,7 +25,7 @@ function codingStandardFiles(): Generator
         }
     }
 
-    foreach (['autoload.php', 'bootstrap.php', 'report.php', 'bin/sonda'] as $entry) {
+    foreach (['autoload.php', 'bootstrap.php', 'prepend.php', 'report.php', 'bin/sonda'] as $entry) {
         $arguments = [];
         $arguments[] = $root . '/' . $entry;
 

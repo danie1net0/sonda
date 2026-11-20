@@ -15,13 +15,17 @@ use function substr;
  */
 final class InstrumentingAutoloader
 {
+    /** The autoloader of the process: the prepend file may need it before the bootstrap does. */
+    private static ?self $shared = null;
+
     private readonly InstrumentationCache $cache;
 
     /** @var array<string, array{0: string, 1: string}> file id => [source path, cache key] */
     private array $loadedFiles = [];
 
+    private bool $registered = false;
+
     public function __construct(
-        private readonly ClassLoader $composer,
         private readonly Scope $scope,
         private readonly string $cacheDirectory,
         private readonly Instrumenter $instrumenter,
@@ -29,17 +33,40 @@ final class InstrumentingAutoloader
         $this->cache = new InstrumentationCache($cacheDirectory);
     }
 
-    /** The cache is where the included code comes from: it must be the current user's alone. */
-    public function register(): void
+    /**
+     * The one autoloader of the process, created the first time it is asked for. The cache is
+     * where the included code comes from: it must be the current user's alone.
+     */
+    public static function shared(Settings $settings): self
     {
-        Filesystem::privateDirectory($this->cacheDirectory);
+        if (self::$shared instanceof self) {
+            return self::$shared;
+        }
 
-        spl_autoload_register($this->load(...), prepend: true);
+        Filesystem::privateDirectory($settings->cacheDirectory);
+
+        return self::$shared = new self($settings->scope(), $settings->cacheDirectory, new Instrumenter($settings->strict, $settings->fast));
     }
 
-    public function load(string $class): void
+    /**
+     * The cache is where the included code comes from: it must be the current user's alone. A
+     * second call changes nothing: the prepend file may have registered it before the bootstrap.
+     */
+    public function register(ClassLoader $composer): void
     {
-        $file = $this->composer->findFile($class);
+        if ($this->registered) {
+            return;
+        }
+
+        Filesystem::privateDirectory($this->cacheDirectory);
+
+        spl_autoload_register(fn (string $class) => $this->load($composer, $class), prepend: true);
+        $this->registered = true;
+    }
+
+    public function load(ClassLoader $composer, string $class): void
+    {
+        $file = $composer->findFile($class);
 
         if ($file === false) {
             return;
@@ -68,13 +95,37 @@ final class InstrumentingAutoloader
      */
     public function copyFor(string $path): ?string
     {
-        $realPath = realpath($path);
+        $sourcePath = $this->sourcePath($path);
 
-        if ($realPath === false || ! str_ends_with($realPath, '.php') || str_ends_with($realPath, '.blade.php') || ! $this->scope->includes($realPath)) {
+        if ($sourcePath === null) {
             return null;
         }
 
-        return $this->instrumented($realPath);
+        return $this->instrumented($sourcePath);
+    }
+
+    /**
+     * The files of the scope among the ones PHP has included: an instrumented file is included
+     * from its copy in the cache, so these came without probes, before the instrumentation was
+     * there (a helper of Composer's `files`, a class that the test runner loaded while it started).
+     *
+     * @param list<string> $includedFiles get_included_files()
+     *
+     * @return list<string> real paths
+     */
+    public function uninstrumented(array $includedFiles): array
+    {
+        $uninstrumented = [];
+
+        foreach ($includedFiles as $file) {
+            $sourcePath = $this->sourcePath($file);
+
+            if ($sourcePath !== null) {
+                $uninstrumented[] = $sourcePath;
+            }
+        }
+
+        return $uninstrumented;
     }
 
     public function run(): Run
@@ -95,6 +146,18 @@ final class InstrumentingAutoloader
         $this->loadedFiles[$fileId] = [$path, $key];
 
         return $this->cache->codePath($key);
+    }
+
+    /** The real path of a PHP file of the scope that is not a Blade template; null for any other path. */
+    private function sourcePath(string $path): ?string
+    {
+        $realPath = realpath($path);
+
+        if ($realPath === false || ! str_ends_with($realPath, '.php') || str_ends_with($realPath, '.blade.php') || ! $this->scope->includes($realPath)) {
+            return null;
+        }
+
+        return $realPath;
     }
 
     /** Includes outside any class scope, as Composer does. */

@@ -19,7 +19,7 @@ Filesystem::privateDirectory($runtime);
 try {
     $files = SourceFiles::findAll([$root . '/src'], []);
 
-    foreach (['autoload.php', 'bootstrap.php', 'report.php', 'bin/sonda'] as $entry) {
+    foreach (['autoload.php', 'bootstrap.php', 'prepend.php', 'report.php', 'bin/sonda'] as $entry) {
         $files[] = $root . '/' . $entry;
     }
 

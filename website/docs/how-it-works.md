@@ -10,8 +10,12 @@ original files keep their line numbers, and the report comes from php-code-cover
 1. **An autoloader ahead of Composer's.** The bootstrap registers an autoloader before Composer's.
    A class of the target directory is loaded from an instrumented copy, cached by path,
    modification time and instrumenter version. The files of Composer's `files` key that are inside
-   the target (helpers) are claimed before Composer's autoload runs and loaded instrumented right
-   after.
+   the target (helpers) are loaded from their instrumented copies at the moment Composer reaches
+   them, in its own order. A test runner requires Composer's autoloader before it reaches the
+   bootstrap, so a helper, or a class that the runner loads while it starts (the one a Pest dataset
+   uses, for example), would already be there without probes: when the bootstrap finds one, the
+   process starts again with a file that PHP runs before anything else (`auto_prepend_file`), and
+   the parallel workers start with that file too.
 2. **Probes by byte offset.** The instrumentation reads the file with `nikic/php-parser` and
    inserts the probes by byte offset into the original source, without reprinting the code. No
    line changes its number, and `__FILE__` and `__DIR__` keep pointing at the original file. A probe

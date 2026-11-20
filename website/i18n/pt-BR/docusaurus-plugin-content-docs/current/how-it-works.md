@@ -10,8 +10,12 @@ os arquivos originais mantêm os números de linha, e o relatório sai do php-co
 1. **Um autoloader antes do do Composer.** O bootstrap registra um autoloader antes do do Composer.
    Uma classe do diretório alvo é carregada de uma cópia instrumentada, em cache por caminho, data de
    modificação e versão do instrumentador. Os arquivos da chave `files` do Composer que estão dentro
-   do alvo (helpers) são reivindicados antes de o autoload do Composer rodar e carregados
-   instrumentados logo depois.
+   do alvo (helpers) são carregados das cópias instrumentadas no momento em que o Composer chega a
+   eles, na ordem dele. O test runner carrega o autoload do Composer antes de chegar ao bootstrap,
+   então um helper, ou uma classe que o runner carrega ao iniciar (a que um dataset do Pest usa,
+   por exemplo), já estaria lá sem sondas: quando o bootstrap acha um, o processo começa de novo
+   com um arquivo que o PHP roda antes de tudo (`auto_prepend_file`), e os workers do paralelo
+   também começam com esse arquivo.
 2. **Sondas por offset de byte.** A instrumentação lê o arquivo com o `nikic/php-parser` e insere
    as sondas por offset de byte no fonte original, sem reimprimir o código. Nenhuma linha muda de
    número, e `__FILE__` e `__DIR__` continuam apontando para o arquivo original. Uma sonda é uma
