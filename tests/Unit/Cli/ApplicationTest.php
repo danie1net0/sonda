@@ -85,7 +85,7 @@ it('reports a failure of the test command on the error stream', function (): voi
     $project = TemporaryDirectory::create();
 
     expect($application->run(['test'], $project, $output, $error))->toBe(1)
-        ->and(contents($error))->toBe("No phpunit.xml or phpunit.xml.dist in {$project}.\n");
+        ->and(contents($error))->toBe("No phpunit.xml, phpunit.dist.xml or phpunit.xml.dist in {$project}.\n");
 });
 
 it('reports a bad option on the error stream', function (): void {

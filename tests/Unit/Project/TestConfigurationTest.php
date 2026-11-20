@@ -12,11 +12,15 @@ function writeConfiguration(string $directory, string $xml, string $name = 'phpu
     return $path;
 }
 
-it('prefers phpunit.xml over phpunit.xml.dist', function (): void {
+it('prefers phpunit.xml over phpunit.dist.xml, and that one over phpunit.xml.dist', function (): void {
     $directory = TemporaryDirectory::create();
     writeConfiguration($directory, '<phpunit/>', 'phpunit.xml.dist');
 
     expect(TestConfiguration::find($directory))->toBe($directory . '/phpunit.xml.dist');
+
+    writeConfiguration($directory, '<phpunit/>', 'phpunit.dist.xml');
+
+    expect(TestConfiguration::find($directory))->toBe($directory . '/phpunit.dist.xml');
 
     writeConfiguration($directory, '<phpunit/>');
 
@@ -27,7 +31,7 @@ it('fails when the project has no configuration file', function (): void {
     $directory = TemporaryDirectory::create();
 
     expect(fn (): string => TestConfiguration::find($directory))
-        ->toThrow(RuntimeException::class, "No phpunit.xml or phpunit.xml.dist in {$directory}.");
+        ->toThrow(RuntimeException::class, "No phpunit.xml, phpunit.dist.xml or phpunit.xml.dist in {$directory}.");
 });
 
 it('reads the bootstrap and the source directories, relative to the file', function (): void {

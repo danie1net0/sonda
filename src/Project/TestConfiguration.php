@@ -29,16 +29,16 @@ final readonly class TestConfiguration
     ) {
     }
 
-    /** `phpunit.xml` wins over `phpunit.xml.dist`, as in PHPUnit. */
+    /** `phpunit.xml` wins over `phpunit.dist.xml`, and that one over `phpunit.xml.dist`, as in PHPUnit. */
     public static function find(string $projectRoot): string
     {
-        foreach (['phpunit.xml', 'phpunit.xml.dist'] as $name) {
+        foreach (['phpunit.xml', 'phpunit.dist.xml', 'phpunit.xml.dist'] as $name) {
             if (is_file($projectRoot . '/' . $name)) {
                 return $projectRoot . '/' . $name;
             }
         }
 
-        throw new RuntimeException("No phpunit.xml or phpunit.xml.dist in {$projectRoot}.");
+        throw new RuntimeException("No phpunit.xml, phpunit.dist.xml or phpunit.xml.dist in {$projectRoot}.");
     }
 
     public static function load(string $path): self
