@@ -96,6 +96,45 @@ it('orders the files and the branches whatever order the run gives them, across 
     ]);
 });
 
+it('leaves out the lines that the coverage data marks as dead code', function (): void {
+    $root = TemporaryDirectory::create();
+    $file = $root . '/Order.php';
+    file_put_contents($file, "<?php\n\nfinal class Order\n{\n    public function total(): int\n    {\n        return 1;\n\n        return 2;\n    }\n}\n");
+    $raw = RawCodeCoverageData::fromXdebugWithPathCoverage([
+        $file => [
+            'lines' => [7 => -1, 9 => -2],
+            'functions' => ['Order->total' => ['branches' => [], 'paths' => []]],
+        ],
+    ]);
+    $filter = new Filter();
+    $filter->includeFile($file);
+
+    $coverage = new CodeCoverage(new CoverageDriver(), $filter);
+    $coverage->append($raw, 'test');
+
+    $measured = Uncovered::ofChanges($coverage, []);
+
+    expect($measured->uncovered)->toBe([$file => ['lines' => [7], 'branches' => []]])
+        ->and($measured->executableLines)->toBe(1);
+});
+
+it('orders the lines whatever order the probes give them', function (): void {
+    $root = TemporaryDirectory::create();
+    $file = $root . '/label.php';
+    file_put_contents($file, "<?php\n\nfunction label(?string \$name): string\n{\n    return match (true) {\n        \$name === null => 'anonymous',\n        default => \$name,\n    };\n}\n");
+    $cache = new InstrumentationCache($root . '/cache');
+    $cache->store('label', new InstrumentationResult('<?php', [
+        0 => new Probe(5, true, 'label', 5, 8),
+        1 => new Probe(7, false, 'label', 0, 0),
+        2 => new Probe(6, false, 'label', 0, 0),
+        3 => new Probe(8, false, 'label', 0, 0),
+    ]));
+
+    $run = new Run($root . '/cache', ['l' => [$file, 'label']], []);
+
+    expect(Uncovered::of(CoverageBuilder::build($run, [$file]))[$file]['lines'])->toBe([5, 6, 7, 8]);
+});
+
 it('describes the gaps with ranges and paths relative to the root', function (): void {
     $uncovered = [
         '/project/app/Order.php' => ['lines' => [3, 4, 5, 9, 11], 'branches' => [[8, 8], [20, 23]]],

@@ -105,6 +105,7 @@ final class Uncovered
                 }
             }
 
+            sort($lines);
             sort($branches);
 
             if ($lines !== [] || $branches !== []) {
