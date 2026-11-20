@@ -20,6 +20,90 @@ foreach (glob(__DIR__ . '/../Fixtures/Sizes/*.php') ?: [] as $sizedTest) {
 require_once __DIR__ . '/../Fixtures/RevivalWitness.php';
 require_once __DIR__ . '/compat.php';
 
+/**
+ * A `file://` stream wrapper of somebody else (dg/bypass-finals registers one): it opens files with
+ * PHP's own wrapper, or refuses to open any.
+ */
+final class ForeignFileWrapper
+{
+    public static bool $refuses = false;
+
+    /** @var resource|null */
+    public mixed $context = null;
+
+    /** @var resource */
+    private mixed $handle;
+
+    public static function install(bool $refuses = false): void
+    {
+        self::$refuses = $refuses;
+        stream_wrapper_unregister('file');
+        stream_wrapper_register('file', self::class);
+    }
+
+    public static function remove(): void
+    {
+        stream_wrapper_unregister('file');
+        stream_wrapper_restore('file');
+    }
+
+    public function stream_open(string $path, string $mode): bool
+    {
+        if (self::$refuses) {
+            return false;
+        }
+
+        self::remove();
+        $handle = fopen($path, $mode);
+        self::install();
+
+        if ($handle === false) {
+            return false;
+        }
+
+        $this->handle = $handle;
+
+        return true;
+    }
+
+    /** @param int<1, max> $count */
+    public function stream_read(int $count): string|false
+    {
+        return fread($this->handle, $count);
+    }
+
+    public function stream_eof(): bool
+    {
+        return feof($this->handle);
+    }
+
+    /** @return array<int|string, int>|false */
+    public function stream_stat(): array|false
+    {
+        return fstat($this->handle);
+    }
+
+    public function stream_set_option(): bool
+    {
+        return false;
+    }
+
+    public function stream_close(): void
+    {
+        fclose($this->handle);
+    }
+
+    /** @return array<int|string, int>|false */
+    public function url_stat(string $path): array|false
+    {
+        self::remove();
+        $stat = file_exists($path) ? stat($path) : false;
+        self::install(self::$refuses);
+
+        return $stat;
+    }
+}
+
 final class TemporaryDirectory
 {
     /** @var list<string> */

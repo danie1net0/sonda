@@ -67,6 +67,7 @@ it('loads a class of the target directory from its instrumented copy', function 
     expect((string) $fileId)->toBe(substr(sha1($directory . '/app/Order.php'), 0, 12))
         ->and($total)->toBe(6)
         ->and($filePath)->toBe($directory . '/app/Order.php')
+        ->and(new ReflectionClass($class)->getFileName())->toBe($directory . '/app/Order.php')
         ->and($run->files)->toBe([$fileId => [$directory . '/app/Order.php', $run->files[$fileId][1]]])
         ->and(is_file($directory . '/cache/' . $run->files[$fileId][1] . '.php'))->toBeTrue()
         ->and(Hits::$current[$fileId])->toBe([0 => 1, 1 => 1])
@@ -261,6 +262,37 @@ it('names the files of the scope that PHP included without probes', function ():
     expect($uninstrumented)->toBe([$directory . '/app/Order.php'])
         ->and($autoloader->uninstrumented([]))->toBe([])
         ->and($autoloader->run()->files)->toBe([]);
+});
+
+it('does not take for uninstrumented the files it loaded itself, which PHP lists under their own names', function (): void {
+    ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
+    file_put_contents($directory . '/app/Other.php', "<?php\n\nnamespace {$namespace}\\App;\n\nfinal class Other\n{\n}\n");
+    $autoloader = new InstrumentingAutoloader(new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
+
+    $autoloader->load($loader, $namespace . '\App\Order');
+    require $directory . '/app/Other.php';
+
+    expect(get_included_files())->toContain($directory . '/app/Order.php')
+        ->and($autoloader->uninstrumented(get_included_files()))->toBe([$directory . '/app/Other.php']);
+});
+
+it('includes the copy by its own path where the stream wrapper of somebody else answers for files', function (): void {
+    ['directory' => $directory, 'namespace' => $namespace, 'loader' => $loader] = fixtureProject();
+    $autoloader = new InstrumentingAutoloader(new Scope([$directory . '/app']), $directory . '/cache', new Instrumenter());
+    $class = $namespace . '\App\Order';
+    // Instrumented beforehand: the wrapper of the test only reads files.
+    $autoloader->copyFor($directory . '/app/Order.php');
+    ForeignFileWrapper::install();
+
+    try {
+        $autoloader->load($loader, $class);
+    } finally {
+        ForeignFileWrapper::remove();
+    }
+
+    expect(new $class()->file())->toBe($directory . '/app/Order.php')
+        ->and(new ReflectionClass($class)->getFileName())->toStartWith($directory . '/cache/')
+        ->and(array_column($autoloader->run()->files, 0))->toBe([$directory . '/app/Order.php']);
 });
 
 it('shares one autoloader in the process, made from the settings the first time, over a private cache', function (): void {

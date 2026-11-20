@@ -8,8 +8,9 @@ Sonda rewrites nothing you see: the instrumented copies live in a cache outside 
 original files keep their line numbers, and the report comes from php-code-coverage.
 
 1. **An autoloader ahead of Composer's.** The bootstrap registers an autoloader before Composer's.
-   A class of the target directory is loaded from an instrumented copy, cached by path,
-   modification time and instrumenter version. The files of Composer's `files` key that are inside
+   A class of the target directory is loaded with the code of an instrumented copy, cached by
+   path, modification time and instrumenter version. PHP reads that code under the name of the
+   original file, so reflection and stack traces show the file of the project. The files of Composer's `files` key that are inside
    the target (helpers) are loaded from their instrumented copies at the moment Composer reaches
    them, in its own order. A test runner requires Composer's autoloader before it reaches the
    bootstrap, so a helper, or a class that the runner loads while it starts (the one a Pest dataset

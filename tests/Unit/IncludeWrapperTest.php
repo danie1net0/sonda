@@ -375,3 +375,117 @@ it('frees each wrapper PHP drops when it hands an operation to PHP, and when it 
 
     expect(count(get_resources('stream factory')))->toBe($before);
 });
+
+it('includes a path with the code of another file, under the name of the path, and leaves no wrapper behind', function (): void {
+    $directory = TemporaryDirectory::create();
+    $class = 'Included' . bin2hex(random_bytes(6));
+    file_put_contents($directory . '/Original.php', "<?php\n\nfinal class {$class}\n{\n}\n");
+    file_put_contents($directory . '/copy.php', "<?php\n\nfinal class {$class}\n{\n    public const COPY = true;\n}\n");
+    $included = [];
+
+    $done = IncludeWrapper::includeWithCodeOf($directory . '/copy.php', $directory . '/Original.php', static function (string $path) use (&$included): void {
+        $handle = fopen(__FILE__, 'r');
+        $included[] = [$path, stream_get_meta_data($handle)['wrapper_type']];
+        fclose($handle);
+
+        include $path;
+    });
+    $handle = fopen(__FILE__, 'r');
+    $after = stream_get_meta_data($handle)['wrapper_type'];
+    fclose($handle);
+
+    expect($done)->toBeTrue()
+        ->and($included)->toBe([[$directory . '/Original.php', 'user-space']])
+        ->and(constant($class . '::COPY'))->toBeTrue()
+        ->and(new ReflectionClass($class)->getFileName())->toBe($directory . '/Original.php')
+        ->and($after)->toBe('plainfile')
+        ->and(new ReflectionProperty(IncludeWrapper::class, 'registered')->getValue())->toBeFalse()
+        ->and(new ReflectionProperty(IncludeWrapper::class, 'substitutes')->getValue())->toBe([]);
+});
+
+it('gives the code of another file only to the path of that include, and the file itself to any other', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/original.php', '<?php return "original";');
+    file_put_contents($directory . '/copy.php', '<?php return "copy";');
+    file_put_contents($directory . '/other.php', '<?php return "other";');
+    $asked = 0;
+    wrapping(static function () use (&$asked): ?string {
+        $asked++;
+
+        return null;
+    });
+    IncludeWrapper::unregister();
+    $returned = [];
+
+    IncludeWrapper::includeWithCodeOf($directory . '/copy.php', $directory . '/original.php', static function (string $path) use (&$returned, $directory): void {
+        $returned[] = include $path;
+        $returned[] = include $directory . '/other.php';
+    });
+    $returned[] = include $directory . '/original.php';
+
+    expect($returned)->toBe(['copy', 'other', 'original'])
+        ->and($asked)->toBe(0);
+});
+
+it('stays registered after an include with the code of another file when it already was', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/original.php', '<?php return "original";');
+    file_put_contents($directory . '/copy.php', '<?php return "copy";');
+    file_put_contents($directory . '/mapped.php', '<?php return "mapped";');
+    wrapping(static fn (string $path): ?string => $path === $directory . '/mapped.php' ? $directory . '/copy.php' : null);
+    $returned = [];
+
+    $done = IncludeWrapper::includeWithCodeOf($directory . '/copy.php', $directory . '/original.php', static function (string $path) use (&$returned): void {
+        $returned[] = include $path;
+    });
+    $returned[] = include $directory . '/mapped.php';
+    $handle = fopen(__FILE__, 'r');
+    $after = stream_get_meta_data($handle)['wrapper_type'];
+    fclose($handle);
+
+    expect($done)->toBeTrue()
+        ->and($returned)->toBe(['copy', 'copy'])
+        ->and($after)->toBe('user-space')
+        ->and(new ReflectionProperty(IncludeWrapper::class, 'registered')->getValue())->toBeTrue();
+});
+
+it('forgets the path of the include even when the included code fails', function (): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/original.php', '<?php return "original";');
+    file_put_contents($directory . '/copy.php', '<?php throw new RuntimeException("broken");');
+
+    expect(fn (): bool => IncludeWrapper::includeWithCodeOf($directory . '/copy.php', $directory . '/original.php', static function (string $path): void {
+        include $path;
+    }))->toThrow(RuntimeException::class, 'broken')
+        ->and(new ReflectionProperty(IncludeWrapper::class, 'substitutes')->getValue())->toBe([])
+        ->and(new ReflectionProperty(IncludeWrapper::class, 'registered')->getValue())->toBeFalse();
+});
+
+it('includes nothing where the stream wrapper of somebody else answers for files, and leaves it there', function (bool $refuses): void {
+    $directory = TemporaryDirectory::create();
+    file_put_contents($directory . '/original.php', '<?php return "original";');
+    file_put_contents($directory . '/copy.php', '<?php return "copy";');
+    $included = false;
+    // Loaded beforehand: the wrapper that refuses every file would refuse the file of the class too.
+    class_exists(IncludeWrapper::class);
+    ForeignFileWrapper::install($refuses);
+    set_error_handler(static fn (): bool => true);
+
+    try {
+        $done = IncludeWrapper::includeWithCodeOf($directory . '/copy.php', $directory . '/original.php', static function () use (&$included): void {
+            $included = true;
+        });
+        ForeignFileWrapper::$refuses = false;
+        $handle = fopen(__FILE__, 'r');
+        $after = stream_get_meta_data($handle)['wrapper_type'];
+        fclose($handle);
+    } finally {
+        restore_error_handler();
+        ForeignFileWrapper::remove();
+    }
+
+    expect($done)->toBeFalse()
+        ->and($included)->toBeFalse()
+        ->and($after)->toBe('user-space')
+        ->and(new ReflectionProperty(IncludeWrapper::class, 'registered')->getValue())->toBeFalse();
+})->with([false, true]);

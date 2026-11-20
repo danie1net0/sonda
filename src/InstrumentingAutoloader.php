@@ -82,10 +82,23 @@ final class InstrumentingAutoloader
         $this->loadFile($path);
     }
 
-    /** Loads a file of the scope from its instrumented copy: a class file, or one of Composer's `files`. */
+    /**
+     * Loads a file of the scope with its instrumented code: a class file, or one of Composer's
+     * `files`. PHP reads the code of the copy under the name of the original file; where another
+     * stream wrapper stands in the way, the copy is included by its own path.
+     */
     public function loadFile(string $path): void
     {
-        $this->includeFile($this->instrumented($path));
+        $copy = $this->instrumented($path);
+        $include = Closure::bind(static function (string $file): void {
+            include $file;
+        }, null, null);
+
+        if (IncludeWrapper::includeWithCodeOf($copy, $path, $include)) {
+            return;
+        }
+
+        $include($copy);
     }
 
     /**
@@ -105,9 +118,9 @@ final class InstrumentingAutoloader
     }
 
     /**
-     * The files of the scope among the ones PHP has included: an instrumented file is included
-     * from its copy in the cache, so these came without probes, before the instrumentation was
-     * there (a helper of Composer's `files`, a class that the test runner loaded while it started).
+     * The files of the scope among the ones PHP has included that this autoloader did not load:
+     * they came without probes, before the instrumentation was there (a helper of Composer's
+     * `files`, a class that the test runner loaded while it started).
      *
      * @param list<string> $includedFiles get_included_files()
      *
@@ -115,12 +128,13 @@ final class InstrumentingAutoloader
      */
     public function uninstrumented(array $includedFiles): array
     {
+        $instrumented = array_column($this->loadedFiles, 0, 0);
         $uninstrumented = [];
 
         foreach ($includedFiles as $file) {
             $sourcePath = $this->sourcePath($file);
 
-            if ($sourcePath !== null) {
+            if ($sourcePath !== null && ! isset($instrumented[$sourcePath])) {
                 $uninstrumented[] = $sourcePath;
             }
         }
@@ -158,13 +172,5 @@ final class InstrumentingAutoloader
         }
 
         return $realPath;
-    }
-
-    /** Includes outside any class scope, as Composer does. */
-    private function includeFile(string $file): void
-    {
-        Closure::bind(static function (string $file): void {
-            include $file;
-        }, null, null)($file);
     }
 }

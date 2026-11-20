@@ -26,10 +26,13 @@ final class IncludeWrapper
     /** @var resource|null set by PHP to the context of the operation */
     public mixed $context = null;
 
-    /** @var Closure(string): ?string the instrumented copy of a path, or null to open the path itself */
-    private static Closure $copyFor;
+    /** @var (Closure(string): ?string)|null the instrumented copy of a path, or null to open the path itself */
+    private static ?Closure $copyFor = null;
 
     private static bool $registered = false;
+
+    /** @var array<string, string> path => the file whose code PHP reads in its place, while that include runs */
+    private static array $substitutes = [];
 
     /** @var resource the open file, from a successful stream_open on */
     private mixed $handle;
@@ -54,8 +57,42 @@ final class IncludeWrapper
         }
 
         self::$registered = false;
+        self::$copyFor = null;
         stream_wrapper_unregister(self::PROTOCOL);
         stream_wrapper_restore(self::PROTOCOL);
+    }
+
+    /**
+     * Includes a path with the code of another file: PHP compiles the code of the copy under the
+     * name of the path, so what the class says of its file (reflection, a stack trace) is the
+     * original. The wrapper is registered for that include alone, unless it already was.
+     *
+     * Gives false, including nothing, when another stream wrapper answers for `file://` (the one
+     * of dg/bypass-finals, for example): taking its place would drop it for the rest of the run.
+     *
+     * @param Closure(string): mixed $include includes the path it is given
+     */
+    public static function includeWithCodeOf(string $copy, string $path, Closure $include): bool
+    {
+        $wasRegistered = self::$registered;
+
+        if (! $wasRegistered && ! self::answersNatively()) {
+            return false;
+        }
+
+        self::$substitutes[$path] = $copy;
+        self::$registered = true;
+        stream_wrapper_unregister(self::PROTOCOL);
+        stream_wrapper_register(self::PROTOCOL, self::class);
+
+        try {
+            $include($path);
+        } finally {
+            unset(self::$substitutes[$path]);
+            self::leave($wasRegistered);
+        }
+
+        return true;
     }
 
     public function stream_open(string $path, string $mode, int $options): bool
@@ -64,7 +101,7 @@ final class IncludeWrapper
         // which PHP refuses to open again through the wrapper that is opening it.
         $handle = $this->native(function () use ($path, $mode, $options): mixed {
             if (($options & self::OPEN_FOR_INCLUDE) !== 0) {
-                $path = (self::$copyFor)($path) ?? $path;
+                $path = $this->codeOf($path);
             }
 
             // PHP resolves the include path before it reaches the wrapper: the path here is the file.
@@ -229,6 +266,43 @@ final class IncludeWrapper
         closedir($this->directory);
 
         return true;
+    }
+
+    /** The file whose code an included path gets: the one given for that include, or the copy the closure maps. */
+    private function codeOf(string $path): string
+    {
+        if (isset(self::$substitutes[$path])) {
+            return self::$substitutes[$path];
+        }
+
+        if (! self::$copyFor instanceof Closure) {
+            return $path;
+        }
+
+        return (self::$copyFor)($path) ?? $path;
+    }
+
+    /** Whether PHP's own wrapper is the one that opens files now. */
+    private static function answersNatively(): bool
+    {
+        $handle = fopen(__FILE__, 'r');
+
+        if ($handle === false) {
+            return false;
+        }
+
+        $native = stream_get_meta_data($handle)['wrapper_type'] === 'plainfile';
+        fclose($handle);
+
+        return $native;
+    }
+
+    /** After an include with the code of another file: the wrapper stays only where it already was. */
+    private static function leave(bool $wasRegistered): void
+    {
+        if (! $wasRegistered) {
+            self::unregister();
+        }
     }
 
     /**

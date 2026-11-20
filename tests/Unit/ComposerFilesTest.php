@@ -108,7 +108,7 @@ it('loads a file of the scope from its instrumented copy when Composer reaches i
 
     expect($taken)->toBeInstanceOf(ComposerFiles::class)
         ->and(("app_helper_{$suffix}")())->toBe($root . '/app/helpers.php')
-        ->and(new ReflectionFunction("app_helper_{$suffix}")->getFileName())->toStartWith($root . '/cache/')
+        ->and(new ReflectionFunction("app_helper_{$suffix}")->getFileName())->toBe($root . '/app/helpers.php')
         ->and(("lib_helper_{$suffix}")())->toBe(2)
         ->and(new ReflectionFunction("lib_helper_{$suffix}")->getFileName())->toBe($root . '/lib/helpers.php')
         ->and($GLOBALS['__composer_autoload_files'])->toBe(['app1' => true, 'lib1' => true])
@@ -180,8 +180,8 @@ it('leaves right after the last file of the scope, even when it is the last that
     requireAsComposer($root);
 
     expect($GLOBALS['__composer_autoload_files'])->toBe(['app1' => true, 'lib1' => true])
-        ->and(new ReflectionFunction("lib_helper_{$suffix}")->getFileName())->toStartWith($root . '/cache/')
-        ->and(new ReflectionFunction("app_helper_{$suffix}")->getFileName())->toBe($root . '/app/helpers.php');
+        ->and(array_column(InstrumentingAutoloader::shared($settings)->run()->files, 0))->toBe([$root . '/lib/helpers.php'])
+        ->and(function_exists("app_helper_{$suffix}"))->toBeTrue();
 });
 
 it('has nothing to intercept without an autoloader of the project', function (): void {

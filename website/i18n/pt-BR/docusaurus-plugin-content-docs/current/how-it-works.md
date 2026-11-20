@@ -8,8 +8,9 @@ O Sonda não reescreve nada que você veja: as cópias instrumentadas ficam num 
 os arquivos originais mantêm os números de linha, e o relatório sai do php-code-coverage.
 
 1. **Um autoloader antes do do Composer.** O bootstrap registra um autoloader antes do do Composer.
-   Uma classe do diretório alvo é carregada de uma cópia instrumentada, em cache por caminho, data de
-   modificação e versão do instrumentador. Os arquivos da chave `files` do Composer que estão dentro
+   Uma classe do diretório alvo é carregada com o código de uma cópia instrumentada, em cache por
+   caminho, data de modificação e versão do instrumentador. O PHP lê esse código com o nome do
+   arquivo original, então a reflexão e os stack traces mostram o arquivo do projeto. Os arquivos da chave `files` do Composer que estão dentro
    do alvo (helpers) são carregados das cópias instrumentadas no momento em que o Composer chega a
    eles, na ordem dele. O test runner carrega o autoload do Composer antes de chegar ao bootstrap,
    então um helper, ou uma classe que o runner carrega ao iniciar (a que um dataset do Pest usa,
