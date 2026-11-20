@@ -1,3 +1,16 @@
+## [1.18.6](https://github.com/danie1net0/sonda/compare/v1.18.5...v1.18.6) (2026-11-20)
+
+
+### Bug Fixes
+
+* **autoload:** classes do Sonda vêm sempre da cópia que roda ([0b7ffa6](https://github.com/danie1net0/sonda/commit/0b7ffa6cc0bdb652f14e42f0c2999b4b28c9d3d4)), closes [#13](https://github.com/danie1net0/sonda/issues/13)
+* **autoloader:** a classe instrumentada aparece com o próprio arquivo ([563a61c](https://github.com/danie1net0/sonda/commit/563a61c32dde43da688acb7a6e623379caa935b5)), closes [#19](https://github.com/danie1net0/sonda/issues/19)
+* **bootstrap:** mede o que o runner carrega antes do bootstrap ([6d9b86d](https://github.com/danie1net0/sonda/commit/6d9b86d607a0ab15a83fe0da0c7ff6ea2efffe1e)), closes [#13](https://github.com/danie1net0/sonda/issues/13)
+* **cli:** acha o phpunit.dist.xml ([60894e9](https://github.com/danie1net0/sonda/commit/60894e9992203fe41eb5ff29924c20d1ab4f3a72)), closes [#18](https://github.com/danie1net0/sonda/issues/18)
+* **instrumenter:** deixa sem sonda o ?-> que abre uma expressão interpolada ([602b4e1](https://github.com/danie1net0/sonda/commit/602b4e1e6a259769a8fcc3030e50696d4d5479fe)), closes [#14](https://github.com/danie1net0/sonda/issues/14)
+* **instrumenter:** get_defined_vars() sem a referência do modo rápido e __COMPILER_HALT_OFFSET__ do arquivo original ([63b44a0](https://github.com/danie1net0/sonda/commit/63b44a0321688cd3cad19432ad1f9297a1da26fc)), closes [#15](https://github.com/danie1net0/sonda/issues/15) [#16](https://github.com/danie1net0/sonda/issues/16)
+* **report:** lista em ordem as linhas descobertas ([2206cc7](https://github.com/danie1net0/sonda/commit/2206cc752c0a6e366489bc849b10ff5be45b225d)), closes [#17](https://github.com/danie1net0/sonda/issues/17)
+
 ## [1.18.5](https://github.com/danie1net0/sonda/compare/v1.18.4...v1.18.5) (2026-11-07)
 
 
