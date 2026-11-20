@@ -8,10 +8,11 @@ use PhpParser\Node\{Arg, Const_ as NodeConstant};
 use PhpParser\{Node, NodeFinder, NodeVisitor, NodeVisitorAbstract, Token};
 use SplObjectStorage;
 use PhpParser\Node\{AttributeGroup, Expr, Identifier, Name, Param, PropertyHook, PropertyItem, Scalar, StaticVar, Stmt};
-use PhpParser\Node\Expr\{ArrayDimFetch, ArrowFunction, BinaryOp, ClassConstFetch, Closure, ConstFetch, Empty_, FuncCall, Instanceof_, Isset_, Match_, MethodCall, New_, NullsafeMethodCall, NullsafePropertyFetch, StaticCall, Ternary, Variable};
+use PhpParser\Node\Expr\{ArrayDimFetch, ArrowFunction, BinaryOp, ClassConstFetch, Closure, ConstFetch, Empty_, FuncCall, Instanceof_, Isset_, Match_, MethodCall, New_, NullsafeMethodCall, NullsafePropertyFetch, ShellExec, StaticCall, Ternary, Variable};
 use PhpParser\Node\Stmt\{Block, Case_, Catch_, ClassLike, ClassMethod, Const_, Declare_, Do_, ElseIf_, Else_, EnumCase, Finally_, For_, Foreach_, Function_, GroupUse, HaltCompiler, If_, InlineHTML, Namespace_, Nop, TryCatch, Unset_, Use_, While_};
 use PhpParser\Node\Expr\BinaryOp\{BooleanAnd, BooleanOr, Coalesce, LogicalAnd, LogicalOr};
 use PhpParser\Node\Expr\AssignOp\Coalesce as CoalesceAssignment;
+use PhpParser\Node\Scalar\InterpolatedString;
 use PhpParser\Node\Scalar\MagicConst\{Dir, File};
 
 use function implode, in_array, preg_match, str_starts_with, substr, trim, dirname;
@@ -74,6 +75,9 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
     /** @var array<int, int> object ids of nodes where an undefined value gives no warning */
     private array $silentNodes = [];
+
+    /** @var array<int, int> file positions where an expression interpolated in a string starts */
+    private array $interpolationStarts = [];
 
     /**
      * @param array<Token> $tokens
@@ -142,6 +146,8 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
             $this->isShortCircuit($node) => $this->enterShortCircuit($node),
             $node instanceof NullsafeMethodCall,
             $node instanceof NullsafePropertyFetch => $this->enterNullsafe($node),
+            $node instanceof InterpolatedString,
+            $node instanceof ShellExec => $this->enterInterpolation($node->parts),
             $node instanceof Isset_ => $this->silence($node->vars),
             $node instanceof Empty_ => $this->silence([$node->expr]),
             $node instanceof CoalesceAssignment => $this->wrapExpression($node->expr, true),
@@ -470,10 +476,15 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
     /**
      * `$value?->member` runs the member access only when the value is not null: that is the
      * outcome to probe (and, in strict mode, the null one too). Wrapping the value right before
-     * its `?->` keeps the short-circuit of the rest of the chain.
+     * its `?->` keeps the short-circuit of the rest of the chain. Not at the start of an expression
+     * interpolated in a string, where PHP would read the call as text.
      */
     private function enterNullsafe(NullsafeMethodCall|NullsafePropertyFetch $node): void
     {
+        if (isset($this->interpolationStarts[$node->var->getStartFilePos()])) {
+            return;
+        }
+
         $function = $this->currentFunction();
         $start = $node->getStartLine();
         $end = $node->getEndLine();
@@ -483,6 +494,21 @@ final class InstrumentingVisitor extends NodeVisitorAbstract
 
         $this->edits[] = Edit::opening($node->var->getStartFilePos(), self::HITS . "::nullsafe('" . $this->fileId . "', {$nonNull}, {$null}, ");
         $this->close($node->var->getEndFilePos() + 1, $silentValue . ')');
+    }
+
+    /**
+     * Inside a string (a heredoc and a shell command included), PHP takes an expression only when
+     * it starts with `$`: `"{$order?->total}"` cannot have a call around `$order`.
+     *
+     * @param array<Node> $parts
+     */
+    private function enterInterpolation(array $parts): void
+    {
+        foreach ($parts as $part) {
+            $position = $part->getStartFilePos();
+
+            $this->interpolationStarts[$position] = $position;
+        }
     }
 
     /**

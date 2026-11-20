@@ -1515,6 +1515,46 @@ it('probes the value before each ?->, keeping the chain', function (): void {
         ]);
 });
 
+it('leaves a ?-> that opens an expression interpolated in a string, where a call would be read as text', function (): void {
+    [$code, $probes] = instrumentCode(<<<'PHP'
+    <?php
+    $a = "total: {$order?->total} of {$order?->customer?->name}";
+    $b = "simple: $order?->total";
+    $c = <<<TEXT
+        heredoc {$order?->total()}
+        TEXT;
+    $d = `echo {$order?->total}`;
+    $e = "inside: {$totals[$order?->id]} {$order->lines[$line?->key]?->total}";
+    $f = $order?->total;
+    PHP . "\n", strict: true);
+
+    expect($code)->toBe(expected(<<<'PHP'
+    <?php
+    {p0}$a = "total: {$order?->total} of {$order?->customer?->name}";
+    {p1}$b = "simple: $order?->total";
+    {p2}$c = <<<TEXT
+        heredoc {$order?->total()}
+        TEXT;
+    {p3}$d = `echo {$order?->total}`;
+    {p4}$e = "inside: {$totals[\Sonda\Hits::nullsafe('f', 6, 7, $order)?->id]} {$order->lines[\Sonda\Hits::nullsafe('f', 8, 9, $line)?->key]?->total}";
+    {p5}$f = \Sonda\Hits::nullsafe('f', 10, 11, $order)?->total;
+    PHP . "\n"))
+        ->and($probes)->toEqual([
+            0 => new Probe(2, false, '{main}', 0, 0),
+            1 => new Probe(3, false, '{main}', 0, 0),
+            2 => new Probe(4, false, '{main}', 0, 0),
+            3 => new Probe(7, false, '{main}', 0, 0),
+            4 => new Probe(8, false, '{main}', 0, 0),
+            5 => new Probe(9, false, '{main}', 0, 0),
+            6 => new Probe(null, true, '{main}', 8, 8),
+            7 => new Probe(null, true, '{main}', 8, 8),
+            8 => new Probe(null, true, '{main}', 8, 8),
+            9 => new Probe(null, true, '{main}', 8, 8),
+            10 => new Probe(null, true, '{main}', 9, 9),
+            11 => new Probe(null, true, '{main}', 9, 9),
+        ]);
+});
+
 it('probes both outcomes of ?-> in strict mode', function (): void {
     [$code, $probes] = instrumentCode(<<<'PHP'
     <?php

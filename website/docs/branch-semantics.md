@@ -48,6 +48,10 @@ synthetic `else` and the null side of `?->`).
   $name = $order->customer?->name();   // a test with a customer, and one with null
   ```
 
+  The exception is a `?->` that opens an expression interpolated in a string
+  (`"{$order?->total}"`): PHP takes no call there, so it has no probe and its line is all that
+  counts.
+
 - **The short circuit of `&&` and `||`.** The left operand of `&&`, `||`, `and` and `or` has to
   decide alone at least once (the short circuit, when the right one does not even run), as Xdebug
   counts.

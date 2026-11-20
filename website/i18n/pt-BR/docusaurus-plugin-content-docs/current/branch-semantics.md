@@ -48,6 +48,9 @@ sintetizado e o lado nulo de `?->`).
   $name = $order->customer?->name();   // a test with a customer, and one with null
   ```
 
+  A exceção é o `?->` que abre uma expressão interpolada numa string (`"{$order?->total}"`): o PHP
+  não aceita uma chamada ali, então ele fica sem sonda e só a linha conta.
+
 - **O curto-circuito de `&&` e `||`.** O operando esquerdo de `&&`, `||`, `and` e `or` tem de
   decidir sozinho ao menos uma vez (o curto-circuito, quando o direito nem roda), como o Xdebug
   conta.
